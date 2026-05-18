@@ -1,0 +1,589 @@
+'use client';
+
+import React, { useState, useEffect, useRef } from 'react';
+import type { TranslationResponse, MultiSendRecipient, TradeData, UnbondingData, GovernanceData } from '@/types';
+
+const COSMOSTATION_LOGO =
+  'https://raw.githubusercontent.com/cosmostation/cosmostation_token_resource/master/moniker/injective';
+
+const TOKEN_LOGOS: Record<string, string> = {
+  INJ:  'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/injective/info/logo.png',
+  USDT: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xdAC17F958D2ee523a2206206994597C13D831ec7/logo.png',
+  USDC: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48/logo.png',
+  WETH: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png',
+  LINK: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0x514910771AF9Ca656af840dff83E8264EcF986CA/logo.png',
+  SOL:  'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/solana/info/logo.png',
+  ATOM: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/cosmos/info/logo.png',
+  ARB:  'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/arbitrum/info/logo.png',
+  TIA:  'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/celestia/info/logo.png',
+  TON:  'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ton/info/logo.png',
+};
+
+interface Props {
+  data: TranslationResponse;
+}
+
+function ImpactText({
+  text,
+  negativeColor = 'var(--tx-red)',
+  className = 'tx-impact-text',
+}: {
+  text: string;
+  negativeColor?: string;
+  className?: string;
+}) {
+  const parts = text.split(/([-+][0-9,.]+\s*[A-Z]+)/g);
+  return (
+    <span className={className}>
+      {parts.map((part, i) => {
+        if (/^\+/.test(part))
+          return <span key={i} style={{ color: 'var(--tx-green)', fontWeight: 600 }}>{part}</span>;
+        if (/^-/.test(part))
+          return <span key={i} style={{ color: negativeColor, fontWeight: 600 }}>{part}</span>;
+        return <span key={i}>{part}</span>;
+      })}
+    </span>
+  );
+}
+
+function ValidatorAvatar({
+  address,
+  name,
+}: {
+  address: string;
+  name: string;
+}) {
+  const [error, setError] = useState(false);
+  const initials = name
+    .split(/\s+/)
+    .slice(0, 2)
+    .map(w => w[0] ?? '')
+    .join('')
+    .toUpperCase();
+
+  if (!error) {
+    return (
+      <img
+        className="tx-avatar-img"
+        src={`${COSMOSTATION_LOGO}/${address}.png`}
+        alt={name}
+        onError={() => setError(true)}
+      />
+    );
+  }
+  return <span className="tx-avatar-initials">{initials}</span>;
+}
+
+function TokenIcon({ symbol, size = 18 }: { symbol: string; size?: number }) {
+  const [error, setError] = useState(false);
+  const url = TOKEN_LOGOS[symbol.toUpperCase()];
+  const style = { width: size, height: size };
+  if (url && !error) {
+    return (
+      <img
+        className="tx-token-icon"
+        style={style}
+        src={url}
+        alt={symbol}
+        onError={() => setError(true)}
+      />
+    );
+  }
+  return (
+    <span className="tx-token-icon tx-token-icon--fallback" style={style}>
+      {symbol[0] ?? '?'}
+    </span>
+  );
+}
+
+const BRAND_LINKS: Array<{ pattern: RegExp; url: string; className: string }> = [
+  { pattern: /Mito(?:\s+[\w']+)?/g,  url: 'https://mito.fi/vaults',           className: 'tx-mito-link' },
+  { pattern: /Hydro Protocol/g,        url: 'https://hydroprotocol.finance',    className: 'tx-mito-link' },
+];
+
+function linkifyBrands(text: string): React.ReactNode {
+  const combined = /(Mito(?:\s+[\w']+)?|Hydro Protocol)/g;
+  const parts = text.split(combined);
+  return parts.map((part, i) => {
+    const brand = BRAND_LINKS.find(b => b.pattern.test(part));
+    // reset lastIndex after .test()
+    BRAND_LINKS.forEach(b => { b.pattern.lastIndex = 0; });
+    if (brand) {
+      return (
+        <a key={i} href={brand.url} target="_blank" rel="noopener noreferrer" className={brand.className}>
+          {part}
+        </a>
+      );
+    }
+    return <span key={i}>{part}</span>;
+  });
+}
+
+function VotingFormula({ tally, proposalId }: { tally?: GovernanceData['tally']; proposalId?: string | null }) {
+  const yesNum = tally?.yes ? parseFloat(tally.yes) : null;
+  const yesMet = yesNum !== null ? yesNum > 50 : null;
+  const injhubUrl = proposalId ? `https://injhub.com/proposal/${proposalId}/` : null;
+
+  return (
+    <div className="tx-voting-formula">
+      <div className="tx-formula-rule">
+        <span className="tx-formula-lhs">Condition</span>
+        <span className="tx-formula-eq"> = </span>
+        <span className="tx-formula-group">Participation ≥ 33.4%</span>
+        <span className="tx-formula-op"> ∧ </span>
+        <span className="tx-formula-group">YES {'>'} 50%</span>
+      </div>
+      {yesNum !== null && (
+        <div className="tx-formula-current">
+          <span className="tx-formula-cl">Current YES</span>
+          <span className={`tx-formula-cv ${yesMet ? 'tx-formula-pass' : 'tx-formula-fail'}`}>
+            {yesNum.toFixed(2)}%{yesMet ? ' ✓' : ' ✗'}
+          </span>
+          <span className="tx-formula-cl">· Quorum tracked on-chain</span>
+        </div>
+      )}
+      {injhubUrl && (
+        <div className="tx-formula-track">
+          <a href={injhubUrl} target="_blank" rel="noopener noreferrer" className="tx-formula-track-link">
+            Track live on InjHub →
+          </a>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DetailsBlock({ text, txCategory, governanceData }: { text: string; txCategory?: string; governanceData?: GovernanceData | null }) {
+  if (!text || typeof text !== 'string') return null;
+  // Split on real newlines OR literal \n (AI sometimes double-escapes in JSON)
+  const lines = text.split(/\n|\\n/).map(l => l.trim()).filter(Boolean);
+  const isBullets = lines.length >= 2 && lines.every(l => l.startsWith('•'));
+  if (!isBullets) return <p className="tx-ai-details">{linkifyBrands(text)}</p>;
+
+  return (
+    <ul className="tx-ai-bullets">
+      {lines.map((line, i) => {
+        const content = line.replace(/^•\s*/, '');
+        const colonIdx = content.indexOf(':');
+        if (colonIdx > 0 && colonIdx < 25) {
+          const cat = content.slice(0, colonIdx).trim();
+          const rest = content.slice(colonIdx + 1).trimStart();
+          return (
+            <li key={i} className="tx-ai-bullet">
+              <span className="tx-ai-bullet-cat">{cat}</span>
+              <span>{linkifyBrands(rest)}</span>
+              {txCategory === 'VOTE' && cat.toUpperCase() === 'STATUS' && <VotingFormula tally={governanceData?.tally} proposalId={governanceData?.proposalId} />}
+            </li>
+          );
+        }
+        return <li key={i} className="tx-ai-bullet"><span>{linkifyBrands(content)}</span></li>;
+      })}
+    </ul>
+  );
+}
+
+function CopyIcon() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+    </svg>
+  );
+}
+
+function CheckIcon({ size = 11 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
+function XIcon() {
+  return (
+    <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+  );
+}
+
+function ArrowRightIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+      <line x1="5" y1="12" x2="19" y2="12" />
+      <polyline points="12 5 19 12 12 19" />
+    </svg>
+  );
+}
+
+function HourglassIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M5 22h14" />
+      <path d="M5 2h14" />
+      <path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22" />
+      <path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2" />
+    </svg>
+  );
+}
+
+function UnbondingDisplay({
+  validatorAddress,
+  validatorName,
+  unbondingData,
+}: {
+  validatorAddress: string | null;
+  validatorName: string | null;
+  unbondingData: UnbondingData;
+}) {
+  const availableDate = new Date(unbondingData.availableDate);
+  const now = new Date();
+  const msLeft = availableDate.getTime() - now.getTime();
+  const daysLeft = msLeft > 0 ? Math.ceil(msLeft / (1000 * 60 * 60 * 24)) : 0;
+  const isReady = msLeft <= 0;
+
+  const formattedDate = availableDate.toLocaleDateString('en-US', {
+    month: 'long', day: 'numeric', year: 'numeric',
+  });
+
+  const displayName = validatorName ?? 'Validator';
+
+  return (
+    <div className="tx-unbonding">
+      {/* Same layout as staking hero row: entity left, hourglass center, amount right */}
+      <div className="tx-unbonding-flow">
+        <div className="tx-entity">
+          {validatorAddress && (
+            <div className="tx-avatar">
+              <ValidatorAvatar address={validatorAddress} name={displayName} />
+            </div>
+          )}
+          <span className="tx-entity-name" style={{ cursor: 'default', pointerEvents: 'none' }}>
+            {displayName}
+          </span>
+        </div>
+
+        <div className="tx-unbonding-hourglass-col">
+          <HourglassIcon />
+        </div>
+
+        <div className="tx-amount-hero">
+          <span className="tx-amount-hero-text" style={{ color: 'var(--tx-amber)' }}>
+            {unbondingData.amount} {unbondingData.humanDenom}
+          </span>
+        </div>
+      </div>
+
+      {/* Release date banner */}
+      <div className="tx-unbonding-date-row">
+        <span className="tx-unbonding-date-label">AVAILABLE</span>
+        <span className="tx-unbonding-date-value">
+          {formattedDate}
+          {isReady
+            ? <span className="tx-unbonding-days tx-unbonding-days--ready"> · Ready to claim</span>
+            : <span className="tx-unbonding-days"> · {daysLeft}d remaining</span>
+          }
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function SwapDisplay({ td }: { td: TradeData }) {
+  return (
+    <div className="tx-swap">
+      <div className="tx-swap-flow">
+        {/* FROM */}
+        <div className="tx-swap-side">
+          <div className="tx-swap-side-header">
+            <TokenIcon symbol={td.spentSymbol ?? ''} size={22} />
+            <span className="tx-swap-sym">{td.spentSymbol ?? '?'}</span>
+          </div>
+          <span className="tx-swap-qty tx-swap-qty--out">
+            {td.spentAmount ?? '—'}
+          </span>
+        </div>
+
+        {/* Arrow */}
+        <div className="tx-swap-arrow-col">
+          <ArrowRightIcon />
+        </div>
+
+        {/* TO */}
+        <div className="tx-swap-side tx-swap-side--right">
+          <div className="tx-swap-side-header tx-swap-side-header--right">
+            <span className="tx-swap-sym">{td.receivedSymbol ?? '?'}</span>
+            <TokenIcon symbol={td.receivedSymbol ?? ''} size={22} />
+          </div>
+          <span className="tx-swap-qty tx-swap-qty--in">
+            {td.receivedAmount ?? '—'}
+          </span>
+        </div>
+      </div>
+
+      {/* Meta: price + fee */}
+      <div className="tx-swap-meta">
+        {td.executionPrice && (
+          <span className="tx-swap-price">
+            @ {td.executionPrice} {td.quoteSymbol}/{td.baseSymbol}
+          </span>
+        )}
+        {td.feeAmount != null && (
+          <span className="tx-swap-fee">
+            FEE: {td.feeAmount === '0' ? 'FREE' : `${td.feeAmount} ${td.feeSymbol}`}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ChevronIcon({ expanded }: { expanded: boolean }) {
+  return (
+    <svg
+      width="10" height="10" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2.5"
+      style={{ transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}
+    >
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  );
+}
+
+function RecipientRow({ recipient }: { recipient: MultiSendRecipient }) {
+  const [copied, setCopied] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout>>(null);
+
+  function copy() {
+    navigator.clipboard.writeText(recipient.address).then(() => {
+      setCopied(true);
+      timer.current = setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  return (
+    <li className="tx-recipient-row">
+      <button
+        className={`tx-recipient-name${copied ? ' copied' : ''}`}
+        onClick={copy}
+        title={recipient.address}
+      >
+        {recipient.name ?? `${recipient.address.slice(0, 8)}…${recipient.address.slice(-6)}`}
+        <span className="tx-entity-copy-hint">
+          {copied ? <CheckIcon /> : <CopyIcon />}
+        </span>
+      </button>
+      <span className="tx-recipient-amount">
+        {recipient.amounts.map(a => `-${a.amount} ${a.humanDenom}`).join(', ')}
+      </span>
+    </li>
+  );
+}
+
+function MultiSendBreakdown({ recipients }: { recipients: MultiSendRecipient[] }) {
+  const [expanded, setExpanded] = useState(recipients.length <= 5);
+
+  return (
+    <div className="tx-recipients">
+      <button className="tx-recipients-toggle" onClick={() => setExpanded(e => !e)}>
+        <span>{recipients.length} RECIPIENT{recipients.length !== 1 ? 'S' : ''}</span>
+        <ChevronIcon expanded={expanded} />
+      </button>
+      {expanded && (
+        <ul className="tx-recipients-list">
+          {recipients.map((r, i) => (
+            <RecipientRow key={i} recipient={r} />
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+export default function TranslationResult({ data }: Props) {
+  const [copied, setCopied] = useState(false);
+  const [copiedAddr, setCopiedAddr] = useState(false);
+  const [showScan, setShowScan] = useState(true);
+  const copyTimer = useRef<ReturnType<typeof setTimeout>>(null);
+  const addrTimer = useRef<ReturnType<typeof setTimeout>>(null);
+  const scanTimer = useRef<ReturnType<typeof setTimeout>>(null);
+
+  useEffect(() => {
+    setShowScan(true);
+    scanTimer.current = setTimeout(() => setShowScan(false), 1300);
+    return () => {
+      if (scanTimer.current) clearTimeout(scanTimer.current);
+      if (copyTimer.current) clearTimeout(copyTimer.current);
+      if (addrTimer.current) clearTimeout(addrTimer.current);
+    };
+  }, [data.hash]);
+
+  function copyHash() {
+    navigator.clipboard.writeText(data.hash).then(() => {
+      setCopied(true);
+      copyTimer.current = setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  function copyAddr() {
+    if (!data.validatorAddress) return;
+    navigator.clipboard.writeText(data.validatorAddress).then(() => {
+      setCopiedAddr(true);
+      addrTimer.current = setTimeout(() => setCopiedAddr(false), 2000);
+    });
+  }
+
+  const shortHash = `${data.hash.slice(0, 8)}…${data.hash.slice(-6)}`;
+  const isSuccess = data.status === 'success';
+  const isStake = data.txCategory === 'STAKE';
+  const isUnstake = data.txCategory === 'UNSTAKE';
+  const isRedelegate = data.txCategory === 'REDELEGATE';
+  const hasValidator = !!data.validatorAddress;
+
+  const negativeColor =
+    isStake || isRedelegate ? 'var(--tx-cyan)' :
+    isUnstake               ? 'var(--tx-purple)' :
+                              'var(--tx-red)';
+
+  const isMultiSend = data.txCategory === 'MULTISEND';
+  const isTrade = data.txCategory === 'TRADE';
+  const isGov = data.txCategory === 'VOTE' || data.txCategory === 'PROPOSE' || data.txCategory === 'GOV_DEPOSIT';
+  const multiSendLabel = isMultiSend && data.multiSendRecipients?.length
+    ? `${data.multiSendRecipients.length} Recipients`
+    : null;
+  const displayName = data.validatorName ?? multiSendLabel ?? data.protocol ?? '—';
+
+  const tradeSlipNum = isTrade && data.tradeData?.slippagePct != null
+    ? parseFloat(data.tradeData.slippagePct)
+    : null;
+  const tradeBadgeLabel =
+    tradeSlipNum === null ? null :
+    tradeSlipNum < 0.05   ? 'ELITE FILL' :
+    tradeSlipNum < 0.3    ? 'CLEAN FILL' :
+    tradeSlipNum < 1.0    ? 'MOD. SLIPPAGE' :
+                            'HIGH SLIPPAGE';
+  const tradeBadgeClass =
+    tradeSlipNum === null ? '' :
+    tradeSlipNum < 0.3    ? 'tx-badge-green' :
+    tradeSlipNum < 1.0    ? 'tx-badge-amber' :
+                            'tx-badge-red';
+
+  return (
+    <div className="tx-card">
+      {showScan && <div className="tx-scan" aria-hidden />}
+
+      {/* ── Header: protocol badge + execution quality + status ── */}
+      <div className="tx-card-header">
+        <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+          {data.protocol && (
+            <span className="tx-badge tx-badge-cyan">{data.protocol}</span>
+          )}
+          {isUnstake && (
+            <span className="tx-badge tx-badge-amber">UNBONDING</span>
+          )}
+          {tradeBadgeLabel && (
+            <span className={`tx-badge ${tradeBadgeClass}`}>{tradeBadgeLabel}</span>
+          )}
+        </div>
+        <span className={`tx-badge ${isSuccess ? 'tx-badge-green' : 'tx-badge-red'}`}>
+          {isSuccess ? <CheckIcon size={8} /> : <XIcon />}
+          {isSuccess ? 'SUCCESS' : 'FAILED'}
+        </span>
+      </div>
+
+      {/* ── Trade swap visual (replaces hero row for TRADE txs) ── */}
+      {isTrade && data.tradeData && (
+        <SwapDisplay td={data.tradeData} />
+      )}
+
+      {/* ── Unbonding visual (replaces hero row for UNSTAKE txs) ── */}
+      {isUnstake && data.unbondingData && (
+        <UnbondingDisplay
+          validatorAddress={data.validatorAddress}
+          validatorName={data.validatorName}
+          unbondingData={data.unbondingData}
+        />
+      )}
+
+      {/* ── Hero row: entity + amount (non-trade, non-unstake txs) ── */}
+      <div className={`tx-hero-row${isTrade || isUnstake ? ' tx-hero-row--hidden' : ''}${isGov ? ' tx-hero-row--gov' : ''}`}>
+        <div className="tx-entity">
+          {hasValidator && (
+            <div className="tx-avatar">
+              <ValidatorAvatar
+                address={data.validatorAddress!}
+                name={displayName}
+              />
+            </div>
+          )}
+          <button
+            className={`tx-entity-name${copiedAddr ? ' copied' : ''}`}
+            onClick={copyAddr}
+            title={data.validatorAddress ?? undefined}
+            disabled={!hasValidator}
+          >
+            {displayName}
+            {hasValidator && (
+              <span className="tx-entity-copy-hint">
+                {copiedAddr ? <CheckIcon /> : <CopyIcon />}
+              </span>
+            )}
+          </button>
+        </div>
+
+        <div className="tx-amount-hero">
+          <ImpactText
+            text={data.impact}
+            negativeColor={negativeColor}
+            className="tx-amount-hero-text"
+          />
+        </div>
+      </div>
+
+      {/* ── Multi-Send recipients breakdown ── */}
+      {isMultiSend && data.multiSendRecipients && data.multiSendRecipients.length > 0 && (
+        <MultiSendBreakdown recipients={data.multiSendRecipients} />
+      )}
+
+      {/* ── Voting power indicator ── */}
+      {data.validatorVotingPower != null && (
+        <div className="tx-vp-row">
+          <span className="tx-vp-label">Voting power</span>
+          <span className={`tx-vp-value${data.validatorVotingPower >= 5 ? ' tx-vp-high' : ''}`}>
+            {data.validatorVotingPower.toFixed(2)}%
+            {data.validatorVotingPower >= 5 && (
+              <span className="tx-vp-warn"> · High concentration</span>
+            )}
+          </span>
+        </div>
+      )}
+
+      {/* ── Divider ── */}
+      <div className="tx-divider" />
+
+      {/* ── AI insight block ── */}
+      <div className="tx-ai-block">
+        <div className="tx-ai-eyebrow">
+          <span className="tx-ai-glyph">◈</span>
+          AI INSIGHT
+        </div>
+        <p className="tx-ai-action">{data.action}</p>
+        {data.details && <DetailsBlock text={data.details} txCategory={data.txCategory} governanceData={data.governanceData} />}
+      </div>
+
+      {/* ── Footer: hash + copy ── */}
+      <div className="tx-card-footer">
+        <span className="tx-hash" title={data.hash}>{shortHash}</span>
+        <button
+          className={`tx-copy-btn${copied ? ' copied' : ''}`}
+          onClick={copyHash}
+          title="Copy full hash"
+          aria-label="Copy transaction hash"
+        >
+          {copied ? <CheckIcon size={14} /> : <CopyIcon />}
+        </button>
+      </div>
+    </div>
+  );
+}
