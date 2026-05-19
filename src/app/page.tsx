@@ -119,15 +119,22 @@ export default function Home() {
       {result && (
         <>
           <TranslationResult data={result} />
-          <p style={{
+          <div style={{
             marginTop: '0.75rem',
+            padding: '0.55rem 0.85rem',
+            borderRadius: '6px',
+            background: 'rgba(251, 146, 60, 0.08)',
+            border: '1px solid rgba(251, 146, 60, 0.25)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.45rem',
             fontSize: '0.7rem',
-            color: 'var(--tx-text-dim)',
-            textAlign: 'center',
+            color: 'rgba(251, 146, 60, 0.85)',
             letterSpacing: '0.02em',
           }}>
-            ⚠ AI-generated — may contain inaccuracies. Tool is in active development.
-          </p>
+            <span style={{ fontSize: '0.75rem' }}>⚠</span>
+            AI-generated insights may contain inaccuracies — this tool is in active development.
+          </div>
         </>
       )}
 
