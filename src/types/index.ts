@@ -70,6 +70,13 @@ export interface GovernanceData {
   } | null;
 }
 
+export interface RevokeData {
+  grantee: string;
+  granteeName: string | null;
+  msgTypeUrl: string;
+  msgTypeLabel: string;
+}
+
 export interface TranslationResponse {
   action: string;
   impact: string;
@@ -85,4 +92,5 @@ export interface TranslationResponse {
   tradeData: TradeData | null;
   unbondingData: UnbondingData | null;
   governanceData: GovernanceData | null;
+  revokeData: RevokeData | null;
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import type { TranslationResponse, MultiSendRecipient, TradeData, UnbondingData, GovernanceData } from '@/types';
+import type { TranslationResponse, MultiSendRecipient, TradeData, UnbondingData, GovernanceData, RevokeData } from '@/types';
 
 const COSMOSTATION_LOGO =
   'https://raw.githubusercontent.com/cosmostation/cosmostation_token_resource/master/moniker/injective';
@@ -460,10 +460,15 @@ export default function TranslationResult({ data }: Props) {
   const isMultiSend = data.txCategory === 'MULTISEND';
   const isTrade = data.txCategory === 'TRADE';
   const isGov = data.txCategory === 'VOTE' || data.txCategory === 'PROPOSE' || data.txCategory === 'GOV_DEPOSIT';
+  const isRevoke = data.txCategory === 'REVOKE';
+  const isGrant = data.txCategory === 'GRANT';
   const multiSendLabel = isMultiSend && data.multiSendRecipients?.length
     ? `${data.multiSendRecipients.length} Recipients`
     : null;
-  const displayName = data.validatorName ?? multiSendLabel ?? data.protocol ?? '—';
+  const revokeLabel = (isRevoke || isGrant) && data.revokeData
+    ? (data.revokeData.granteeName ?? `${data.revokeData.grantee.slice(0, 8)}…${data.revokeData.grantee.slice(-6)}`)
+    : null;
+  const displayName = data.validatorName ?? revokeLabel ?? multiSendLabel ?? data.protocol ?? '—';
 
   const tradeSlipNum = isTrade && data.tradeData?.slippagePct != null
     ? parseFloat(data.tradeData.slippagePct)
@@ -492,6 +497,12 @@ export default function TranslationResult({ data }: Props) {
           )}
           {isUnstake && (
             <span className="tx-badge tx-badge-amber">UNBONDING</span>
+          )}
+          {isRevoke && (
+            <span className="tx-badge tx-badge-red">REVOKED</span>
+          )}
+          {isGrant && (
+            <span className="tx-badge tx-badge-cyan">GRANTED</span>
           )}
           {tradeBadgeLabel && (
             <span className={`tx-badge ${tradeBadgeClass}`}>{tradeBadgeLabel}</span>
@@ -555,6 +566,14 @@ export default function TranslationResult({ data }: Props) {
       {/* ── Multi-Send recipients breakdown ── */}
       {isMultiSend && data.multiSendRecipients && data.multiSendRecipients.length > 0 && (
         <MultiSendBreakdown recipients={data.multiSendRecipients} />
+      )}
+
+      {/* ── Revoke/Grant permission label ── */}
+      {(isRevoke || isGrant) && data.revokeData && (
+        <div className="tx-vp-row">
+          <span className="tx-vp-label">Permission</span>
+          <span className="tx-vp-value">{data.revokeData.msgTypeLabel}</span>
+        </div>
       )}
 
       {/* ── Voting power indicator ── */}
