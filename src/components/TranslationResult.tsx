@@ -6,17 +6,28 @@ import type { TranslationResponse, MultiSendRecipient, TradeData, UnbondingData,
 const COSMOSTATION_LOGO =
   'https://raw.githubusercontent.com/cosmostation/cosmostation_token_resource/master/moniker/injective';
 
+const INJ_CDN = 'https://imagedelivery.net/lPzngbR8EltRfBOi_WYaXw';
+const CHAIN_REGISTRY = 'https://raw.githubusercontent.com/cosmos/chain-registry/master';
+const TRUST_WALLET_ETH = 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets';
+
 const TOKEN_LOGOS: Record<string, string> = {
-  INJ:  'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/injective/info/logo.png',
-  USDT: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xdAC17F958D2ee523a2206206994597C13D831ec7/logo.png',
-  USDC: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48/logo.png',
-  WETH: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png',
-  LINK: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0x514910771AF9Ca656af840dff83E8264EcF986CA/logo.png',
-  SOL:  'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/solana/info/logo.png',
-  ATOM: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/cosmos/info/logo.png',
-  ARB:  'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/arbitrum/info/logo.png',
-  TIA:  'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/celestia/info/logo.png',
-  TON:  'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ton/info/logo.png',
+  // Injective CDN (official)
+  INJ:   `${INJ_CDN}/7123d071-0def-459a-16b9-d85e8ea04700/public`,
+  USDT:  `${INJ_CDN}/e46e1742-fb16-4393-cc40-83b20e875400/public`,
+  USDC:  `${INJ_CDN}/c09b0eff-fd4a-4756-e5c9-f6bf8ac0c900/public`,
+  WETH:  `${INJ_CDN}/0d22b678-a78f-4e64-5a7d-d9bd0f261f00/public`,
+  hINJ:  `${INJ_CDN}/95699092-79b3-42b0-3796-e4395f0e3a00/public`,
+  BTC:   `${INJ_CDN}/f51ce0dd-54de-4b65-8b2b-09579b6c6600/public`,
+  // Cosmos chain registry
+  ATOM:  `${CHAIN_REGISTRY}/cosmoshub/images/atom.png`,
+  TIA:   `${CHAIN_REGISTRY}/celestia/images/celestia.png`,
+  stINJ: `${CHAIN_REGISTRY}/stride/images/stinj.png`,
+  // Trust Wallet (Ethereum ERC-20 contracts)
+  LINK:  `${TRUST_WALLET_ETH}/0x514910771AF9Ca656af840dff83E8264EcF986CA/logo.png`,
+  ARB:   `${TRUST_WALLET_ETH}/0xB50721BCf8d664c30412Cfbc6cf7a15145234ad1/logo.png`,
+  // Trust Wallet (native chains)
+  SOL:   'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/solana/info/logo.png',
+  TON:   'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ton/info/logo.png',
 };
 
 interface Props {
