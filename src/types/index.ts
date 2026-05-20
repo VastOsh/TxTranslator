@@ -88,6 +88,7 @@ export interface TranslationResponse {
   validatorAddress: string | null;
   validatorName: string | null;
   validatorVotingPower: number | null;
+  effectiveAPR: number | null;
   multiSendRecipients: MultiSendRecipient[] | null;
   tradeData: TradeData | null;
   unbondingData: UnbondingData | null;

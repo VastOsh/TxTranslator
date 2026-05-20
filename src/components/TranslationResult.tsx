@@ -589,6 +589,14 @@ export default function TranslationResult({ data }: Props) {
         </div>
       )}
 
+      {/* ── Staking APR (effective, after commission) ── */}
+      {data.effectiveAPR != null && (
+        <div className="tx-vp-row">
+          <span className="tx-vp-label">Staking APR</span>
+          <span className="tx-vp-value">~{data.effectiveAPR.toFixed(1)}%</span>
+        </div>
+      )}
+
       {/* ── Divider ── */}
       <div className="tx-divider" />
 
