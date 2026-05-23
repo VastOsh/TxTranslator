@@ -8,7 +8,7 @@ import {
   ACTION_LABELS,
   type ProtocolName,
 } from '@/constants/contracts';
-import { HELIX_MARKETS, HELIX_ROUTER_CONTRACTS } from '@/constants/markets';
+import { HELIX_MARKETS, HELIX_ROUTER_CONTRACTS, HELIX_DERIVATIVE_MARKETS } from '@/constants/markets';
 import { resolveAddress } from '@/constants/registry';
 
 const COSMWASM_COMPAT_TYPES = new Set([
@@ -300,6 +300,23 @@ function extractAssetsFromMessages(messages: ParsedMessage[]): NormalizedAsset[]
       }
     }
 
+    if (DERIVATIVE_TRADE_TYPES.has(msg.type)) {
+      const order = c.order;
+      if (order?.order_info?.margin) {
+        const marketId = (order.market_id ?? '').toLowerCase();
+        const derivMarket = HELIX_DERIVATIVE_MARKETS[marketId];
+        const quoteDenom = derivMarket?.quoteDenom ?? '';
+        if (quoteDenom) {
+          assets.push({
+            denom: quoteDenom,
+            humanDenom: getDisplayDenom(quoteDenom),
+            amount: formatAmount(order.order_info.margin, quoteDenom),
+            direction: 'out',
+          });
+        }
+      }
+    }
+
     if (msg.type === '/cosmwasm.wasm.v1.MsgExecuteContract' && Array.isArray(c.funds)) {
       const contract = c.contract as string | undefined;
       if (!contract || !HELIX_ROUTER_CONTRACTS.has(contract)) {
@@ -350,6 +367,11 @@ const SPOT_TRADE_TYPES = new Set([
   '/injective.exchange.v1beta1.MsgCreateSpotMarketOrder',
   '/injective.exchange.v1beta1.MsgCreateSpotLimitOrder',
   '/injective.exchange.v1beta1.MsgBatchUpdateOrders',
+]);
+
+const DERIVATIVE_TRADE_TYPES = new Set([
+  '/injective.exchange.v1beta1.MsgCreateDerivativeLimitOrder',
+  '/injective.exchange.v1beta1.MsgCreateDerivativeMarketOrder',
 ]);
 
 // Parse a Helix swap that went through the CosmWasm atomic swap router
@@ -493,8 +515,91 @@ function parseWasmHelixTrade(raw: CosmosTxResponse): TradeData | null {
   };
 }
 
+function parseDerivativeTradeData(raw: CosmosTxResponse): TradeData | null {
+  const msgs = raw.tx.body.messages;
+  const derivMsg = msgs.find(m => DERIVATIVE_TRADE_TYPES.has(m['@type'] ?? ''));
+  if (!derivMsg) return null;
+
+  const isLimitOrder = derivMsg['@type'] === '/injective.exchange.v1beta1.MsgCreateDerivativeLimitOrder';
+  const order = derivMsg.order;
+  if (!order) return null;
+
+  const marketId: string = (order.market_id ?? '').toLowerCase();
+  const market = HELIX_DERIVATIVE_MARKETS[marketId] ?? null;
+  const isBuy: boolean = (order.order_type ?? '').toUpperCase().includes('BUY');
+
+  const quoteDenom = market?.quoteDenom ?? '';
+  const quoteDecimals = TOKEN_DECIMALS[quoteDenom] ?? 6;
+  const quoteSymbol = market?.quoteSymbol ?? getDisplayDenom(quoteDenom);
+
+  const exchangePrice = parseFloat(order.order_info?.price ?? '0');
+  const humanPrice = exchangePrice / Math.pow(10, quoteDecimals);
+
+  const quantity = parseFloat(order.order_info?.quantity ?? '0');
+
+  const exchangeMargin = parseFloat(order.order_info?.margin ?? '0');
+  const humanMargin = exchangeMargin / Math.pow(10, quoteDecimals);
+
+  const notional = quantity * humanPrice;
+  const leverage = humanMargin > 0 && notional > 0
+    ? `${(notional / humanMargin).toFixed(2)}x`
+    : null;
+
+  // Check for immediate fill via EventBatchDerivativeExecution
+  const topEvents: Array<{ type: string; attributes: Array<{ key: string; value: string }> }> =
+    raw.tx_response.events ?? [];
+  let actualFillPrice: number | null = null;
+  let isFilled = false;
+  for (const ev of topEvents) {
+    if (ev.type !== 'injective.exchange.v2.EventBatchDerivativeExecution') continue;
+    const bAttr: Record<string, string> = {};
+    for (const a of ev.attributes) bAttr[a.key] = a.value;
+    const tradesRaw = bAttr['trades'] ?? bAttr['_trades'];
+    if (tradesRaw) {
+      try {
+        const trades = JSON.parse(tradesRaw);
+        if (Array.isArray(trades) && trades.length > 0) {
+          const p = parseFloat(trades[0].price ?? '0');
+          if (p > 0) { actualFillPrice = p / Math.pow(10, quoteDecimals); isFilled = true; }
+        }
+      } catch { /* ignore */ }
+    }
+    break;
+  }
+
+  const executionPrice = isFilled && actualFillPrice != null
+    ? actualFillPrice.toFixed(4)
+    : humanPrice > 0 ? humanPrice.toFixed(4) : null;
+
+  return {
+    ticker: market?.ticker ?? null,
+    baseSymbol: market?.baseSymbol ?? null,
+    quoteSymbol,
+    isBuy,
+    isLimitOrder,
+    isDerivative: true,
+    spentAmount: humanMargin > 0 ? humanMargin.toFixed(4).replace(/\.?0+$/, '') : null,
+    spentSymbol: quoteSymbol,
+    receivedAmount: isFilled && quantity > 0 ? quantity.toFixed(6).replace(/\.?0+$/, '') : null,
+    receivedSymbol: isFilled ? (market?.baseSymbol ?? null) : null,
+    executionPrice,
+    targetPrice: humanPrice > 0 ? humanPrice.toFixed(4) : null,
+    slippagePct: isLimitOrder ? '0.0000' : null,
+    feeAmount: isLimitOrder && !isFilled ? '0' : null,
+    feeSymbol: quoteSymbol,
+    marginAmount: humanMargin > 0 ? humanMargin.toFixed(4).replace(/\.?0+$/, '') : null,
+    marginSymbol: quoteSymbol,
+    leverage,
+  };
+}
+
 function parseTradeData(raw: CosmosTxResponse, senderAddress: string): TradeData | null {
   const msgs = raw.tx.body.messages;
+
+  // Derivative (PERP/futures) orders
+  if (msgs.some(m => DERIVATIVE_TRADE_TYPES.has(m['@type'] ?? ''))) {
+    return parseDerivativeTradeData(raw);
+  }
 
   // CosmWasm atomic swap router path
   const wasmMsg = msgs.find(m =>

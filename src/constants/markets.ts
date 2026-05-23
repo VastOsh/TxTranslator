@@ -14,6 +14,50 @@ export const HELIX_ROUTER_CONTRACTS = new Set<string>([
   'inj12yj3mtjarujkhcp6lg3klxjjfrx2v7v8yswgp9', // atomic swap router
 ]);
 
+export interface HelixDerivativeMarket {
+  ticker: string;
+  baseSymbol: string;
+  quoteSymbol: string;
+  quoteDenom: string;
+}
+
+export const HELIX_DERIVATIVE_MARKETS: Record<string, HelixDerivativeMarket> = {
+  // ── SpaceX IPO perpetual ──
+  '0xb065484fd2f840709af4b53d9b5f6b1e36451c58c619c2b48c2a4f10dfa1155a': {
+    ticker: 'SpaceX/USDT PERP', baseSymbol: 'SpaceX', quoteSymbol: 'USDT',
+    quoteDenom: 'peggy0xdAC17F958D2ee523a2206206994597C13D831ec7',
+  },
+  // ── Tokenized stock perpetuals (USDC-quoted) ──
+  '0xa3d0ef8d845ada306a53baabd04edab9c5525ba9e011648a09aa064db5ca3442': {
+    ticker: 'AAPL/USDC PERP', baseSymbol: 'AAPL', quoteSymbol: 'USDC',
+    quoteDenom: 'erc20:0xa00C59fF5a080D2b954d0c75e46E22a0c371235a',
+  },
+  '0x802ff0b7a26a1e5f1665f88919b25db52a5b110d11763e427b9b4875e3b74385': {
+    ticker: 'TSLA/USDC PERP', baseSymbol: 'TSLA', quoteSymbol: 'USDC',
+    quoteDenom: 'erc20:0xa00C59fF5a080D2b954d0c75e46E22a0c371235a',
+  },
+  '0x06762bf31ba2a80e0e60ebf85b0895de582e55bfe7f2b49f3e503a1c1bbf3feb': {
+    ticker: 'MSFT/USDC PERP', baseSymbol: 'MSFT', quoteSymbol: 'USDC',
+    quoteDenom: 'erc20:0xa00C59fF5a080D2b954d0c75e46E22a0c371235a',
+  },
+  '0x3a21d9dda2ab2b60d356ee72acffb739bbbe4f4a3e2de37500e42a94f14036c6': {
+    ticker: 'GOOGL/USDC PERP', baseSymbol: 'GOOGL', quoteSymbol: 'USDC',
+    quoteDenom: 'erc20:0xa00C59fF5a080D2b954d0c75e46E22a0c371235a',
+  },
+  '0x900c9ada2fe3445b44ef2fa3be01cf5eda1baee2ef57bc8b353a498912dcb6fe': {
+    ticker: 'AMZN/USDC PERP', baseSymbol: 'AMZN', quoteSymbol: 'USDC',
+    quoteDenom: 'erc20:0xa00C59fF5a080D2b954d0c75e46E22a0c371235a',
+  },
+  '0xb9d9202c588e860382c96aee096f9655fce339f6b51833a939a37d2437080c17': {
+    ticker: 'NVDA/USDC PERP', baseSymbol: 'NVDA', quoteSymbol: 'USDC',
+    quoteDenom: 'erc20:0xa00C59fF5a080D2b954d0c75e46E22a0c371235a',
+  },
+  '0xc61fddd1e6b09137be87af41980d4804c94ab71de96d1c02eaad3356f877978f': {
+    ticker: 'META/USDC PERP', baseSymbol: 'META', quoteSymbol: 'USDC',
+    quoteDenom: 'erc20:0xa00C59fF5a080D2b954d0c75e46E22a0c371235a',
+  },
+};
+
 export const HELIX_MARKETS: Record<string, HelixMarket> = {
   // ── INJ pairs ──
   '0xa508cb32923323679f29a032c70342c147c17d0145625922b0ef22e955c844c0': {

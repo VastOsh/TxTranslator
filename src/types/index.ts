@@ -16,6 +16,7 @@ export interface TradeData {
   quoteSymbol: string | null;
   isBuy: boolean | null;
   isLimitOrder: boolean | null;
+  isDerivative?: boolean;
   spentAmount: string | null;
   spentSymbol: string | null;
   receivedAmount: string | null;
@@ -25,6 +26,9 @@ export interface TradeData {
   slippagePct: string | null;
   feeAmount: string | null;
   feeSymbol: string | null;
+  marginAmount?: string | null;
+  marginSymbol?: string | null;
+  leverage?: string | null;
 }
 
 export interface NormalizedTransaction {
