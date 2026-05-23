@@ -78,6 +78,12 @@ export const HELIX_MARKETS: Record<string, HelixMarket> = {
     baseDenom: 'peggy0x582d872A1B094FC48F5DE31D3B73F2D9bE47def1',
     quoteDenom: 'peggy0xdAC17F958D2ee523a2206206994597C13D831ec7',
   },
+  // ── Stablecoin pairs ──
+  '0x5efdcc4b3a949b3fc78c8c2055d1e46f8a6fe8130627012554047fb3a511345b': {
+    ticker: 'USDC/USDT', baseSymbol: 'USDC', quoteSymbol: 'USDT',
+    baseDenom: 'erc20:0xa00C59fF5a080D2b954d0c75e46E22a0c371235a',
+    quoteDenom: 'peggy0xdAC17F958D2ee523a2206206994597C13D831ec7',
+  },
   // ── Liquid staking pairs ──
   '0x1b1e062b3306f26ae3af3c354a10c1cf38b00dcb42917f038ba3fc14978b1dd8': {
     ticker: 'hINJ/INJ', baseSymbol: 'hINJ', quoteSymbol: 'INJ',
