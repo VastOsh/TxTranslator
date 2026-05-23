@@ -165,7 +165,7 @@ export default function Home() {
           Contact me ↗
         </a>
         <span className="tx-footer" style={{ opacity: 0.4 }}>·</span>
-        <span className="tx-footer">Injective Protocol</span>
+        <span className="tx-footer">Injective</span>
       </footer>
     </main>
   );
