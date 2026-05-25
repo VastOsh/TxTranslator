@@ -1,22 +1,37 @@
 # Tx·Translator — Injective Transaction Decoder
 
-> Paste any Injective transaction hash. Get a plain-English breakdown of exactly what happened, powered by AI and live on-chain data.
+> Injective TX Translator turns cryptic blockchain logs into human-readable, actionable insights.
+> While standard block explorers are built for machines, TX Translator is built for humans.
 
-**Built for the Injective Solo AI Builder Sprint · May 2026**
+**Built for the Injective Solo AI Builder Sprint · May 2026** · [txtranslator.vercel.app](https://txtranslator.vercel.app)
 
 ---
 
-## What it does
+## The Problem
 
-Most users never understand what their on-chain transactions actually did. Raw Cosmos messages — `MsgCreateDerivativeMarketOrder`, `MsgPrivilegedExecuteContract` — mean nothing to the average person.
+Most users never understand what their on-chain transactions actually did. Raw Cosmos messages — `MsgCreateDerivativeMarketOrder`, `MsgPrivilegedExecuteContract` — mean nothing to the average person. Block explorers show you *what* was signed. They never tell you *what it means*.
 
-**Tx·Translator** decodes any Injective mainnet transaction and explains it in plain English:
+**Tx·Translator adds a financial intelligence layer on top of the Injective SDK** — decoding any mainnet transaction into plain English, enriched with live on-chain context and AI-generated strategic insight.
 
-- What action was taken ("You swapped 100 USDT for 22.1 INJ on Helix")
-- What changed in your wallet ("−100 USDT, +22.1 INJ (~$96.14 USD)")
-- Expert insight you couldn't derive yourself (VIP fee tier, unbonding countdown, validator concentration risk, governance vote weight)
+---
 
-The AI doesn't just re-describe the raw fields — it contextualises the transaction within the Injective ecosystem and surfaces actionable next steps.
+## Before / After
+
+| Raw Explorer Output | Tx·Translator: Human Layer | AI Strategic Insight |
+|---|---|---|
+| `MsgExecuteContract` (Helix Router) | USDT → INJ Swap | Slippage: 0.08% (elite fill). Your INJ can earn ~15% APY staking or be deployed into a Mito vault. |
+| `MsgCreateDerivativeMarketOrder` | Long AAPL/USDT Perp · 5× leverage | 1% underlying move = 5% PnL on margin. Margin locked: 42 USDT. Set a stop-loss — oracle liquidation is instant. |
+| `MsgUndelegate` | Unbonding 100 INJ from Zellic | ⏳ Locked until June 15. At $12/INJ, ~$10.27 in foregone yield. Consider Hydro Protocol's hINJ next time. |
+| `MsgVote` (option: YES, prop #421) | Voted YES on "Migrate USDT margin markets" | ⚠ If you hold open USDT-margined positions, they will be force-closed at settlement. Close them before the deadline. |
+| `MsgMultiSend` (12 outputs) | Batch payment to 12 recipients | All 12 transfers are atomic — they all succeed or all revert. Pattern looks like a distribution, not a P2P send. |
+
+---
+
+## Why Injective?
+
+Injective is the premier blockchain for finance, generating uniquely complex DeFi logs: native orderbook swaps, perpetual derivative positions, tokenized stock trading, multi-send airdrops, liquid staking, and cross-chain IBC flows. Standard Cosmos explorers fail to capture the financial intent behind these actions.
+
+TX Translator bridges this gap by combining the **Injective SDK**, **live on-chain data**, and **LLM inference** into a single, human-readable interface — purpose-built for the Injective ecosystem.
 
 ---
 
@@ -26,16 +41,19 @@ The AI doesn't just re-describe the raw fields — it contextualises the transac
 
 | Type | Details |
 |------|---------|
-| **Helix spot trades** | Market & limit orders with live fee VIP tier analysis (Default → VIP5) |
-| **Helix perpetuals** | Tokenized stocks (SpaceX, AAPL, TSLA, MSFT, GOOGL, AMZN, NVDA, META) with leverage, margin & fill status |
+| **Helix spot trades** | Market & limit orders with live VIP fee tier analysis (Default → VIP5) and slippage classification |
+| **Helix perpetuals** | Tokenized stocks (SpaceX, AAPL, TSLA, MSFT, GOOGL, AMZN, NVDA, META) with leverage, margin, fill status |
 | **Staking** | Delegate / Undelegate / Redelegate with live validator voting power, commission, and effective APR |
-| **Unbonding** | Exact release date from chain events, days remaining countdown, missed yield estimate |
+| **Unbonding** | Exact release date from chain events, days remaining countdown, missed yield estimate in USD |
 | **Mito Finance** | Vault deposits, LP tokens, privileged contract interactions |
 | **Hydro Protocol** | hINJ liquid staking |
 | **IBC Transfers** | Cross-chain bridge with source/destination chain context |
-| **Governance** | Vote / Propose / Deposit with live tally, proposal title/summary, voting deadline, and InjHub tracking link |
+| **Governance** | Vote / Propose / Deposit with live tally, proposal title/summary, voting deadline, InjHub tracking link |
 | **Bank transfers** | Single sends and multi-sends (atomic batch payments / airdrops) |
 | **Authz** | MsgGrant and MsgRevoke with human-readable permission labels |
+
+### Share on X
+Every decoded transaction has a one-click **Share on X** button that pre-fills a tweet with the plain-English action and wallet impact — built-in organic distribution for the Injective ecosystem.
 
 ### AI insight engine
 - Powered by **Groq** running **Llama-3.3-70b-versatile** (sub-second inference)
@@ -45,10 +63,10 @@ The AI doesn't just re-describe the raw fields — it contextualises the transac
 ### Live on-chain data
 - Fetches transactions from Injective mainnet via multiple LCD endpoints with automatic failover
 - Falls back to the Injective on-chain indexer (full history, no tx-index pruning)
-- Fetches live validator stats: voting power %, commission rate, bonded tokens, status
-- Fetches live network APR and computes per-validator effective delegator APR
-- Fetches governance proposal details and current vote tally
-- Fetches INJ/USD price from CoinGecko for USD-denominated impact
+- Live validator stats: voting power %, commission rate, bonded tokens, status
+- Live network APR → per-validator effective delegator APR
+- Governance proposal details and current vote tally
+- INJ/USD price from CoinGecko for USD-denominated impact
 
 ---
 
@@ -87,8 +105,8 @@ Example transactions to try:
 ### Install
 
 ```bash
-git clone https://github.com/your-username/tx-translator
-cd tx-translator
+git clone https://github.com/VastOsh/TxTranslator
+cd TxTranslator
 npm install
 ```
 
@@ -140,7 +158,7 @@ AI insight bullets, validator avatar, token icons
 
 **Consumer AI app — finance copilot / spending insights**
 
-Tx·Translator solves a real user problem: on-chain activity is opaque to most people. Every Injective user has a transaction history they can't fully read. This tool makes that history legible — and teaches users something actionable with every decode.
+Every Injective user has a transaction history they can't fully read. TX Translator makes that history legible — and teaches users something actionable with every decode.
 
 ---
 

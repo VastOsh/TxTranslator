@@ -1032,3 +1032,28 @@
   color: var(--tx-text-dim);
   letter-spacing: 0.05em;
 }
+
+/* ── Share on X button ── */
+.tx-share-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  padding: 0.18rem 0.55rem;
+  color: var(--tx-text-dim);
+  font-family: var(--font-rajdhani), sans-serif;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.tx-share-btn:hover {
+  color: #e8f4ff;
+  border-color: rgba(255, 255, 255, 0.2);
+}

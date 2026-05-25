@@ -219,6 +219,21 @@ function XIcon() {
   );
 }
 
+function XLogoIcon() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+    </svg>
+  );
+}
+
+function buildTweetUrl(action: string, impact: string): string {
+  const maxAction = 140;
+  const truncated = action.length > maxAction ? action.slice(0, maxAction - 1) + '…' : action;
+  const text = `${truncated}\n\n${impact}\n\n🔍 txtranslator.vercel.app\n@Injective #Injective`;
+  return `https://x.com/intent/tweet?text=${encodeURIComponent(text)}`;
+}
+
 function ArrowRightIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -610,17 +625,30 @@ export default function TranslationResult({ data }: Props) {
         {data.details && <DetailsBlock text={data.details} txCategory={data.txCategory} governanceData={data.governanceData} />}
       </div>
 
-      {/* ── Footer: hash + copy ── */}
+      {/* ── Footer: hash + share + copy ── */}
       <div className="tx-card-footer">
         <span className="tx-hash" title={data.hash}>{shortHash}</span>
-        <button
-          className={`tx-copy-btn${copied ? ' copied' : ''}`}
-          onClick={copyHash}
-          title="Copy full hash"
-          aria-label="Copy transaction hash"
-        >
-          {copied ? <CheckIcon size={14} /> : <CopyIcon />}
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+          <a
+            className="tx-share-btn"
+            href={buildTweetUrl(data.action, data.impact)}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Share on X"
+            aria-label="Share on X"
+          >
+            <XLogoIcon />
+            Share
+          </a>
+          <button
+            className={`tx-copy-btn${copied ? ' copied' : ''}`}
+            onClick={copyHash}
+            title="Copy full hash"
+            aria-label="Copy transaction hash"
+          >
+            {copied ? <CheckIcon size={14} /> : <CopyIcon />}
+          </button>
+        </div>
       </div>
     </div>
   );
