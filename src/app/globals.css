@@ -1033,6 +1033,23 @@
   letter-spacing: 0.05em;
 }
 
+/* ── Back navigation link ── */
+.tx-back-link {
+  font-family: var(--font-rajdhani), sans-serif;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--tx-text-dim);
+  text-decoration: none;
+  transition: color 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.tx-back-link:hover { color: var(--tx-cyan); }
+
 /* ── Share on X button ── */
 .tx-share-btn {
   display: flex;

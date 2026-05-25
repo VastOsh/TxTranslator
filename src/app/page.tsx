@@ -39,6 +39,7 @@ export default function Home() {
     setLoading(true);
     setResult(null);
     setError(null);
+    window.history.replaceState(null, '', '/');
 
     try {
       const res = await fetch('/api/translate', {
@@ -55,6 +56,7 @@ export default function Home() {
       }
 
       setResult(data as TranslationResponse);
+      window.history.pushState(null, '', `/tx/${(data as TranslationResponse).hash}`);
     } catch {
       setError('Network error — check your connection and try again.');
     } finally {

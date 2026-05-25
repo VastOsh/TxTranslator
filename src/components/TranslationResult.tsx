@@ -227,12 +227,12 @@ function XLogoIcon() {
   );
 }
 
-const APP_URL = 'txtranslator.vercel.app';
-
 function buildTweetText(data: TranslationResponse): string {
-  const td = data.tradeData;
-  const g  = data.governanceData;
-  const ud = data.unbondingData;
+  const td  = data.tradeData;
+  const g   = data.governanceData;
+  const ud  = data.unbondingData;
+  // Link to the specific decoded transaction so followers land on the result directly
+  const APP_URL = `txtranslator.vercel.app/tx/${data.hash}`;
 
   switch (data.txCategory) {
 
