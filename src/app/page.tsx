@@ -129,6 +129,7 @@ export default function Home() {
     <main className="tx-main">
       {/* ── Header ── */}
       <header
+        className="tx-page-header"
         style={{
           width: '100%',
           maxWidth: 680,

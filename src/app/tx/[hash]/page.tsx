@@ -60,6 +60,7 @@ export default function TxPage() {
   return (
     <main className="tx-main">
       <header
+        className="tx-page-header"
         style={{
           width: '100%',
           maxWidth: 680,

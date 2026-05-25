@@ -1194,6 +1194,87 @@
 
 .tx-back-link:hover { color: var(--tx-cyan); }
 
+/* ══════════════════════════════════════════
+   Mobile polish  (≤ 500 px)
+   ══════════════════════════════════════════ */
+@media (max-width: 500px) {
+
+  /* Layout */
+  .tx-main { padding: 0 0.75rem; }
+
+  /* Header: shrink gap below it */
+  .tx-page-header { margin-bottom: 2.5rem !important; }
+
+  /* Search button: narrower side padding so input keeps enough space */
+  .tx-btn { padding: 0.9rem 1.1rem; }
+
+  /* Card chrome */
+  .tx-card-header,
+  .tx-card-footer { padding: 0.6rem 1rem; }
+
+  /* Hero row: tighter, amount wraps instead of overflowing */
+  .tx-hero-row { padding: 1rem 1.1rem; gap: 0.4rem; }
+
+  .tx-amount-hero { max-width: 58%; }
+
+  .tx-amount-hero-text {
+    font-size: 1.05rem;
+    white-space: normal;
+    word-break: break-word;
+    text-align: right;
+  }
+
+  /* Hash: shorter max-width so share + copy buttons don't squeeze it */
+  .tx-hash { max-width: 120px; font-size: 0.66rem; }
+
+  /* Swap: smaller amounts + clip overflow for extreme values */
+  .tx-swap { padding: 0.9rem 1.1rem 0.75rem; }
+
+  .tx-swap-side { overflow: hidden; }
+
+  .tx-swap-qty {
+    font-size: 1.15rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .tx-swap-meta { gap: 0.5rem; }
+
+  /* AI insight */
+  .tx-ai-block { padding: 0.9rem 1.1rem 1.1rem; }
+
+  /* Stat rows */
+  .tx-vp-row { padding: 0 1.1rem 0.65rem; }
+
+  /* Unbonding: stack date row vertically */
+  .tx-unbonding { padding: 1rem 1.1rem 0.85rem; }
+
+  .tx-unbonding-date-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.15rem;
+    padding: 0.5rem 0.7rem;
+  }
+
+  /* Multi-send */
+  .tx-recipients-toggle { padding-left: 1.1rem; padding-right: 1.1rem; }
+  .tx-recipients-list   { padding-left: 1.1rem; padding-right: 1.1rem; }
+
+  /* Wallet list */
+  .tx-wallet-header,
+  .tx-wallet-row { padding-left: 1rem; padding-right: 1rem; }
+
+  .tx-wallet-action { font-size: 0.82rem; }
+
+  /* Allow protocol badge to wrap below action label on very small screens */
+  .tx-wallet-action-row { flex-wrap: wrap; gap: 0.3rem; }
+
+  /* Governance voting formula */
+  .tx-voting-formula { font-size: 0.7rem; letter-spacing: 0.02em; padding: 0.4rem 0.7rem; }
+
+}
+
 /* ── Share on X button ── */
 .tx-share-btn {
   display: flex;
