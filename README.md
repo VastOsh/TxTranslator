@@ -24,6 +24,8 @@ Most users never understand what their on-chain transactions actually did. Raw C
 | `MsgUndelegate` | Unbonding 100 INJ from Zellic | ⏳ Locked until June 15. At $12/INJ, ~$10.27 in foregone yield. Consider Hydro Protocol's hINJ next time. |
 | `MsgVote` (option: YES, prop #421) | Voted YES on "Migrate USDT margin markets" | ⚠ If you hold open USDT-margined positions, they will be force-closed at settlement. Close them before the deadline. |
 | `MsgMultiSend` (12 outputs) | Batch payment to 12 recipients | All 12 transfers are atomic — they all succeed or all revert. Pattern looks like a distribution, not a P2P send. |
+| `MsgExecuteContract` (DojoSwap Router) | INJ → DOJO Swap via AMM pool | AMM pools trade against constant-product math, not an orderbook. Price impact depends on pool depth. |
+| `MsgExecuteContract` (Neptune Finance) | Supplied 500 USDT to Neptune Finance | You received nUSDT receipt tokens. Variable yield adjusts with pool utilization — check the dashboard for current APY. |
 
 ---
 
@@ -43,14 +45,31 @@ TX Translator bridges this gap by combining the **Injective SDK**, **live on-cha
 |------|---------|
 | **Helix spot trades** | Market & limit orders with live VIP fee tier analysis (Default → VIP5) and slippage classification |
 | **Helix perpetuals** | Tokenized stocks (SpaceX, AAPL, TSLA, MSFT, GOOGL, AMZN, NVDA, META) with leverage, margin, fill status |
-| **Staking** | Delegate / Undelegate / Redelegate with live validator voting power, commission, and effective APR |
-| **Unbonding** | Exact release date from chain events, days remaining countdown, missed yield estimate in USD |
 | **Mito Finance** | Vault deposits, LP tokens, privileged contract interactions |
 | **Hydro Protocol** | hINJ liquid staking |
+| **DojoSwap** | AMM swaps via constant-product pools; LP staking across DOJO-INJ, SUSHI-DOJO, and DOJO-dINJ pairs |
+| **Neptune Finance** | Lending/borrowing with nToken receipt tracking (nINJ, nUSDT, nUSDC, nWETH, nATOM, nSOL, nTIA, nAUSD) |
+| **Black Panther** | Algorithmic trading vaults (grid, market-making, trend-following) on Helix orderbook |
+| **Choice Exchange** | AMM DEX and multi-path swap aggregator with DAG-based routing for optimal execution |
+| **Paradyze** | AI-powered trading terminal — spot and perpetuals via natural language, detected by fee address |
+| **Staking** | Delegate / Undelegate / Redelegate with live validator voting power, commission, and effective APR |
+| **Unbonding** | Exact release date from chain events, days remaining countdown, missed yield estimate in USD |
 | **IBC Transfers** | Cross-chain bridge with source/destination chain context |
 | **Governance** | Vote / Propose / Deposit with live tally, proposal title/summary, voting deadline, InjHub tracking link |
 | **Bank transfers** | Single sends and multi-sends (atomic batch payments / airdrops) |
 | **Authz** | MsgGrant and MsgRevoke with human-readable permission labels |
+
+### Wallet address scan
+Paste any `inj1...` address to decode the **last 10 transactions** from that wallet — no hash needed. Ideal for reviewing a wallet's recent on-chain activity at a glance.
+
+### Shareable transaction links
+Every decoded transaction pushes a `/tx/[hash]` URL to the browser. Share the link directly — recipients land on the fully decoded view instantly, no re-paste required.
+
+### Recent history
+The last 5 decoded transactions are persisted in `localStorage` and shown on the homepage. Resume your session without losing context.
+
+### USD values on token amounts
+Token amounts are enriched with live USD values via the CoinGecko price feed — so "100 INJ" shows as "100 INJ ($1,240)" rather than leaving you to calculate wallet impact yourself.
 
 ### Share on X
 Every decoded transaction has a one-click **Share on X** button that pre-fills a tweet with the plain-English action and wallet impact — built-in organic distribution for the Injective ecosystem.
@@ -68,6 +87,9 @@ Every decoded transaction has a one-click **Share on X** button that pre-fills a
 - Governance proposal details and current vote tally
 - INJ/USD price from CoinGecko for USD-denominated impact
 
+### Mobile-first layout
+Fully responsive down to 500px — decode transactions from any device.
+
 ---
 
 ## Demo
@@ -75,9 +97,10 @@ Every decoded transaction has a one-click **Share on X** button that pre-fills a
 Live: [txtranslator.vercel.app](https://txtranslator.vercel.app)
 
 Example transactions to try:
-- A Helix spot swap
+- A Helix spot swap or perpetuals trade
 - A stake/unstake to any validator
 - Any governance vote
+- Paste an `inj1...` wallet address to scan recent activity
 
 ---
 
@@ -129,16 +152,17 @@ npm run dev
 ## How it works
 
 ```
-User pastes tx hash
+User pastes tx hash or inj1 wallet address
         ↓
-API route fetches raw tx from Injective mainnet (4 endpoints with failover)
+API route fetches raw tx(s) from Injective mainnet (4 endpoints with failover)
         ↓
 Normalizer parses messages → typed NormalizedTransaction
         ↓
-Category detection (TRADE / STAKE / VOTE / SEND / …)
+Protocol detection: message types + contract addresses + fee address heuristics
+  (Helix / Mito / Hydro / DojoSwap / Neptune / Black Panther / Choice / Paradyze / …)
         ↓
 Parallel enrichment:
-  · INJ price (CoinGecko)
+  · INJ/USD price (CoinGecko) → USD values on all token amounts
   · Validator live info + network APR  (staking txs)
   · Governance proposal details + tally  (gov txs)
         ↓
@@ -149,7 +173,8 @@ Groq/Llama-3.3-70b generates {action, impact, details}
 Response includes typed metadata (tradeData, unbondingData, governanceData, …)
         ↓
 UI renders protocol badge, swap visual / unbonding countdown / gov tally,
-AI insight bullets, validator avatar, token icons
+AI insight bullets, validator avatar, token icons with USD values
+/tx/[hash] URL pushed to browser for sharing · recent history saved to localStorage
 ```
 
 ---
