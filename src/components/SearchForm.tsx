@@ -8,6 +8,7 @@ interface Props {
 }
 
 const HASH_RE = /^(0x)?[0-9a-fA-F]{64}$/;
+const ADDR_RE = /^inj1[a-z0-9]{38}$/;
 
 export default function SearchForm({ onSearch, loading }: Props) {
   const [value, setValue] = useState('');
@@ -15,7 +16,7 @@ export default function SearchForm({ onSearch, loading }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const trimmed = value.trim();
-  const isValid = HASH_RE.test(trimmed);
+  const isValid = HASH_RE.test(trimmed) || ADDR_RE.test(trimmed);
   const showError = touched && trimmed.length >= 6 && !isValid;
 
   function handleSubmit(e: React.FormEvent) {
@@ -34,7 +35,7 @@ export default function SearchForm({ onSearch, loading }: Props) {
           type="text"
           spellCheck={false}
           autoComplete="off"
-          placeholder="0xA1B2C3… or ABCDEF1234…"
+          placeholder="Tx hash or inj1… wallet address"
           value={value}
           onChange={e => setValue(e.target.value)}
           onBlur={() => setTouched(true)}
@@ -72,7 +73,7 @@ export default function SearchForm({ onSearch, loading }: Props) {
             <line x1="12" y1="8" x2="12" y2="12" />
             <line x1="12" y1="16" x2="12.01" y2="16" />
           </svg>
-          Must be a 64-character hex hash (with or without 0x prefix)
+          Enter a 64-char hex tx hash or an inj1… wallet address
         </p>
       )}
     </form>

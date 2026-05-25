@@ -1033,6 +1033,150 @@
   letter-spacing: 0.05em;
 }
 
+/* ── Wallet transaction list ── */
+.tx-wallet-wrap {
+  width: 100%;
+  max-width: 680px;
+  background: var(--tx-bg-card);
+  border: 1px solid var(--tx-border);
+  border-radius: 6px;
+  overflow: hidden;
+  animation: fadeInUp 0.4s ease both;
+}
+
+.tx-wallet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.7rem 1.2rem;
+  border-bottom: 1px solid var(--tx-border);
+  background: rgba(0, 212, 255, 0.025);
+}
+
+.tx-wallet-addr {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.78rem;
+  color: var(--tx-cyan);
+  letter-spacing: 0.04em;
+}
+
+.tx-wallet-count {
+  font-family: var(--font-rajdhani), sans-serif;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--tx-text-dim);
+}
+
+.tx-wallet-empty {
+  padding: 1.5rem 1.2rem;
+  font-size: 0.82rem;
+  color: var(--tx-text-muted);
+  text-align: center;
+}
+
+.tx-wallet-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tx-wallet-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1.2rem;
+  border-bottom: 1px solid var(--tx-border);
+  transition: background 0.15s;
+}
+
+.tx-wallet-row:last-child { border-bottom: none; }
+.tx-wallet-row:hover { background: rgba(0, 212, 255, 0.03); }
+
+.tx-wallet-row-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.tx-wallet-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--tx-green);
+  flex-shrink: 0;
+}
+
+.tx-wallet-dot--fail { background: var(--tx-red); }
+
+.tx-wallet-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.tx-wallet-action-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.tx-wallet-action {
+  font-family: var(--font-rajdhani), sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #e8f4ff;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.tx-wallet-protocol {
+  font-family: var(--font-rajdhani), sans-serif;
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--tx-cyan);
+  background: rgba(0, 212, 255, 0.08);
+  border: 1px solid rgba(0, 212, 255, 0.18);
+  border-radius: 3px;
+  padding: 0.05rem 0.35rem;
+  white-space: nowrap;
+}
+
+.tx-wallet-time {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.68rem;
+  color: var(--tx-text-dim);
+  letter-spacing: 0.02em;
+}
+
+.tx-wallet-decode-btn {
+  font-family: var(--font-rajdhani), sans-serif;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--tx-cyan);
+  text-decoration: none;
+  padding: 0.25rem 0.65rem;
+  border: 1px solid rgba(0, 212, 255, 0.22);
+  border-radius: 3px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.tx-wallet-decode-btn:hover {
+  background: rgba(0, 212, 255, 0.08);
+  border-color: rgba(0, 212, 255, 0.45);
+}
+
 /* ── Back navigation link ── */
 .tx-back-link {
   font-family: var(--font-rajdhani), sans-serif;

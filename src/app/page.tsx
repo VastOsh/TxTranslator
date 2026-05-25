@@ -3,24 +3,26 @@
 import { useState } from 'react';
 import SearchForm from '@/components/SearchForm';
 import TranslationResult from '@/components/TranslationResult';
+import WalletTxList from '@/components/WalletTxList';
 import InjChart from '@/components/InjChart';
 import type { TranslationResponse } from '@/types';
+import type { WalletTx } from '@/components/WalletTxList';
+
+const HASH_RE = /^(0x)?[0-9a-fA-F]{64}$/;
+const ADDR_RE = /^inj1[a-z0-9]{38}$/;
 
 function LoadingSkeleton() {
   return (
     <div className="tx-skel-wrap">
-      {/* action skeleton */}
       <div className="tx-skel-card">
         <div className="tx-skel" style={{ height: 10, width: '40%' }} />
         <div className="tx-skel" style={{ height: 22, width: '85%' }} />
         <div className="tx-skel" style={{ height: 18, width: '60%' }} />
       </div>
-      {/* impact skeleton */}
       <div className="tx-skel-card">
         <div className="tx-skel" style={{ height: 10, width: '30%' }} />
         <div className="tx-skel" style={{ height: 18, width: '50%' }} />
       </div>
-      {/* details skeleton */}
       <div className="tx-skel-card">
         <div className="tx-skel" style={{ height: 10, width: '35%' }} />
         <div className="tx-skel" style={{ height: 14, width: '95%' }} />
@@ -30,31 +32,67 @@ function LoadingSkeleton() {
   );
 }
 
+function WalletSkeleton() {
+  return (
+    <div className="tx-skel-wrap">
+      {[85, 70, 90, 65, 80].map((w, i) => (
+        <div key={i} className="tx-skel-card" style={{ padding: '0.75rem 1.2rem', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flex: 1 }}>
+            <div className="tx-skel" style={{ height: 8, width: 8, borderRadius: '50%', flexShrink: 0 }} />
+            <div className="tx-skel" style={{ height: 14, width: `${w}%` }} />
+          </div>
+          <div className="tx-skel" style={{ height: 26, width: 72, flexShrink: 0, borderRadius: 3 }} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function Home() {
   const [result, setResult] = useState<TranslationResponse | null>(null);
+  const [walletTxs, setWalletTxs] = useState<WalletTx[] | null>(null);
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingMode, setLoadingMode] = useState<'hash' | 'wallet' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleSearch(hash: string) {
-    setLoading(true);
+  function resetState() {
     setResult(null);
+    setWalletTxs(null);
+    setWalletAddress(null);
     setError(null);
     window.history.replaceState(null, '', '/');
+  }
 
+  async function handleSearch(input: string) {
+    const trimmed = input.trim();
+    setLoading(true);
+    resetState();
+
+    if (ADDR_RE.test(trimmed)) {
+      setLoadingMode('wallet');
+      await handleWalletScan(trimmed);
+    } else if (HASH_RE.test(trimmed)) {
+      setLoadingMode('hash');
+      await handleHashDecode(trimmed);
+    } else {
+      setError('Enter a valid tx hash or inj1… wallet address.');
+      setLoading(false);
+    }
+  }
+
+  async function handleHashDecode(hash: string) {
     try {
       const res = await fetch('/api/translate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ hash }),
       });
-
       const data = await res.json();
-
       if (!res.ok) {
         setError(data.error ?? 'Something went wrong. Please try again.');
         return;
       }
-
       setResult(data as TranslationResponse);
       window.history.pushState(null, '', `/tx/${(data as TranslationResponse).hash}`);
     } catch {
@@ -63,6 +101,29 @@ export default function Home() {
       setLoading(false);
     }
   }
+
+  async function handleWalletScan(address: string) {
+    try {
+      const res = await fetch('/api/wallet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? 'Could not fetch wallet history.');
+        return;
+      }
+      setWalletTxs(data.txs as WalletTx[]);
+      setWalletAddress(address);
+    } catch {
+      setError('Network error — check your connection and try again.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const hasOutput = result || walletTxs !== null;
 
   return (
     <main className="tx-main">
@@ -89,15 +150,15 @@ export default function Home() {
       {/* ── Hero ── */}
       <section
         className="tx-hero"
-        style={{ marginBottom: result || loading || error ? '2.5rem' : '0' }}
+        style={{ marginBottom: hasOutput || loading || error ? '2.5rem' : '0' }}
       >
-        {!result && !loading && (
+        {!hasOutput && !loading && (
           <>
             <h1 className="tx-headline">
               Decode any<br /><span>Injective</span> transaction
             </h1>
             <p className="tx-subline">
-              Paste a transaction hash — get a plain-English breakdown in seconds
+              Paste a tx hash or a wallet address — get a plain-English breakdown in seconds
             </p>
           </>
         )}
@@ -117,7 +178,9 @@ export default function Home() {
       </section>
 
       {/* ── Output ── */}
-      {loading && <LoadingSkeleton />}
+      {loading && loadingMode === 'wallet' && <WalletSkeleton />}
+      {loading && loadingMode === 'hash' && <LoadingSkeleton />}
+
       {result && (
         <>
           <TranslationResult data={result} />
@@ -138,6 +201,10 @@ export default function Home() {
             AI-generated insights may contain inaccuracies — this tool is in active development.
           </div>
         </>
+      )}
+
+      {walletTxs !== null && walletAddress && (
+        <WalletTxList address={walletAddress} txs={walletTxs} />
       )}
 
       {/* ── INJ Price Chart ── */}
