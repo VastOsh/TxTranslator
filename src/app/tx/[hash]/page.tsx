@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import TranslationResult from '@/components/TranslationResult';
 import InjChart from '@/components/InjChart';
+import { useRecentTxs } from '@/hooks/useRecentTxs';
 import type { TranslationResponse } from '@/types';
 
 function LoadingSkeleton() {
@@ -35,6 +36,7 @@ export default function TxPage() {
   const [result, setResult] = useState<TranslationResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { addRecent } = useRecentTxs();
 
   useEffect(() => {
     if (!hash) {
@@ -50,12 +52,23 @@ export default function TxPage() {
     })
       .then(res => res.json().then(data => ({ ok: res.ok, data })))
       .then(({ ok, data }) => {
-        if (!ok) setError(data.error ?? 'Something went wrong. Please try again.');
-        else setResult(data as TranslationResponse);
+        if (!ok) {
+          setError(data.error ?? 'Something went wrong. Please try again.');
+        } else {
+          const tx = data as TranslationResponse;
+          setResult(tx);
+          addRecent({
+            hash: tx.hash,
+            action: tx.action,
+            txCategory: tx.txCategory,
+            protocol: tx.protocol,
+            status: tx.status,
+          });
+        }
       })
       .catch(() => setError('Network error — check your connection and try again.'))
       .finally(() => setLoading(false));
-  }, [hash]);
+  }, [hash, addRecent]);
 
   return (
     <main className="tx-main">

@@ -5,6 +5,8 @@ import SearchForm from '@/components/SearchForm';
 import TranslationResult from '@/components/TranslationResult';
 import WalletTxList from '@/components/WalletTxList';
 import InjChart from '@/components/InjChart';
+import RecentHistory from '@/components/RecentHistory';
+import { useRecentTxs } from '@/hooks/useRecentTxs';
 import type { TranslationResponse } from '@/types';
 import type { WalletTx } from '@/components/WalletTxList';
 
@@ -55,6 +57,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [loadingMode, setLoadingMode] = useState<'hash' | 'wallet' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { recent, addRecent, clearRecent } = useRecentTxs();
 
   function resetState() {
     setResult(null);
@@ -93,8 +96,16 @@ export default function Home() {
         setError(data.error ?? 'Something went wrong. Please try again.');
         return;
       }
-      setResult(data as TranslationResponse);
-      window.history.pushState(null, '', `/tx/${(data as TranslationResponse).hash}`);
+      const tx = data as TranslationResponse;
+      setResult(tx);
+      addRecent({
+        hash: tx.hash,
+        action: tx.action,
+        txCategory: tx.txCategory,
+        protocol: tx.protocol,
+        status: tx.status,
+      });
+      window.history.pushState(null, '', `/tx/${tx.hash}`);
     } catch {
       setError('Network error — check your connection and try again.');
     } finally {
@@ -177,6 +188,13 @@ export default function Home() {
           </div>
         )}
       </section>
+
+      {/* ── Recent history — idle state only ── */}
+      {!hasOutput && !loading && recent.length > 0 && (
+        <div style={{ width: '100%', maxWidth: 680, marginTop: '2rem', marginBottom: '1rem' }}>
+          <RecentHistory recent={recent} onSelect={handleSearch} onClear={clearRecent} />
+        </div>
+      )}
 
       {/* ── Output ── */}
       {loading && loadingMode === 'wallet' && <WalletSkeleton />}
