@@ -253,6 +253,18 @@ export default function Home() {
           Contact me ↗
         </a>
         <span className="tx-footer" style={{ opacity: 0.4 }}>·</span>
+        <a
+          href="https://github.com/VastOsh/TxTranslator"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="tx-footer"
+          style={{ textDecoration: 'none', opacity: 0.7 }}
+          onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+          onMouseLeave={e => (e.currentTarget.style.opacity = '0.7')}
+        >
+          GitHub ↗
+        </a>
+        <span className="tx-footer" style={{ opacity: 0.4 }}>·</span>
         <span className="tx-footer">Injective</span>
       </footer>
     </main>
