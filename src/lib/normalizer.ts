@@ -18,6 +18,9 @@ const COSMWASM_COMPAT_TYPES = new Set([
 
 const PRIVILEGED_CONTRACT_TYPE = '/injective.exchange.v1beta1.MsgPrivilegedExecuteContract';
 
+// Paradyze prepends a MsgSend to their fee collector on every trade tx
+const PARADYZE_FEE_ADDRESS = 'inj1wkxt4nfacs9a24vkxw0f6gjwqhq4cnlv6d8ugf';
+
 export function formatAmount(amount: string, denom: string): string {
   const decimals = TOKEN_DECIMALS[denom] ?? 6;
   try {
@@ -130,6 +133,13 @@ function extractAssetsFromLogs(logs: any[]): NormalizedAsset[] {
 }
 
 function identifyProtocol(messages: ParsedMessage[]): ProtocolName {
+  // Paradyze: every trade bundles a MsgSend to their fee collector + a native exchange order
+  const hasParadyzeFee = messages.some(
+    m => m.type === '/cosmos.bank.v1beta1.MsgSend' && m.content.to_address === PARADYZE_FEE_ADDRESS
+  );
+  const hasExchangeOrder = messages.some(m => MESSAGE_TYPE_PROTOCOLS[m.type] === 'Helix');
+  if (hasParadyzeFee && hasExchangeOrder) return 'Paradyze';
+
   for (const msg of messages) {
     const byType = MESSAGE_TYPE_PROTOCOLS[msg.type];
     if (byType) return byType;
@@ -164,7 +174,18 @@ function extractSender(messages: ParsedMessage[]): string {
 
 function inferMainAction(messages: ParsedMessage[], protocol: ProtocolName): string {
   if (messages.length === 0) return 'Transaction';
-  const primaryType = messages[0].type;
+
+  // Paradyze prepends a fee MsgSend; find the actual order message instead
+  let primaryMsg = messages[0];
+  if (
+    protocol === 'Paradyze' &&
+    messages[0].type === '/cosmos.bank.v1beta1.MsgSend' &&
+    messages.length > 1
+  ) {
+    const orderMsg = messages.slice(1).find(m => ACTION_LABELS[m.type]);
+    if (orderMsg) primaryMsg = orderMsg;
+  }
+  const primaryType = primaryMsg.type;
 
   if (COSMWASM_COMPAT_TYPES.has(primaryType) && protocol !== 'Unknown') {
     const innerMsg = messages[0].content.msg;

@@ -133,6 +133,8 @@ export default function TxPage() {
             letterSpacing: '0.02em',
             width: '100%',
             maxWidth: 680,
+            marginLeft: 'auto',
+            marginRight: 'auto',
           }}>
             <span style={{ fontSize: '0.75rem' }}>⚠</span>
             AI-generated insights may contain inaccuracies — this tool is in active development.

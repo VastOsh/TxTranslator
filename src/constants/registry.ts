@@ -233,6 +233,8 @@ export const CONTRACT_NAMES: Record<string, string> = {
   'inj1a4qvqym6ajewepa7v8y2rtxuz9f92kyq2zsg26': 'Choice Exchange Aggregator',
   'inj14ejqjyq8um4p3xfqj74yld5waqljf88f9eneuk': 'Choice Exchange CW20 Adapter',
   'inj1yr7srge0lku4h3gd473qdlpdfw63ejdjwkh4c0': 'Choice Exchange Burn Manager',
+  // Paradyze: AI trading terminal — service fee recipient (prepended MsgSend on every trade)
+  'inj1wkxt4nfacs9a24vkxw0f6gjwqhq4cnlv6d8ugf': 'Paradyze',
 };
 
 // Commission rates (%) for top validators (from validators_list.csv)

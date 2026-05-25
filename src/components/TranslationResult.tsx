@@ -253,8 +253,9 @@ function buildTweetText(data: TranslationResponse): string {
                         `⚡ Slippage: ${td.slippagePct}%`;
 
         if (td.isDerivative) {
+          const platform = data.protocol ?? 'Helix';
           return [
-            `Trading tokenized ${td.ticker ?? 'perp'} on @Injective Helix! 🧠`,
+            `Trading tokenized ${td.ticker ?? 'perp'} on @Injective ${platform}! 🧠`,
             `📊 ${td.isBuy ? 'Long' : 'Short'} · Margin: ${td.marginAmount ?? '?'} ${td.marginSymbol ?? ''}`,
             slipLine,
             `Real equity perps on-chain. Zero gas, zero front-running.`,
