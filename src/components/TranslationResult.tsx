@@ -227,11 +227,131 @@ function XLogoIcon() {
   );
 }
 
-function buildTweetUrl(action: string, impact: string): string {
-  const maxAction = 140;
-  const truncated = action.length > maxAction ? action.slice(0, maxAction - 1) + '…' : action;
-  const text = `${truncated}\n\n${impact}\n\n🔍 txtranslator.vercel.app\n@Injective #Injective`;
-  return `https://x.com/intent/tweet?text=${encodeURIComponent(text)}`;
+const APP_URL = 'txtranslator.vercel.app';
+
+function buildTweetText(data: TranslationResponse): string {
+  const td = data.tradeData;
+  const g  = data.governanceData;
+  const ud = data.unbondingData;
+
+  switch (data.txCategory) {
+
+    case 'TRADE': {
+      if (td) {
+        const from = td.spentAmount && td.spentSymbol ? `${td.spentAmount} ${td.spentSymbol}` : '?';
+        const to   = td.receivedAmount && td.receivedSymbol ? `${td.receivedAmount} ${td.receivedSymbol}` : 'pending';
+        const slip = td.slippagePct != null ? parseFloat(td.slippagePct) : null;
+        const slipLine = slip == null ? '' :
+          slip < 0.1  ? `⚡ Slippage: ${td.slippagePct}% (Ultra-optimal)` :
+          slip < 0.3  ? `⚡ Slippage: ${td.slippagePct}% (Clean execution)` :
+                        `⚡ Slippage: ${td.slippagePct}%`;
+
+        if (td.isDerivative) {
+          return [
+            `Trading tokenized ${td.ticker ?? 'perp'} on @Injective Helix! 🧠`,
+            `📊 ${td.isBuy ? 'Long' : 'Short'} · Margin: ${td.marginAmount ?? '?'} ${td.marginSymbol ?? ''}`,
+            slipLine,
+            `Real equity perps on-chain. Zero gas, zero front-running.`,
+            `Decode yours: 🔍 ${APP_URL}`,
+            `@Injective #Injective #DeFi #Perps`,
+          ].filter(Boolean).join('\n');
+        }
+
+        return [
+          `Just decoded my latest Helix swap! 🧠`,
+          `🔄 ${from} ➔ ${to}`,
+          slipLine,
+          `💸 Gas: < $0.01`,
+          `Front-run proof execution. Decode yours: 🔍 ${APP_URL}`,
+          `@Injective #Injective #DeFi`,
+        ].filter(Boolean).join('\n');
+      }
+      break;
+    }
+
+    case 'VOTE': {
+      const propId  = g?.proposalId ? `#${g.proposalId}` : '';
+      const title   = g?.proposalTitle ? g.proposalTitle.slice(0, 55) + (g.proposalTitle.length > 55 ? '…' : '') : '';
+      const vote    = g?.voteOption ?? 'YES';
+      return [
+        `I just voted on @Injective Proposal ${propId}! 🗳️`,
+        `🔹 ${vote}: ${title}`,
+        `Don't just stake — participate. Understand your votes:`,
+        `🔍 ${APP_URL}`,
+        `@Injective #Injective #Governance #nINJas`,
+      ].filter(Boolean).join('\n');
+    }
+
+    case 'PROPOSE': {
+      const title = g?.proposalTitle ? g.proposalTitle.slice(0, 60) + (g.proposalTitle.length > 60 ? '…' : '') : 'a new proposal';
+      return [
+        `Just submitted a governance proposal on @Injective! 🏛️`,
+        `📋 ${title}`,
+        `On-chain governance: your staked INJ = your voice.`,
+        `Decode governance txs: 🔍 ${APP_URL}`,
+        `@Injective #Injective #Governance #nINJas`,
+      ].filter(Boolean).join('\n');
+    }
+
+    case 'STAKE': {
+      const validator = data.validatorName ?? 'a validator';
+      const aprLine   = data.effectiveAPR != null ? `📈 Earning: ~${data.effectiveAPR.toFixed(1)}% APR` : '';
+      return [
+        `Staked my INJ on @Injective! 🥩`,
+        `🏛️ Validator: ${validator}`,
+        aprLine,
+        `Every INJ staked = a vote for decentralization.`,
+        `Decode your staking txs: 🔍 ${APP_URL}`,
+        `@Injective #Injective #Staking #nINJas`,
+      ].filter(Boolean).join('\n');
+    }
+
+    case 'UNSTAKE': {
+      const amtLine = ud ? `💰 ${ud.amount} ${ud.humanDenom} unlocking in 21 days` : '';
+      return [
+        `Unbonding INJ on @Injective 🔓`,
+        amtLine,
+        `Tip: Hydro Protocol's hINJ stays liquid while earning rewards.`,
+        `Decode yours: 🔍 ${APP_URL}`,
+        `@Injective #Injective #Staking`,
+      ].filter(Boolean).join('\n');
+    }
+
+    case 'REDELEGATE':
+      return [
+        `Redelegated my INJ stake on @Injective ⚡`,
+        `Instant validator switch — no 21-day lockup. That's Cosmos.`,
+        `Decode your txs: 🔍 ${APP_URL}`,
+        `@Injective #Injective #Staking #nINJas`,
+      ].join('\n');
+
+    case 'BRIDGE':
+      return [
+        `Just bridged assets via IBC on @Injective 🌉`,
+        `Trustless cross-chain in seconds. No wrapped tokens, no bridges to trust.`,
+        `Decode your bridge txs: 🔍 ${APP_URL}`,
+        `@Injective #Injective #IBC #DeFi`,
+      ].join('\n');
+
+    default: {
+      // Security & Transparency angle — batch orders, contracts, sends, authz, etc.
+      const snippet = data.action.length > 80 ? data.action.slice(0, 79) + '…' : data.action;
+      return [
+        `Keeping my @Injective positions secure and optimized ⚡`,
+        snippet,
+        `Stop guessing what your txs are doing. Translate them instantly:`,
+        `🔍 ${APP_URL}`,
+        `@Injective #Injective`,
+      ].join('\n');
+    }
+  }
+
+  const snippet = data.action.length > 140 ? data.action.slice(0, 139) + '…' : data.action;
+  return `${snippet}\n\n🔍 ${APP_URL}\n@Injective #Injective`;
+}
+
+function buildTweetUrl(data: TranslationResponse): string {
+  return `https://x.com/intent/tweet?text=${encodeURIComponent(buildTweetText(data))}`;
 }
 
 function ArrowRightIcon() {
@@ -631,7 +751,7 @@ export default function TranslationResult({ data }: Props) {
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
           <a
             className="tx-share-btn"
-            href={buildTweetUrl(data.action, data.impact)}
+            href={buildTweetUrl(data)}
             target="_blank"
             rel="noopener noreferrer"
             title="Share on X"
