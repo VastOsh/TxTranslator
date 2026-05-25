@@ -597,6 +597,28 @@
 .tx-swap-qty--out { color: var(--tx-red); }
 .tx-swap-qty--in  { color: var(--tx-green); }
 
+.tx-swap-usd {
+  display: block;
+  font-size: 0.7rem;
+  font-family: var(--font-mono), monospace;
+  color: rgba(255,255,255,0.35);
+  letter-spacing: 0.03em;
+  margin-top: 0.2rem;
+  line-height: 1;
+}
+.tx-swap-usd--right { text-align: right; }
+
+.tx-amount-usd {
+  display: block;
+  font-size: 0.72rem;
+  font-family: var(--font-mono), monospace;
+  color: rgba(255,255,255,0.35);
+  letter-spacing: 0.03em;
+  margin-top: 0.15rem;
+  line-height: 1;
+  text-align: right;
+}
+
 .tx-swap-arrow-col {
   display: flex;
   justify-content: center;

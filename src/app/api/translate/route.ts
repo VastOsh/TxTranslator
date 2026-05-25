@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { fetchTransaction } from '@/lib/injective';
 import { normalizeTransaction, formatAmount, getDisplayDenom } from '@/lib/normalizer';
+import { fetchTokenPrices } from '@/lib/prices';
 import { PROTOCOL_CONTEXTS } from '@/constants/contracts';
 import { HELIX_ROUTER_CONTRACTS } from '@/constants/markets';
 import { resolveAddress, VALIDATOR_VOTING_POWER, VALIDATOR_COMMISSION } from '@/constants/registry';
@@ -148,16 +149,6 @@ function httpsGetJson(url: string) {
     .catch(() => null);
 }
 
-async function fetchInjPrice(): Promise<number | null> {
-  try {
-    const data = await httpsGetJson(
-      'https://api.coingecko.com/api/v3/simple/price?ids=injective-protocol&vs_currencies=usd'
-    );
-    return (data?.['injective-protocol']?.usd as number) ?? null;
-  } catch {
-    return null;
-  }
-}
 
 function computeUnbondingData(
   rawMessages: any[],
@@ -518,7 +509,7 @@ function buildMultiSendContext(rawMessages: any[]): MultiSendContext | null {
 
 function buildUserPrompt(
   tx: NormalizedTransaction,
-  injPrice: number | null,
+  prices: Record<string, number>,
   validatorVP?: number | null,
   validatorCommission?: number | null,
   multiSendSummary?: string | null,
@@ -533,14 +524,17 @@ function buildUserPrompt(
     ? (PROTOCOL_CONTEXTS as Record<string, { context: string }>)[tx.target_protocol]?.context ?? null
     : null;
 
+  const injPrice = prices['INJ'] ?? null;
+
   const assetsLine =
     tx.assets.length > 0
       ? tx.assets
           .map(a => {
             const sign = a.direction === 'in' ? '+' : a.direction === 'out' ? '-' : '±';
             const base = `${sign}${a.amount} ${a.humanDenom}`;
-            if (injPrice && a.humanDenom === 'INJ') {
-              const usd = (parseFloat(a.amount) * injPrice).toFixed(2);
+            const price = prices[a.humanDenom];
+            if (price) {
+              const usd = (parseFloat(a.amount) * price).toFixed(2);
               return `${base} (~$${usd} USD)`;
             }
             return base;
@@ -559,7 +553,7 @@ Status: ${tx.status.toUpperCase()}
 Action: ${tx.main_action}
 Sender: ${tx.sender}
 Protocol: ${tx.target_protocol ?? 'Direct Chain Interaction'}
-Token movements: ${assetsLine}${injPrice ? ` (INJ = $${injPrice} USD)` : ''}
+Token movements: ${assetsLine}${injPrice ? ` (INJ = $${injPrice.toFixed(2)} USD)` : ''}
 Timestamp: ${tx.timestamp}
 
 Messages:
@@ -676,9 +670,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'A valid transaction hash is required.' }, { status: 400 });
     }
 
-    const [rawTx, injPrice] = await Promise.all([
+    const [rawTx, prices] = await Promise.all([
       fetchTransaction(hash),
-      fetchInjPrice(),
+      fetchTokenPrices(),
     ]);
 
     const normalized = normalizeTransaction(hash, rawTx);
@@ -737,7 +731,7 @@ export async function POST(request: NextRequest) {
 
     const userPrompt = buildUserPrompt(
       normalized,
-      injPrice,
+      prices,
       validatorData.votingPower,
       validatorData.commission,
       multiSendCtx?.aiSummary ?? null,
@@ -801,6 +795,7 @@ export async function POST(request: NextRequest) {
       unbondingData,
       governanceData,
       revokeData,
+      prices,
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'An unexpected error occurred.';

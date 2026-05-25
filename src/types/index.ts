@@ -98,4 +98,5 @@ export interface TranslationResponse {
   unbondingData: UnbondingData | null;
   governanceData: GovernanceData | null;
   revokeData: RevokeData | null;
+  prices: Record<string, number>;
 }

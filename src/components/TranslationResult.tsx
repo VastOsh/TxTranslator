@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import type { TranslationResponse, MultiSendRecipient, TradeData, UnbondingData, GovernanceData, RevokeData } from '@/types';
+import { usdValue, formatUsd } from '@/lib/prices';
 
 const COSMOSTATION_LOGO =
   'https://raw.githubusercontent.com/cosmostation/cosmostation_token_resource/master/moniker/injective';
@@ -383,11 +384,14 @@ function UnbondingDisplay({
   validatorAddress,
   validatorName,
   unbondingData,
+  prices,
 }: {
   validatorAddress: string | null;
   validatorName: string | null;
   unbondingData: UnbondingData;
+  prices: Record<string, number>;
 }) {
+  const amountUsd = usdValue(unbondingData.amount, unbondingData.humanDenom, prices);
   const availableDate = new Date(unbondingData.availableDate);
   const now = new Date();
   const msLeft = availableDate.getTime() - now.getTime();
@@ -423,6 +427,9 @@ function UnbondingDisplay({
           <span className="tx-amount-hero-text" style={{ color: 'var(--tx-amber)' }}>
             {unbondingData.amount} {unbondingData.humanDenom}
           </span>
+          {amountUsd !== null && (
+            <span className="tx-amount-usd">{formatUsd(amountUsd)}</span>
+          )}
         </div>
       </div>
 
@@ -441,7 +448,10 @@ function UnbondingDisplay({
   );
 }
 
-function SwapDisplay({ td }: { td: TradeData }) {
+function SwapDisplay({ td, prices }: { td: TradeData; prices: Record<string, number> }) {
+  const spentUsd  = td.spentAmount    && td.spentSymbol    ? usdValue(td.spentAmount,    td.spentSymbol,    prices) : null;
+  const recvdUsd  = td.receivedAmount && td.receivedSymbol ? usdValue(td.receivedAmount, td.receivedSymbol, prices) : null;
+
   return (
     <div className="tx-swap">
       <div className="tx-swap-flow">
@@ -454,6 +464,9 @@ function SwapDisplay({ td }: { td: TradeData }) {
           <span className="tx-swap-qty tx-swap-qty--out">
             {td.spentAmount ?? '—'}
           </span>
+          {spentUsd !== null && (
+            <span className="tx-swap-usd">{formatUsd(spentUsd)}</span>
+          )}
         </div>
 
         {/* Arrow */}
@@ -470,6 +483,9 @@ function SwapDisplay({ td }: { td: TradeData }) {
           <span className="tx-swap-qty tx-swap-qty--in">
             {td.receivedAmount ?? '—'}
           </span>
+          {recvdUsd !== null && (
+            <span className="tx-swap-usd tx-swap-usd--right">{formatUsd(recvdUsd)}</span>
+          )}
         </div>
       </div>
 
@@ -656,7 +672,7 @@ export default function TranslationResult({ data }: Props) {
 
       {/* ── Trade swap visual (replaces hero row for TRADE txs) ── */}
       {isTrade && data.tradeData && (
-        <SwapDisplay td={data.tradeData} />
+        <SwapDisplay td={data.tradeData} prices={data.prices ?? {}} />
       )}
 
       {/* ── Unbonding visual (replaces hero row for UNSTAKE txs) ── */}
@@ -665,6 +681,7 @@ export default function TranslationResult({ data }: Props) {
           validatorAddress={data.validatorAddress}
           validatorName={data.validatorName}
           unbondingData={data.unbondingData}
+          prices={data.prices ?? {}}
         />
       )}
 
