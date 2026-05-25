@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import SearchForm from '@/components/SearchForm';
 import TranslationResult from '@/components/TranslationResult';
 import WalletTxList from '@/components/WalletTxList';
@@ -153,7 +154,7 @@ export default function Home() {
         }}
       >
         <div className="tx-logo">
-          <div className="tx-logo-dot" />
+          <Image src="/logo.svg" alt="Tx·Translator logo" width={28} height={28} priority />
           TX · TRANSLATOR
         </div>
         <span className="tx-footer">Injective Mainnet</span>

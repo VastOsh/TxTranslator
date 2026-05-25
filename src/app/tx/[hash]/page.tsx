@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import TranslationResult from '@/components/TranslationResult';
 import InjChart from '@/components/InjChart';
 import { useRecentTxs } from '@/hooks/useRecentTxs';
@@ -87,7 +88,7 @@ export default function TxPage() {
       >
         <Link href="/" style={{ textDecoration: 'none' }}>
           <div className="tx-logo">
-            <div className="tx-logo-dot" />
+            <Image src="/logo.svg" alt="Tx·Translator logo" width={28} height={28} priority />
             TX · TRANSLATOR
           </div>
         </Link>

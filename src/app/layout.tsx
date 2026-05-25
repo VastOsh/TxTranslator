@@ -23,6 +23,7 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: 'Tx·Translator — Injective Transaction Decoder',
   description: 'Paste any Injective transaction hash and get a plain-English breakdown of what happened.',
+  icons: { icon: '/logo.svg' },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
