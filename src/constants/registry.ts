@@ -227,6 +227,12 @@ export const CONTRACT_NAMES: Record<string, string> = {
   'inj16jf4qkcarp3lan4wl2qkrelf4kduvvujwg0780': 'Neptune Finance nATOM',
   // Black Panther
   'inj16eckaf75gcu9uxdglyvmh63k9t0l7chd0qmu85': 'Black Panther (BLACK token)',
+  // Choice Exchange
+  'inj1k9lcqtn3y92h4t3tdsu7z8qx292mhxhgsssmxg': 'Choice Exchange Factory',
+  'inj1ne2durmsx2jurvy4wgnhegv3xt6789up8xgum3': 'Choice Exchange Router',
+  'inj1a4qvqym6ajewepa7v8y2rtxuz9f92kyq2zsg26': 'Choice Exchange Aggregator',
+  'inj14ejqjyq8um4p3xfqj74yld5waqljf88f9eneuk': 'Choice Exchange CW20 Adapter',
+  'inj1yr7srge0lku4h3gd473qdlpdfw63ejdjwkh4c0': 'Choice Exchange Burn Manager',
 };
 
 // Commission rates (%) for top validators (from validators_list.csv)

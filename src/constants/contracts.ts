@@ -5,6 +5,8 @@ export type ProtocolName =
   | 'DojoSwap'
   | 'Neptune Finance'
   | 'Black Panther'
+  | 'Choice Exchange'
+  | 'Paradyze'
   | 'IBC Transfer'
   | 'Staking'
   | 'Governance'
@@ -79,6 +81,14 @@ export const CONTRACT_PROTOCOLS: Record<string, ProtocolName> = {
   // Black Panther vault platform (source: defillama.com/protocol/black-panther)
   // Note: individual vault contracts are dynamically created; add here as discovered
   'inj16eckaf75gcu9uxdglyvmh63k9t0l7chd0qmu85': 'Black Panther', // BLACK governance token
+  // Choice Exchange AMM DEX & aggregator (source: github.com/choice-exchange/choice_exchange README)
+  'inj1k9lcqtn3y92h4t3tdsu7z8qx292mhxhgsssmxg': 'Choice Exchange', // Factory
+  'inj1ne2durmsx2jurvy4wgnhegv3xt6789up8xgum3': 'Choice Exchange', // Router
+  'inj1a4qvqym6ajewepa7v8y2rtxuz9f92kyq2zsg26': 'Choice Exchange', // Aggregation contract (multi-path routing)
+  'inj14ejqjyq8um4p3xfqj74yld5waqljf88f9eneuk': 'Choice Exchange', // CW20 adapter
+  'inj1yr7srge0lku4h3gd473qdlpdfw63ejdjwkh4c0': 'Choice Exchange', // Burn manager
+  // Paradyze: AI-powered trading terminal on Injective using native exchange module
+  // No CosmWasm contracts — add here if on-chain vault/prediction contracts are deployed
 };
 
 export const PROTOCOL_CONTEXTS: Record<ProtocolName, Protocol> = {
@@ -117,6 +127,18 @@ export const PROTOCOL_CONTEXTS: Record<ProtocolName, Protocol> = {
     description: 'Algorithmic trading vaults',
     context:
       'Black Panther Finance offers automated trading vaults on Injective with strategies including grid trading, market-making, and trend-following — all executing on Helix\'s native orderbook. Users deposit assets into a vault and earn yield from the algorithmic strategy without managing orders manually. BLACK is the protocol\'s governance token.',
+  },
+  'Choice Exchange': {
+    name: 'Choice Exchange',
+    description: 'AMM DEX and swap aggregator',
+    context:
+      'Choice Exchange is an AMM DEX and aggregation layer on Injective, forked from Terraswap. It routes swaps across multiple liquidity sources using a DAG-based multi-path algorithm to minimize slippage. Users can also provide liquidity to earn trading fees, stake LP tokens on farms, and deposit into auto-compounding vaults. The aggregation contract splits orders across parallel paths for optimal execution.',
+  },
+  'Paradyze': {
+    name: 'Paradyze',
+    description: 'AI-powered trading terminal',
+    context:
+      'Paradyze is an AI-powered trading terminal on Injective — "Your On-Chain Wallstreet." Users execute spot and perpetuals trades through natural language commands ("Buy 10 INJ", "short BTC with 5x leverage"). The platform also features ranked head-to-head trading battles and autonomous AI agents for 24/7 strategy execution. Paradyze routes orders through Injective\'s native exchange module.',
   },
   'IBC Transfer': {
     name: 'IBC Transfer',

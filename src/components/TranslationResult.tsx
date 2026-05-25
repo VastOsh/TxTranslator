@@ -113,10 +113,12 @@ const BRAND_LINKS: Array<{ pattern: RegExp; url: string; className: string }> = 
   { pattern: /DojoSwap/g,                     url: 'https://dojo.trading',              className: 'tx-mito-link' },
   { pattern: /Neptune Finance/g,              url: 'https://nept.finance',              className: 'tx-mito-link' },
   { pattern: /Black Panther(?:\s+Finance)?/g, url: 'https://trade.blackpanther.fi',     className: 'tx-mito-link' },
+  { pattern: /Choice(?:\s+Exchange)?/g,       url: 'https://choice.exchange',           className: 'tx-mito-link' },
+  { pattern: /Paradyze/g,                     url: 'https://app.paradyze.io',           className: 'tx-mito-link' },
 ];
 
 function linkifyBrands(text: string): React.ReactNode {
-  const combined = /(Mito(?:\s+[\w']+)?|Hydro Protocol|DojoSwap|Neptune Finance|Black Panther(?:\s+Finance)?)/g;
+  const combined = /(Mito(?:\s+[\w']+)?|Hydro Protocol|DojoSwap|Neptune Finance|Black Panther(?:\s+Finance)?|Choice(?:\s+Exchange)?|Paradyze)/g;
   const parts = text.split(combined);
   return parts.map((part, i) => {
     const brand = BRAND_LINKS.find(b => b.pattern.test(part));
