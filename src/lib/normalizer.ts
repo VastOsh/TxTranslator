@@ -772,22 +772,29 @@ export function normalizeTransaction(hash: string, raw: CosmosTxResponse): Norma
   const txr = raw.tx_response;
   const status: 'success' | 'failed' = txr.code === 0 ? 'success' : 'failed';
 
-  const parsedMessages: ParsedMessage[] = raw.tx.body.messages.map(msg => {
+  // Parse without address resolution so identifyProtocol and routing checks see raw contract addresses
+  const rawMessages: ParsedMessage[] = raw.tx.body.messages.map(msg => {
     const { '@type': type, ...content } = msg;
     if (COSMWASM_COMPAT_TYPES.has(type) && typeof content.msg === 'string') {
       content.msg = tryDecodeBase64(content.msg);
     }
-    return { type, content: resolveAddressesInContent(content) };
+    return { type, content };
   });
 
-  const protocol = identifyProtocol(parsedMessages);
+  const protocol = identifyProtocol(rawMessages);
+
+  // Resolve addresses for AI/display output only
+  const parsedMessages: ParsedMessage[] = rawMessages.map(msg => ({
+    ...msg,
+    content: resolveAddressesInContent(msg.content),
+  }));
 
   // Prefer event-derived assets (actual result) over message-derived (intent)
   const logs = txr.logs ?? [];
   const eventAssets = extractAssetsFromLogs(logs);
 
   // For CosmWasm Helix swaps, supplement with coin_received from top-level events
-  const isHelixWasmSwap = parsedMessages.some(m =>
+  const isHelixWasmSwap = rawMessages.some(m =>
     COSMWASM_COMPAT_TYPES.has(m.type) &&
     HELIX_ROUTER_CONTRACTS.has((m.content.contract ?? '') as string)
   );
@@ -814,12 +821,12 @@ export function normalizeTransaction(hash: string, raw: CosmosTxResponse): Norma
         denom: outDenom, humanDenom: getDisplayDenom(outDenom),
         amount: formatAmount(outAmt, outDenom), direction: 'in',
       });
-      assets = swapAssets.length > 0 ? swapAssets : extractAssetsFromMessages(parsedMessages);
+      assets = swapAssets.length > 0 ? swapAssets : extractAssetsFromMessages(rawMessages);
     } else {
-      assets = extractAssetsFromMessages(parsedMessages);
+      assets = extractAssetsFromMessages(rawMessages);
     }
   } else {
-    assets = eventAssets.length > 0 ? eventAssets : extractAssetsFromMessages(parsedMessages);
+    assets = eventAssets.length > 0 ? eventAssets : extractAssetsFromMessages(rawMessages);
     // Newer Injective txs have empty logs[]; supplement with rewards from top-level events
     if (logs.length === 0) {
       const topEvents: Array<{ type: string; attributes: Array<{ key: string; value: string }> }> =
