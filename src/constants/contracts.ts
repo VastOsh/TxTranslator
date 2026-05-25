@@ -2,6 +2,9 @@ export type ProtocolName =
   | 'Helix'
   | 'Mito Finance'
   | 'Hydro Protocol'
+  | 'DojoSwap'
+  | 'Neptune Finance'
+  | 'Black Panther'
   | 'IBC Transfer'
   | 'Staking'
   | 'Governance'
@@ -54,6 +57,28 @@ export const CONTRACT_PROTOCOLS: Record<string, ProtocolName> = {
   'inj16mwjqkl0q57c2qpkgf5xjw8mqqd6ewdq3k3pk': 'Hydro Protocol',
   // Helix atomic swap router (MsgExecuteContractCompat path)
   'inj12yj3mtjarujkhcp6lg3klxjjfrx2v7v8yswgp9': 'Helix',
+  // DojoSwap AMM DEX contracts (source: docs.dojo.trading/resources/contract-addresses)
+  'inj1t6g03pmc0qcgr7z44qjzaen804f924xke6menl': 'DojoSwap', // Swap Router
+  'inj1pc2vxcmnyzawnwkf03n2ggvt997avtuwagqngk': 'DojoSwap', // Factory
+  'inj19rutrad95wzcw93gfnuranetmc570cvtj8j8cg': 'DojoSwap', // DOJO-INJ LP Staking
+  'inj1yqtcds4gpvhcdlpjh9u45xjx9lxwame7fa265x': 'DojoSwap', // SUSHI-DOJO LP Staking
+  'inj1ycnddgnj49lntk3z5ky8pj0rpvhkvggmyjsmv7': 'DojoSwap', // DOJO-dINJ LP Staking
+  // Neptune Finance money market contracts (source: docs.nept.finance/develop/contracts)
+  'inj1nc7gjkf2mhp34a6gquhurg8qahnw5kxs5u3s4u': 'Neptune Finance', // Red Bank (lending/borrowing)
+  'inj1ftech0pdjrjawltgejlmpx57cyhsz6frdx2dhq': 'Neptune Finance', // Interest Rate Model
+  'inj1kfjff5f0xjy7gece36watkqtscpycv666tqq7t': 'Neptune Finance', // Querier
+  // Neptune nToken receipt contracts (issued to lenders)
+  'inj1tkuemghm734h9qy8fh2eu0qp9hyfdlws0llt8g': 'Neptune Finance', // nAUSD
+  'inj1rmzufd7h09sqfrre5dtvu5d09ta7c0t4jzkr2f': 'Neptune Finance', // nINJ
+  'inj1zcwr03uqw57g88nqvgpwfkazwutpqz9kplny4s': 'Neptune Finance', // nSOL
+  'inj1fzquxxxam59z6fzewy2hvvreeh3m04x83zg4vv': 'Neptune Finance', // nTIA
+  'inj1dafy7fv7qczzatd98dv8hekx6ssckrflswpjaz': 'Neptune Finance', // nUSDC
+  'inj1cy9hes20vww2yr6crvs75gxy5hpycya2hmjg9s': 'Neptune Finance', // nUSDT
+  'inj1kehk5nvreklhylx22p3x0yjydfsz9fv3fvg5xt': 'Neptune Finance', // nWETH
+  'inj16jf4qkcarp3lan4wl2qkrelf4kduvvujwg0780': 'Neptune Finance', // nATOM
+  // Black Panther vault platform (source: defillama.com/protocol/black-panther)
+  // Note: individual vault contracts are dynamically created; add here as discovered
+  'inj16eckaf75gcu9uxdglyvmh63k9t0l7chd0qmu85': 'Black Panther', // BLACK governance token
 };
 
 export const PROTOCOL_CONTEXTS: Record<ProtocolName, Protocol> = {
@@ -74,6 +99,24 @@ export const PROTOCOL_CONTEXTS: Record<ProtocolName, Protocol> = {
     description: 'Liquid staking (hINJ)',
     context:
       'Hydro Protocol is the liquid staking protocol on Injective. Users stake INJ and receive hINJ (liquid staking tokens) at a 1:1 ratio. hINJ earns staking rewards while remaining usable as collateral in DeFi.',
+  },
+  'DojoSwap': {
+    name: 'DojoSwap',
+    description: 'AMM DEX on Injective',
+    context:
+      'DojoSwap is an automated market maker (AMM) DEX on Injective. Unlike Helix\'s native orderbook, DojoSwap uses constant-product liquidity pools where users swap tokens or provide liquidity to earn trading fees. DOJO is the protocol\'s governance and rewards token.',
+  },
+  'Neptune Finance': {
+    name: 'Neptune Finance',
+    description: 'Lending & borrowing protocol',
+    context:
+      'Neptune Finance is a decentralized money market on Injective. Users lend assets to earn yield and receive nTokens (receipt tokens such as nINJ, nUSDT) representing their deposit plus accrued interest. Borrowers post collateral and pay variable interest rates that adjust automatically with pool utilization. The Red Bank contract is the core lending and liquidation engine.',
+  },
+  'Black Panther': {
+    name: 'Black Panther',
+    description: 'Algorithmic trading vaults',
+    context:
+      'Black Panther Finance offers automated trading vaults on Injective with strategies including grid trading, market-making, and trend-following — all executing on Helix\'s native orderbook. Users deposit assets into a vault and earn yield from the algorithmic strategy without managing orders manually. BLACK is the protocol\'s governance token.',
   },
   'IBC Transfer': {
     name: 'IBC Transfer',

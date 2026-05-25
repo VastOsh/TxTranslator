@@ -207,6 +207,26 @@ export const CONTRACT_NAMES: Record<string, string> = {
   'inj1qg5ega6dykkxc307y25pecuufrjkxkaggkkxh': 'Mito Finance Vault',
   'inj1dxp690rd86nehmqj8r8fe3lj9ns9f5t04hnqe': 'Hydro Protocol (hINJ)',
   'inj16mwjqkl0q57c2qpkgf5xjw8mqqd6ewdq3k3pk': 'Hydro Protocol',
+  // DojoSwap
+  'inj1t6g03pmc0qcgr7z44qjzaen804f924xke6menl': 'DojoSwap Router',
+  'inj1pc2vxcmnyzawnwkf03n2ggvt997avtuwagqngk': 'DojoSwap Factory',
+  'inj19rutrad95wzcw93gfnuranetmc570cvtj8j8cg': 'DojoSwap LP Staking',
+  'inj1yqtcds4gpvhcdlpjh9u45xjx9lxwame7fa265x': 'DojoSwap LP Staking',
+  'inj1ycnddgnj49lntk3z5ky8pj0rpvhkvggmyjsmv7': 'DojoSwap LP Staking',
+  // Neptune Finance
+  'inj1nc7gjkf2mhp34a6gquhurg8qahnw5kxs5u3s4u': 'Neptune Finance Red Bank',
+  'inj1ftech0pdjrjawltgejlmpx57cyhsz6frdx2dhq': 'Neptune Finance Interest Model',
+  'inj1kfjff5f0xjy7gece36watkqtscpycv666tqq7t': 'Neptune Finance Querier',
+  'inj1tkuemghm734h9qy8fh2eu0qp9hyfdlws0llt8g': 'Neptune Finance nAUSD',
+  'inj1rmzufd7h09sqfrre5dtvu5d09ta7c0t4jzkr2f': 'Neptune Finance nINJ',
+  'inj1zcwr03uqw57g88nqvgpwfkazwutpqz9kplny4s': 'Neptune Finance nSOL',
+  'inj1fzquxxxam59z6fzewy2hvvreeh3m04x83zg4vv': 'Neptune Finance nTIA',
+  'inj1dafy7fv7qczzatd98dv8hekx6ssckrflswpjaz': 'Neptune Finance nUSDC',
+  'inj1cy9hes20vww2yr6crvs75gxy5hpycya2hmjg9s': 'Neptune Finance nUSDT',
+  'inj1kehk5nvreklhylx22p3x0yjydfsz9fv3fvg5xt': 'Neptune Finance nWETH',
+  'inj16jf4qkcarp3lan4wl2qkrelf4kduvvujwg0780': 'Neptune Finance nATOM',
+  // Black Panther
+  'inj16eckaf75gcu9uxdglyvmh63k9t0l7chd0qmu85': 'Black Panther (BLACK token)',
 };
 
 // Commission rates (%) for top validators (from validators_list.csv)
