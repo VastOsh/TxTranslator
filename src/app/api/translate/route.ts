@@ -86,6 +86,14 @@ const MSG_TO_CATEGORY: Record<string, string> = {
   '/injective.exchange.v1beta1.MsgDeposit': 'DEPOSIT',
   '/injective.exchange.v1beta1.MsgWithdraw': 'WITHDRAW',
   '/injective.exchange.v1beta1.MsgPrivilegedExecuteContract': 'CONTRACT',
+  // v2 exchange messages
+  '/injective.exchange.v2.MsgCreateSpotMarketOrder': 'TRADE',
+  '/injective.exchange.v2.MsgCreateSpotLimitOrder': 'TRADE',
+  '/injective.exchange.v2.MsgBatchUpdateOrders': 'TRADE',
+  '/injective.exchange.v2.MsgCreateDerivativeLimitOrder': 'TRADE',
+  '/injective.exchange.v2.MsgCreateDerivativeMarketOrder': 'TRADE',
+  '/injective.exchange.v2.MsgDeposit': 'DEPOSIT',
+  '/injective.exchange.v2.MsgWithdraw': 'WITHDRAW',
   '/ibc.applications.transfer.v1.MsgTransfer': 'BRIDGE',
   '/cosmwasm.wasm.v1.MsgExecuteContract': 'CONTRACT',
   '/injective.wasmx.v1.MsgExecuteContractCompat': 'CONTRACT',
@@ -100,8 +108,12 @@ const MSG_TO_CATEGORY: Record<string, string> = {
 };
 
 function detectTxCategory(messages: Array<{ '@type': string; [key: string]: any }>): string {
-  const first = messages[0];
+  let first = messages[0];
   if (!first) return 'OTHER';
+  // Unwrap MsgExec (authz) to inspect the inner message type
+  if (first['@type'] === '/cosmos.authz.v1beta1.MsgExec' && first.msgs?.[0]) {
+    first = first.msgs[0];
+  }
   const type = first['@type'] ?? '';
   // CosmWasm compat messages going to a known Helix router → TRADE
   if (
@@ -519,6 +531,7 @@ function buildUserPrompt(
   validatorLiveInfo?: ValidatorLiveInfo | null,
   networkAPR?: number | null,
   revokeData?: RevokeData | null,
+  authzGrantee?: string | null,
 ): string {
   const protocolContext = tx.target_protocol
     ? (PROTOCOL_CONTEXTS as Record<string, { context: string }>)[tx.target_protocol]?.context ?? null
@@ -629,6 +642,14 @@ ${messagesBlock}`;
   Granter (you): ${tx.sender}`;
   }
 
+  if (authzGrantee) {
+    const resolvedGrantee = resolveAddress(authzGrantee);
+    const agentDisplay = resolvedGrantee !== authzGrantee
+      ? resolvedGrantee
+      : `${authzGrantee.slice(0, 10)}…${authzGrantee.slice(-6)}`;
+    prompt += `\n\nNote: This transaction was executed via MsgAuthzExec by authorized agent "${agentDisplay}" on behalf of the wallet owner. In the 'action' field, append "(via authorized agent)" at the end. In 'details', include a "• AUTHZ:" bullet explaining this was executed by an authorized bot or portfolio manager using Injective's authz module — no private key was shared; delegation rights were pre-approved on-chain.`;
+  }
+
   if (tx.tradeData) {
     const td = tx.tradeData;
     const dir = td.isBuy ? 'BUY' : 'SELL';
@@ -676,11 +697,22 @@ export async function POST(request: NextRequest) {
     ]);
 
     const normalized = normalizeTransaction(hash, rawTx);
-    const validatorData = extractValidatorData(rawTx.tx.body.messages);
-    const txCategory = detectTxCategory(rawTx.tx.body.messages);
-    const multiSendCtx = buildMultiSendContext(rawTx.tx.body.messages);
+
+    // Unwrap MsgExec so all enrichment functions see the inner messages
+    const rawMsgs = rawTx.tx.body.messages;
+    const firstMsg = rawMsgs[0];
+    const isAuthzExec = firstMsg?.['@type'] === '/cosmos.authz.v1beta1.MsgExec';
+    const authzGrantee: string | null = isAuthzExec ? ((firstMsg.grantee as string) ?? null) : null;
+    const effectiveMsgs: any[] =
+      isAuthzExec && Array.isArray(firstMsg.msgs) && firstMsg.msgs.length > 0
+        ? firstMsg.msgs
+        : rawMsgs;
+
+    const validatorData = extractValidatorData(effectiveMsgs);
+    const txCategory = detectTxCategory(rawMsgs);
+    const multiSendCtx = buildMultiSendContext(effectiveMsgs);
     const unbondingData = txCategory === 'UNSTAKE'
-      ? computeUnbondingData(rawTx.tx.body.messages, normalized.timestamp, rawTx.tx_response.events)
+      ? computeUnbondingData(effectiveMsgs, normalized.timestamp, rawTx.tx_response.events)
       : null;
 
     // Staking: fetch live validator info + network APR in parallel
@@ -695,13 +727,13 @@ export async function POST(request: NextRequest) {
 
     // Authz revoke/grant
     const revokeData = (txCategory === 'REVOKE' || txCategory === 'GRANT')
-      ? extractRevokeData(rawTx.tx.body.messages)
+      ? extractRevokeData(effectiveMsgs)
       : null;
 
     // Governance: extract raw context from messages, then fetch proposal details from chain
     let governanceData: GovernanceData | null = null;
     if (txCategory === 'VOTE' || txCategory === 'PROPOSE' || txCategory === 'GOV_DEPOSIT') {
-      const govRaw = extractGovernanceRaw(rawTx.tx.body.messages, rawTx.tx_response.events);
+      const govRaw = extractGovernanceRaw(effectiveMsgs, rawTx.tx_response.events);
       let fetchedProposal: Awaited<ReturnType<typeof fetchProposalDetails>> = null;
       if (govRaw.proposalId && txCategory !== 'PROPOSE') {
         // For VOTE and GOV_DEPOSIT, fetch proposal details from the chain
@@ -741,6 +773,7 @@ export async function POST(request: NextRequest) {
       validatorLiveInfo,
       networkAPR,
       revokeData,
+      authzGrantee,
     );
 
     const message = await groq.chat.completions.create({

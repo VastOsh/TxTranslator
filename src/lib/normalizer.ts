@@ -17,6 +17,17 @@ const COSMWASM_COMPAT_TYPES = new Set([
 ]);
 
 const PRIVILEGED_CONTRACT_TYPE = '/injective.exchange.v1beta1.MsgPrivilegedExecuteContract';
+const AUTHZ_EXEC_TYPE = '/cosmos.authz.v1beta1.MsgExec';
+
+function unwrapIfMsgExec(msgs: any[]): { effectiveMsgs: any[]; authzGrantee: string | null } {
+  const first = msgs[0];
+  if (first?.['@type'] !== AUTHZ_EXEC_TYPE) return { effectiveMsgs: msgs, authzGrantee: null };
+  const inner: any[] = first.msgs ?? [];
+  return {
+    effectiveMsgs: inner.length > 0 ? inner : msgs,
+    authzGrantee: (first.grantee as string) ?? null,
+  };
+}
 
 // Paradyze prepends a MsgSend to their fee collector on every trade tx
 const PARADYZE_FEE_ADDRESS = 'inj1wkxt4nfacs9a24vkxw0f6gjwqhq4cnlv6d8ugf';
@@ -397,7 +408,7 @@ const DERIVATIVE_TRADE_TYPES = new Set([
 
 // Parse a Helix swap that went through the CosmWasm atomic swap router
 // (MsgExecuteContractCompat → inj12yj3...)
-function parseWasmHelixTrade(raw: CosmosTxResponse): TradeData | null {
+function parseWasmHelixTrade(raw: CosmosTxResponse, effectiveMsgs: any[]): TradeData | null {
   const allEvents: Array<{ type: string; attributes: Array<{ key: string; value: string }> }> = [
     ...(raw.tx_response.events ?? []),
     ...(raw.tx_response.logs?.flatMap((l: any) => l.events ?? []) ?? []),
@@ -475,7 +486,7 @@ function parseWasmHelixTrade(raw: CosmosTxResponse): TradeData | null {
 
   // Target price from swap_min_output (user's minimum acceptable price)
   let targetPrice: string | null = null;
-  const wasmMsg = raw.tx.body.messages.find(m =>
+  const wasmMsg = effectiveMsgs.find(m =>
     m['@type'] === '/injective.wasmx.v1.MsgExecuteContractCompat'
   );
   if (wasmMsg) {
@@ -536,9 +547,8 @@ function parseWasmHelixTrade(raw: CosmosTxResponse): TradeData | null {
   };
 }
 
-function parseDerivativeTradeData(raw: CosmosTxResponse): TradeData | null {
-  const msgs = raw.tx.body.messages;
-  const derivMsg = msgs.find(m => DERIVATIVE_TRADE_TYPES.has(m['@type'] ?? ''));
+function parseDerivativeTradeData(raw: CosmosTxResponse, effectiveMsgs: any[]): TradeData | null {
+  const derivMsg = effectiveMsgs.find(m => DERIVATIVE_TRADE_TYPES.has(m['@type'] ?? ''));
   if (!derivMsg) return null;
 
   const isLimitOrder = derivMsg['@type'] === '/injective.exchange.v1beta1.MsgCreateDerivativeLimitOrder';
@@ -614,23 +624,21 @@ function parseDerivativeTradeData(raw: CosmosTxResponse): TradeData | null {
   };
 }
 
-function parseTradeData(raw: CosmosTxResponse, senderAddress: string): TradeData | null {
-  const msgs = raw.tx.body.messages;
-
+function parseTradeData(raw: CosmosTxResponse, senderAddress: string, effectiveMsgs: any[]): TradeData | null {
   // Derivative (PERP/futures) orders
-  if (msgs.some(m => DERIVATIVE_TRADE_TYPES.has(m['@type'] ?? ''))) {
-    return parseDerivativeTradeData(raw);
+  if (effectiveMsgs.some(m => DERIVATIVE_TRADE_TYPES.has(m['@type'] ?? ''))) {
+    return parseDerivativeTradeData(raw, effectiveMsgs);
   }
 
   // CosmWasm atomic swap router path
-  const wasmMsg = msgs.find(m =>
+  const wasmMsg = effectiveMsgs.find(m =>
     (m['@type'] === '/injective.wasmx.v1.MsgExecuteContractCompat' ||
      m['@type'] === '/cosmwasm.wasm.v1.MsgExecuteContract') &&
     HELIX_ROUTER_CONTRACTS.has(m.contract ?? '')
   );
-  if (wasmMsg) return parseWasmHelixTrade(raw);
+  if (wasmMsg) return parseWasmHelixTrade(raw, effectiveMsgs);
 
-  const tradeMsg = msgs.find(m => SPOT_TRADE_TYPES.has(m['@type'] ?? ''));
+  const tradeMsg = effectiveMsgs.find(m => SPOT_TRADE_TYPES.has(m['@type'] ?? ''));
   if (!tradeMsg) return null;
 
   const isLimitOrder = tradeMsg['@type'] === '/injective.exchange.v1beta1.MsgCreateSpotLimitOrder';
@@ -793,8 +801,10 @@ export function normalizeTransaction(hash: string, raw: CosmosTxResponse): Norma
   const txr = raw.tx_response;
   const status: 'success' | 'failed' = txr.code === 0 ? 'success' : 'failed';
 
+  const { effectiveMsgs } = unwrapIfMsgExec(raw.tx.body.messages);
+
   // Parse without address resolution so identifyProtocol and routing checks see raw contract addresses
-  const rawMessages: ParsedMessage[] = raw.tx.body.messages.map(msg => {
+  const rawMessages: ParsedMessage[] = effectiveMsgs.map(msg => {
     const { '@type': type, ...content } = msg;
     if (COSMWASM_COMPAT_TYPES.has(type) && typeof content.msg === 'string') {
       content.msg = tryDecodeBase64(content.msg);
@@ -858,7 +868,7 @@ export function normalizeTransaction(hash: string, raw: CosmosTxResponse): Norma
   }
 
   const rawSender = extractSender(parsedMessages);
-  const tradeData = parseTradeData(raw, rawSender);
+  const tradeData = parseTradeData(raw, rawSender, effectiveMsgs);
 
   return {
     hash: txr.txhash || hash,

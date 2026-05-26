@@ -52,7 +52,8 @@ Tx·Translator adds a **financial intelligence layer on top of the Injective SDK
 | **IBC Transfers** | Cross-chain bridge with source/destination chain context |
 | **Governance** | Vote / Propose / Deposit with live tally, proposal title/summary, voting deadline |
 | **Bank transfers** | Single sends and MultiSend (atomic batch payments / airdrops) |
-| **Authz** | MsgGrant and MsgRevoke with human-readable permission labels |
+| **Authz grants** | MsgGrant and MsgRevoke with human-readable permission labels |
+| **MsgAuthzExec** | Bot and portfolio manager transactions — inner messages unwrapped and decoded in full; trade data, staking, governance and all enrichment work exactly as for direct txs; AI identifies the authorized agent |
 
 ---
 
