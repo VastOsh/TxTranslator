@@ -8,7 +8,9 @@ import { HELIX_ROUTER_CONTRACTS } from '@/constants/markets';
 export const alt = 'Injective Transaction Decoded';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
-export const dynamic = 'force-dynamic';
+// Tx data is immutable on-chain — cache the generated image at the CDN edge.
+// After first generation per hash, Twitter/Discord get an instant cached response.
+export const revalidate = 86400;
 
 const MSG_TO_CATEGORY: Record<string, string> = {
   '/cosmos.staking.v1beta1.MsgDelegate': 'STAKE',
@@ -85,15 +87,10 @@ const CATEGORY_COLOR: Record<string, string> = {
   TRANSACTION: '#94a3b8',
 };
 
-async function loadGoogleFont(family: string, weight: number): Promise<ArrayBuffer | null> {
+async function loadFont(): Promise<ArrayBuffer | null> {
   try {
-    const css = await fetch(
-      `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family)}:wght@${weight}`,
-      { headers: { 'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64)' } },
-    ).then(r => r.text());
-    const url = css.match(/src: url\((.+?)\) format\('(woff2|opentype|truetype)'\)/)?.[1];
-    if (!url) return null;
-    return fetch(url).then(r => r.arrayBuffer());
+    const buf = await readFile(join(process.cwd(), 'public/fonts/Rajdhani-Bold.ttf'));
+    return buf.buffer as ArrayBuffer;
   } catch {
     return null;
   }
@@ -140,7 +137,7 @@ export default async function Image({ params }: { params: Promise<{ hash: string
     logoSrc = `data:image/svg+xml;base64,${buf.toString('base64')}`;
   } catch {}
 
-  const fontData = await loadGoogleFont('Rajdhani', 700);
+  const fontData = await loadFont();
   const fontFamily = fontData ? 'Rajdhani' : 'sans-serif';
 
   return new ImageResponse(
