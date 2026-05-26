@@ -1465,3 +1465,13 @@
   color: #e8f4ff;
   border-color: rgba(255, 255, 255, 0.2);
 }
+
+.tx-share-btn--card {
+  color: rgba(0, 212, 255, 0.55);
+  border-color: rgba(0, 212, 255, 0.18);
+}
+
+.tx-share-btn--card:hover {
+  color: var(--tx-cyan);
+  border-color: rgba(0, 212, 255, 0.45);
+}
