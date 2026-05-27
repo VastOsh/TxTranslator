@@ -21,6 +21,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://txtranslator.vercel.app'),
   title: 'Tx·Translator — Injective Transaction Decoder',
   description: 'Paste any Injective transaction hash and get a plain-English breakdown of what happened.',
 };
