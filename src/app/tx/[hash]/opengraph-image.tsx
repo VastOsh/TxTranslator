@@ -114,21 +114,27 @@ export default async function Image({ params }: { params: Promise<{ hash: string
   let assetsLine = '';
 
   try {
-    const rawTx = await fetchTransaction(hash);
-    const normalized = normalizeTransaction(hash, rawTx);
-    category = detectCategory(rawTx.tx.body.messages);
-    protocol = normalized.target_protocol;
-    status = normalized.status;
+    // Hard cap: X's crawler times out around 5 s; stay well under to guarantee
+    // a response on first hit (before ISR caches the image on Vercel's CDN).
+    const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 3500));
+    const rawTx = await Promise.race([fetchTransaction(hash).catch(() => null), timeout]);
 
-    const nonZeroAssets = normalized.assets.filter(a => parseFloat(a.amount) > 0);
-    if (nonZeroAssets.length > 0) {
-      assetsLine = nonZeroAssets
-        .slice(0, 2)
-        .map(a => {
-          const sign = a.direction === 'in' ? '+' : a.direction === 'out' ? '−' : '';
-          return `${sign}${a.amount} ${a.humanDenom}`;
-        })
-        .join('   ·   ');
+    if (rawTx) {
+      const normalized = normalizeTransaction(hash, rawTx);
+      category = detectCategory(rawTx.tx.body.messages);
+      protocol = normalized.target_protocol;
+      status = normalized.status;
+
+      const nonZeroAssets = normalized.assets.filter(a => parseFloat(a.amount) > 0);
+      if (nonZeroAssets.length > 0) {
+        assetsLine = nonZeroAssets
+          .slice(0, 2)
+          .map(a => {
+            const sign = a.direction === 'in' ? '+' : a.direction === 'out' ? '−' : '';
+            return `${sign}${a.amount} ${a.humanDenom}`;
+          })
+          .join('   ·   ');
+      }
     }
   } catch {
     // render fallback generic card
