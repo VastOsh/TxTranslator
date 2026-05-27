@@ -820,6 +820,18 @@ export default function TranslationResult({ data }: Props) {
             rel="noopener noreferrer"
             title="Share with image card on X"
             aria-label="Share image card on X"
+            onClick={() => {
+              // Pre-warm Vercel's ISR cache the moment the user clicks.
+              // X's Twitterbot crawls the image URL ~seconds after the tweet
+              // is posted — without this the image is uncached and the bot
+              // times out, showing no card. The user spends a few seconds in
+              // X's compose window which is enough time for the generation to
+              // complete and be cached before the bot arrives.
+              fetch(`https://txtranslator.vercel.app/tx/${data.hash}/opengraph-image`, {
+                mode: 'no-cors',
+                credentials: 'omit',
+              }).catch(() => {});
+            }}
           >
             <ImageCardIcon />
             Card
