@@ -87,9 +87,18 @@ const CATEGORY_COLOR: Record<string, string> = {
   TRANSACTION: '#94a3b8',
 };
 
+const VALID_FONT_SIGS = [
+  '00010000', // TrueType
+  '74727565', // 'true' (Apple TrueType)
+  '4f54544f', // 'OTTO' (CFF/OTF)
+];
+
 async function loadFont(): Promise<ArrayBuffer | null> {
   try {
     const buf = await readFile(join(process.cwd(), 'public/fonts/Rajdhani-Bold.ttf'));
+    // Reject corrupt or WOFF/WOFF2 files — Satori only accepts raw TTF/OTF buffers
+    const sig = buf.slice(0, 4).toString('hex');
+    if (!VALID_FONT_SIGS.includes(sig)) return null;
     return buf.buffer as ArrayBuffer;
   } catch {
     return null;
