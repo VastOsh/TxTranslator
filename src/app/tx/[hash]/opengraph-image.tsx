@@ -131,24 +131,18 @@ export default async function Image({ params }: { params: Promise<{ hash: string
       ? `${hash.slice(0, 8).toUpperCase()}···${hash.slice(-8).toUpperCase()}`
       : hash.toUpperCase();
 
-  let logoSrc = '';
-  try {
-    const buf = await readFile(join(process.cwd(), 'public/logo.svg'));
-    logoSrc = `data:image/svg+xml;base64,${buf.toString('base64')}`;
-  } catch {}
-
   const fontData = await loadFont();
   const fontFamily = fontData ? 'Rajdhani' : 'sans-serif';
 
-  return new ImageResponse(
-    (
+  const card = (
       <div
         style={{
           width: '100%',
           height: '100%',
           display: 'flex',
           flexDirection: 'column',
-          background: `radial-gradient(ellipse 900px 600px at -80px -80px, ${color}1e, transparent 65%), #0b111e`,
+          backgroundColor: '#0b111e',
+          backgroundImage: `radial-gradient(ellipse 900px 600px at -80px -80px, ${color}1e, transparent 65%)`,
         }}
       >
         {/* Top accent line */}
@@ -174,19 +168,15 @@ export default async function Image({ params }: { params: Promise<{ hash: string
           {/* Header */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              {logoSrc ? (
-                <img src={logoSrc} width={44} height={44} />
-              ) : (
-                <div
-                  style={{
-                    width: 44,
-                    height: 44,
-                    background: color,
-                    borderRadius: 8,
-                    display: 'flex',
-                  }}
-                />
-              )}
+              <div
+                style={{
+                  width: 44,
+                  height: 44,
+                  background: color,
+                  borderRadius: 8,
+                  display: 'flex',
+                }}
+              />
               <span
                 style={{
                   fontSize: 26,
@@ -335,10 +325,35 @@ export default async function Image({ params }: { params: Promise<{ hash: string
           }}
         />
       </div>
-    ),
-    {
+  );
+
+  try {
+    return new ImageResponse(card, {
       ...size,
       fonts: fontData ? [{ name: 'Rajdhani', data: fontData, weight: 700, style: 'normal' }] : [],
-    },
-  );
+    });
+  } catch (err) {
+    console.error('[og-image] ImageResponse render failed:', err);
+    // Last-resort fallback: plain text card that will never crash
+    return new ImageResponse(
+      (
+        <div
+          style={{
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: '#0b111e',
+            color: '#e2e8f0',
+            fontSize: 48,
+            fontFamily: 'sans-serif',
+          }}
+        >
+          TX · TRANSLATOR — Injective Transaction Decoder
+        </div>
+      ),
+      size,
+    );
+  }
 }
