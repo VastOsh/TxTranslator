@@ -361,35 +361,6 @@ function buildTweetUrl(data: TranslationResponse): string {
   return `https://x.com/intent/tweet?text=${encodeURIComponent(buildTweetText(data))}`;
 }
 
-function buildCardTweetText(data: TranslationResponse): string {
-  switch (data.txCategory) {
-    case 'TRADE':    return `Just ${data.tradeData?.isBuy ? 'bought' : 'traded'} on @Injective 💱 #Injective #DeFi`;
-    case 'STAKE':    return `Staking INJ on @Injective ⚡ #Injective #nINJas`;
-    case 'UNSTAKE':  return `Unbonding INJ on @Injective 🔓 #Injective #Staking`;
-    case 'REDELEGATE': return `Redelegated my INJ stake on @Injective ⚡ #Injective`;
-    case 'CLAIM':    return `Claimed staking rewards on @Injective 💰 #Injective`;
-    case 'SEND':     return `Sent tokens on @Injective → #Injective`;
-    case 'BRIDGE':   return `Bridged assets via IBC on @Injective 🌉 #Injective`;
-    case 'VOTE':     return `Voted on @Injective governance 🗳️ #Injective #nINJas`;
-    case 'PROPOSE':  return `Submitted a governance proposal on @Injective 🏛️ #Injective`;
-    default:         return `My @Injective transaction decoded ⚡ #Injective`;
-  }
-}
-
-function buildCardTweetUrl(data: TranslationResponse): string {
-  const url = `https://txtranslator.vercel.app/tx/${data.hash}`;
-  return `https://x.com/intent/tweet?url=${encodeURIComponent(url)}&text=${encodeURIComponent(buildCardTweetText(data))}`;
-}
-
-function ImageCardIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-      <rect x="3" y="3" width="18" height="18" rx="2" />
-      <circle cx="8.5" cy="8.5" r="1.5" />
-      <polyline points="21 15 16 10 5 21" />
-    </svg>
-  );
-}
 
 function ArrowRightIcon() {
   return (
@@ -813,30 +784,7 @@ export default function TranslationResult({ data }: Props) {
             <XLogoIcon />
             Share
           </a>
-          <a
-            className="tx-share-btn tx-share-btn--card"
-            href={buildCardTweetUrl(data)}
-            target="_blank"
-            rel="noopener noreferrer"
-            title="Share with image card on X"
-            aria-label="Share image card on X"
-            onClick={() => {
-              // Pre-warm Vercel's ISR cache the moment the user clicks.
-              // X's Twitterbot crawls the image URL ~seconds after the tweet
-              // is posted — without this the image is uncached and the bot
-              // times out, showing no card. The user spends a few seconds in
-              // X's compose window which is enough time for the generation to
-              // complete and be cached before the bot arrives.
-              fetch(`https://txtranslator.vercel.app/tx/${data.hash}/opengraph-image`, {
-                mode: 'no-cors',
-                credentials: 'omit',
-              }).catch(() => {});
-            }}
-          >
-            <ImageCardIcon />
-            Card
-          </a>
-          <button
+<button
             className={`tx-copy-btn${copied ? ' copied' : ''}`}
             onClick={copyHash}
             title="Copy full hash"
