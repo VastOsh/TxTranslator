@@ -14,6 +14,12 @@ export const HELIX_ROUTER_CONTRACTS = new Set<string>([
   'inj12yj3mtjarujkhcp6lg3klxjjfrx2v7v8yswgp9', // atomic swap router
 ]);
 
+// Choice Exchange router/aggregator contracts — Terraswap-fork AMM
+export const CHOICE_EXCHANGE_CONTRACTS = new Set<string>([
+  'inj1ne2durmsx2jurvy4wgnhegv3xt6789up8xgum3', // Router
+  'inj1a4qvqym6ajewepa7v8y2rtxuz9f92kyq2zsg26', // Aggregation contract (multi-path routing)
+]);
+
 export interface HelixDerivativeMarket {
   ticker: string;
   baseSymbol: string;

@@ -4,7 +4,7 @@ import { fetchTransaction } from '@/lib/injective';
 import { normalizeTransaction, formatAmount, getDisplayDenom } from '@/lib/normalizer';
 import { fetchTokenPrices } from '@/lib/prices';
 import { PROTOCOL_CONTEXTS } from '@/constants/contracts';
-import { HELIX_ROUTER_CONTRACTS } from '@/constants/markets';
+import { HELIX_ROUTER_CONTRACTS, CHOICE_EXCHANGE_CONTRACTS } from '@/constants/markets';
 import { resolveAddress, VALIDATOR_VOTING_POWER, VALIDATOR_COMMISSION } from '@/constants/registry';
 import type { NormalizedTransaction, MultiSendRecipient, TradeData, UnbondingData, GovernanceData, RevokeData } from '@/types';
 
@@ -115,12 +115,13 @@ function detectTxCategory(messages: Array<{ '@type': string; [key: string]: any 
     first = first.msgs[0];
   }
   const type = first['@type'] ?? '';
-  // CosmWasm compat messages going to a known Helix router → TRADE
   if (
-    (type === '/injective.wasmx.v1.MsgExecuteContractCompat' ||
-     type === '/cosmwasm.wasm.v1.MsgExecuteContract') &&
-    HELIX_ROUTER_CONTRACTS.has(first.contract ?? '')
-  ) return 'TRADE';
+    type === '/injective.wasmx.v1.MsgExecuteContractCompat' ||
+    type === '/cosmwasm.wasm.v1.MsgExecuteContract'
+  ) {
+    const contract = first.contract ?? '';
+    if (HELIX_ROUTER_CONTRACTS.has(contract) || CHOICE_EXCHANGE_CONTRACTS.has(contract)) return 'TRADE';
+  }
   return MSG_TO_CATEGORY[type] ?? 'OTHER';
 }
 

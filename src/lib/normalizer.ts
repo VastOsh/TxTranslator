@@ -8,7 +8,7 @@ import {
   ACTION_LABELS,
   type ProtocolName,
 } from '@/constants/contracts';
-import { HELIX_MARKETS, HELIX_ROUTER_CONTRACTS, HELIX_DERIVATIVE_MARKETS } from '@/constants/markets';
+import { HELIX_MARKETS, HELIX_ROUTER_CONTRACTS, HELIX_DERIVATIVE_MARKETS, CHOICE_EXCHANGE_CONTRACTS } from '@/constants/markets';
 import { resolveAddress } from '@/constants/registry';
 
 const COSMWASM_COMPAT_TYPES = new Set([
@@ -547,6 +547,144 @@ function parseWasmHelixTrade(raw: CosmosTxResponse, effectiveMsgs: any[]): Trade
   };
 }
 
+// Strip the leading '_' that Injective's node adds to contract-emitted wasm attributes,
+// then build a flat key→value map (first occurrence wins, so _contract_address → contract_address).
+function normalizeWasmAttrs(
+  event: { attributes: Array<{ key: string; value: string }> },
+): Record<string, string> {
+  const m: Record<string, string> = {};
+  for (const a of event.attributes) {
+    const key = a.key.startsWith('_') ? a.key.slice(1) : a.key;
+    if (!(key in m)) m[key] = a.value;
+  }
+  return m;
+}
+
+// Terraswap-forked AMMs (Choice Exchange) encode the asset type as either a plain denom
+// string ("inj", "peggy0x..."), a "native:denom" string, or a CW20 contract address.
+function resolveWasmAssetDenom(raw: string): string {
+  if (raw.startsWith('native:')) return raw.slice(7);
+  if (raw.startsWith('token:')) return raw.slice(6);
+  return raw;
+}
+
+// Parse a Choice Exchange (Terraswap-fork) swap.
+// Each pair contract emits a `wasm` event per hop with Terraswap-style attributes.
+// For multi-hop routes: first event = user's input, last event = final output.
+function parseChoiceExchangeTrade(raw: CosmosTxResponse): TradeData | null {
+  const allEvents: Array<{ type: string; attributes: Array<{ key: string; value: string }> }> = [
+    ...(raw.tx_response.events ?? []),
+    ...(raw.tx_response.logs?.flatMap((l: any) => l.events ?? []) ?? []),
+  ];
+
+  const swapEvents = allEvents.filter(e => {
+    if (e.type !== 'wasm') return false;
+    return e.attributes.some(
+      a => (a.key === 'action' || a.key === '_action') && a.value === 'swap',
+    );
+  });
+
+  if (swapEvents.length === 0) return null;
+
+  const firstAttrs = normalizeWasmAttrs(swapEvents[0]);
+  const lastAttrs = normalizeWasmAttrs(swapEvents[swapEvents.length - 1]);
+
+  const offerAsset = resolveWasmAssetDenom(firstAttrs['offer_asset'] ?? '');
+  const offerAmountRaw = firstAttrs['offer_amount'];
+  const askAsset = resolveWasmAssetDenom(lastAttrs['ask_asset'] ?? '');
+  const returnAmountRaw = lastAttrs['return_amount'];
+  const commissionRaw = lastAttrs['commission_amount'];
+  const spreadRaw = lastAttrs['spread_amount'];
+
+  if (!offerAsset || !offerAmountRaw || !askAsset || !returnAmountRaw) return null;
+
+  const offerDecimals = TOKEN_DECIMALS[offerAsset] ?? 6;
+  const askDecimals = TOKEN_DECIMALS[askAsset] ?? 6;
+  const offerAmountHuman = parseFloat(offerAmountRaw) / Math.pow(10, offerDecimals);
+  const returnAmountHuman = parseFloat(returnAmountRaw) / Math.pow(10, askDecimals);
+  const offerSymbol = getDisplayDenom(offerAsset);
+  const askSymbol = getDisplayDenom(askAsset);
+
+  const executionPrice =
+    offerAmountHuman > 0 && returnAmountHuman > 0
+      ? (returnAmountHuman / offerAmountHuman).toFixed(6).replace(/\.?0+$/, '')
+      : null;
+
+  // spread_amount = price impact; slippage = spread / (return + spread)
+  let slippagePct: string | null = null;
+  if (spreadRaw) {
+    const spreadHuman = parseFloat(spreadRaw) / Math.pow(10, askDecimals);
+    const idealOut = returnAmountHuman + spreadHuman;
+    if (idealOut > 0) slippagePct = ((spreadHuman / idealOut) * 100).toFixed(4);
+  }
+
+  let feeAmount: string | null = null;
+  if (commissionRaw) {
+    const commHuman = parseFloat(commissionRaw) / Math.pow(10, askDecimals);
+    feeAmount = commHuman.toFixed(6).replace(/\.?0+$/, '') || '0';
+  }
+
+  return {
+    ticker: `${offerSymbol}/${askSymbol}`,
+    baseSymbol: offerSymbol,
+    quoteSymbol: askSymbol,
+    isBuy: false,
+    isLimitOrder: false,
+    spentAmount: offerAmountHuman.toFixed(6).replace(/\.?0+$/, ''),
+    spentSymbol: offerSymbol,
+    receivedAmount: returnAmountHuman.toFixed(6).replace(/\.?0+$/, ''),
+    receivedSymbol: askSymbol,
+    executionPrice,
+    targetPrice: null,
+    slippagePct,
+    feeAmount,
+    feeSymbol: askSymbol,
+  };
+}
+
+// Extract in/out assets for a Choice Exchange swap from wasm events.
+// Used to populate the assets[] array on NormalizedTransaction.
+function extractChoiceExchangeSwapAssets(
+  allEvents: Array<{ type: string; attributes: Array<{ key: string; value: string }> }>,
+): NormalizedAsset[] {
+  const swapEvents = allEvents.filter(e => {
+    if (e.type !== 'wasm') return false;
+    return e.attributes.some(
+      a => (a.key === 'action' || a.key === '_action') && a.value === 'swap',
+    );
+  });
+
+  if (swapEvents.length === 0) return [];
+
+  const firstAttrs = normalizeWasmAttrs(swapEvents[0]);
+  const lastAttrs = normalizeWasmAttrs(swapEvents[swapEvents.length - 1]);
+  const assets: NormalizedAsset[] = [];
+
+  const offerAsset = resolveWasmAssetDenom(firstAttrs['offer_asset'] ?? '');
+  const offerAmountRaw = firstAttrs['offer_amount'];
+  if (offerAsset && offerAmountRaw) {
+    assets.push({
+      denom: offerAsset,
+      humanDenom: getDisplayDenom(offerAsset),
+      amount: formatAmount(offerAmountRaw, offerAsset),
+      direction: 'out',
+    });
+  }
+
+  const askAsset = resolveWasmAssetDenom(lastAttrs['ask_asset'] ?? '');
+  const returnAmountRaw = lastAttrs['return_amount'];
+  if (askAsset && returnAmountRaw) {
+    assets.push({
+      denom: askAsset,
+      humanDenom: getDisplayDenom(askAsset),
+      amount: formatAmount(returnAmountRaw, askAsset),
+      direction: 'in',
+    });
+  }
+
+  return assets;
+}
+
 function parseDerivativeTradeData(raw: CosmosTxResponse, effectiveMsgs: any[]): TradeData | null {
   const derivMsg = effectiveMsgs.find(m => DERIVATIVE_TRADE_TYPES.has(m['@type'] ?? ''));
   if (!derivMsg) return null;
@@ -630,13 +768,21 @@ function parseTradeData(raw: CosmosTxResponse, senderAddress: string, effectiveM
     return parseDerivativeTradeData(raw, effectiveMsgs);
   }
 
-  // CosmWasm atomic swap router path
+  // Helix CosmWasm atomic swap router path
   const wasmMsg = effectiveMsgs.find(m =>
     (m['@type'] === '/injective.wasmx.v1.MsgExecuteContractCompat' ||
      m['@type'] === '/cosmwasm.wasm.v1.MsgExecuteContract') &&
     HELIX_ROUTER_CONTRACTS.has(m.contract ?? '')
   );
   if (wasmMsg) return parseWasmHelixTrade(raw, effectiveMsgs);
+
+  // Choice Exchange (Terraswap-fork AMM) path
+  const choiceMsg = effectiveMsgs.find(m =>
+    (m['@type'] === '/injective.wasmx.v1.MsgExecuteContractCompat' ||
+     m['@type'] === '/cosmwasm.wasm.v1.MsgExecuteContract') &&
+    CHOICE_EXCHANGE_CONTRACTS.has(m.contract ?? '')
+  );
+  if (choiceMsg) return parseChoiceExchangeTrade(raw);
 
   const tradeMsg = effectiveMsgs.find(m => SPOT_TRADE_TYPES.has(m['@type'] ?? ''));
   if (!tradeMsg) return null;
@@ -824,14 +970,25 @@ export function normalizeTransaction(hash: string, raw: CosmosTxResponse): Norma
   const logs = txr.logs ?? [];
   const eventAssets = extractAssetsFromLogs(logs);
 
-  // For CosmWasm Helix swaps, supplement with coin_received from top-level events
   const isHelixWasmSwap = rawMessages.some(m =>
     COSMWASM_COMPAT_TYPES.has(m.type) &&
     HELIX_ROUTER_CONTRACTS.has((m.content.contract ?? '') as string)
   );
 
+  const isChoiceExchangeSwap = rawMessages.some(m =>
+    COSMWASM_COMPAT_TYPES.has(m.type) &&
+    CHOICE_EXCHANGE_CONTRACTS.has((m.content.contract ?? '') as string)
+  );
+
   let assets: NormalizedAsset[];
-  if (isHelixWasmSwap) {
+  if (isChoiceExchangeSwap) {
+    const allEvents: Array<{ type: string; attributes: Array<{ key: string; value: string }> }> = [
+      ...(txr.events ?? []),
+      ...(logs.flatMap((l: any) => l.events ?? [])),
+    ];
+    const swapAssets = extractChoiceExchangeSwapAssets(allEvents);
+    assets = swapAssets.length > 0 ? swapAssets : extractAssetsFromMessages(rawMessages);
+  } else if (isHelixWasmSwap) {
     // Build from wasm-atomic_swap_execution event for accuracy
     const topEvents: Array<{ type: string; attributes: Array<{ key: string; value: string }> }> =
       txr.events ?? [];
