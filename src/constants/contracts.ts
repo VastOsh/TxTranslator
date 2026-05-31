@@ -7,6 +7,7 @@ export type ProtocolName =
   | 'Black Panther'
   | 'Choice Exchange'
   | 'Paradyze'
+  | 'Talis Protocol'
   | 'IBC Transfer'
   | 'Staking'
   | 'Governance'
@@ -89,7 +90,26 @@ export const CONTRACT_PROTOCOLS: Record<string, ProtocolName> = {
   'inj1yr7srge0lku4h3gd473qdlpdfw63ejdjwkh4c0': 'Choice Exchange', // Burn manager
   // Paradyze: AI-powered trading terminal on Injective using native exchange module
   // No CosmWasm contracts — add here if on-chain vault/prediction contracts are deployed
+  // Talis Protocol — NFT Marketplace (source: on-chain contract labels via Injective LCD)
+  'inj1l9nh9wv24fktjvclc4zgrgyzees7rwdtx45f54': 'Talis Protocol', // Fixed-price marketplace (label: "Talis marketplace", code 1101)
+  'inj16naevyffqm33znyf5aky86z8s09zvpyg8u8vtl': 'Talis Protocol', // English auction (label: "Talis english auction", code 1100)
+  'inj1u2l88u94h056z7lz0vkksxgwkdwn35x23r5dg8': 'Talis Protocol', // P2P escrow (label: "Talis P2P escrow", code 1102)
+  'inj1gwutptfmlxd7netk5jw58zcqux00jx2pas73p9': 'Talis Protocol', // Offers v1 (label: "Talis offers", code 79)
+  'inj1u30yff9df5mu0rcp3jtr5wv5j8069asdl9ywl7': 'Talis Protocol', // Offers v2 (label: "Talis offers", code 79)
 };
+
+// Talis Protocol marketplace contracts — used to detect NFT listing via send_nft in normalizer
+export const TALIS_MARKETPLACE_CONTRACTS = new Set<string>([
+  'inj1l9nh9wv24fktjvclc4zgrgyzees7rwdtx45f54', // fixed-price marketplace
+  'inj16naevyffqm33znyf5aky86z8s09zvpyg8u8vtl', // english auction
+  'inj1u2l88u94h056z7lz0vkksxgwkdwn35x23r5dg8', // P2P escrow
+]);
+
+// Talis Protocol offers contracts
+export const TALIS_OFFERS_CONTRACTS = new Set<string>([
+  'inj1gwutptfmlxd7netk5jw58zcqux00jx2pas73p9',
+  'inj1u30yff9df5mu0rcp3jtr5wv5j8069asdl9ywl7',
+]);
 
 export const PROTOCOL_CONTEXTS: Record<ProtocolName, Protocol> = {
   Helix: {
@@ -139,6 +159,12 @@ export const PROTOCOL_CONTEXTS: Record<ProtocolName, Protocol> = {
     description: 'AI-powered trading terminal',
     context:
       'Paradyze is an AI-powered trading terminal on Injective — "Your On-Chain Wallstreet." Users execute spot and perpetuals trades through natural language commands ("Buy 10 INJ", "short BTC with 5x leverage"). The platform also features ranked head-to-head trading battles and autonomous AI agents for 24/7 strategy execution. Paradyze routes orders through Injective\'s native exchange module.',
+  },
+  'Talis Protocol': {
+    name: 'Talis Protocol',
+    description: 'NFT Marketplace on Injective',
+    context:
+      'Talis Protocol is the leading NFT marketplace on Injective — the first to launch on mainnet (June 2023). Users can buy, sell, mint, and trade NFTs using INJ and other Injective-native tokens. NFT collections use the CW721 standard. Key actions: fixed-price listings (via send_nft to marketplace), direct purchases, collection and individual offers, and randomized mints (CandyMachine). TALIS is the protocol\'s governance and fee-distribution token. Over 140,000 wallets registered and 200,000+ INJ transacted.',
   },
   'IBC Transfer': {
     name: 'IBC Transfer',

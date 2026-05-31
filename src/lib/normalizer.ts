@@ -6,6 +6,7 @@ import {
   TOKEN_DECIMALS,
   DENOM_DISPLAY,
   ACTION_LABELS,
+  TALIS_MARKETPLACE_CONTRACTS,
   type ProtocolName,
 } from '@/constants/contracts';
 import { HELIX_MARKETS, HELIX_ROUTER_CONTRACTS, HELIX_DERIVATIVE_MARKETS, CHOICE_EXCHANGE_CONTRACTS } from '@/constants/markets';
@@ -158,6 +159,13 @@ function identifyProtocol(messages: ParsedMessage[]): ProtocolName {
     if (COSMWASM_COMPAT_TYPES.has(msg.type)) {
       const contract = msg.content.contract as string | undefined;
       if (contract && CONTRACT_PROTOCOLS[contract]) return CONTRACT_PROTOCOLS[contract];
+
+      // Talis: send_nft to a Talis marketplace = user listing an NFT for sale
+      const innerMsg = msg.content.msg;
+      if (innerMsg && typeof innerMsg === 'object') {
+        const sendNft = innerMsg.send_nft as { contract?: string } | undefined;
+        if (sendNft?.contract && TALIS_MARKETPLACE_CONTRACTS.has(sendNft.contract)) return 'Talis Protocol';
+      }
     }
 
     // MsgPrivilegedExecuteContract uses `contract_address`, not `contract`
@@ -197,6 +205,34 @@ function inferMainAction(messages: ParsedMessage[], protocol: ProtocolName): str
     if (orderMsg) primaryMsg = orderMsg;
   }
   const primaryType = primaryMsg.type;
+
+  if (COSMWASM_COMPAT_TYPES.has(primaryType) && protocol === 'Talis Protocol') {
+    const innerMsg = messages[0].content.msg;
+    if (innerMsg && typeof innerMsg === 'object') {
+      const action = Object.keys(innerMsg)[0];
+      const TALIS_ACTION_LABELS: Record<string, string> = {
+        buy_nft: 'Buy NFT',
+        buy: 'Buy NFT',
+        buy_token: 'Buy NFT',
+        execute_buy: 'Buy NFT',
+        send_nft: 'List NFT',
+        transfer_nft: 'Transfer NFT',
+        mint: 'Mint NFT',
+        create_offer: 'Make Offer',
+        make_offer: 'Make Offer',
+        accept_offer: 'Accept Offer',
+        withdraw_offer: 'Withdraw Offer',
+        cancel_offer: 'Cancel Offer',
+        delist: 'Cancel Listing',
+        cancel_listing: 'Cancel Listing',
+        remove_listing: 'Cancel Listing',
+        update_listing: 'Update Listing',
+      };
+      const label = TALIS_ACTION_LABELS[action] ?? action.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+      return `Talis Protocol: ${label}`;
+    }
+    return 'Talis Protocol Interaction';
+  }
 
   if (COSMWASM_COMPAT_TYPES.has(primaryType) && protocol !== 'Unknown') {
     const innerMsg = messages[0].content.msg;
