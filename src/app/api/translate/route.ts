@@ -777,7 +777,7 @@ export async function POST(request: NextRequest) {
       authzGrantee,
     );
 
-    const HEAVY_CATEGORIES = new Set(['TRADE', 'VOTE', 'PROPOSE', 'GOV_DEPOSIT']);
+    const HEAVY_CATEGORIES = new Set(['TRADE', 'VOTE', 'PROPOSE', 'GOV_DEPOSIT', 'STAKE', 'UNSTAKE', 'REDELEGATE', 'SEND']);
     const model = HEAVY_CATEGORIES.has(txCategory) ? 'llama-3.3-70b-versatile' : 'llama-3.1-8b-instant';
 
     const message = await groq.chat.completions.create({
