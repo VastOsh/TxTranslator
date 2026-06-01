@@ -35,6 +35,10 @@ export const CHANGELOG: ChangelogVersion[] = [
         type: 'improvement',
         text: 'Live validator info and network APR are now fetched for UNSTAKE and REDELEGATE transactions, giving the AI accurate validator name, voting power, and commission data for those flows',
       },
+      {
+        type: 'fix',
+        text: 'Sellers in Talis buy transactions can now view their own perspective: a "Seller in this tx?" strip shows detected seller addresses — clicking one re-decodes the transaction from that wallet\'s point of view (sellers never sign the buy tx, so they could not reach it via wallet scan)',
+      },
     ],
   },
   {
