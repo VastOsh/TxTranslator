@@ -7,7 +7,9 @@ import TranslationResult from '@/components/TranslationResult';
 import WalletTxList from '@/components/WalletTxList';
 import InjChart from '@/components/InjChart';
 import RecentHistory from '@/components/RecentHistory';
+import Changelog from '@/components/Changelog';
 import { useRecentTxs } from '@/hooks/useRecentTxs';
+import { CURRENT_VERSION } from '@/data/changelog';
 import type { TranslationResponse } from '@/types';
 import type { WalletTx } from '@/components/WalletTxList';
 
@@ -52,6 +54,7 @@ function WalletSkeleton() {
 }
 
 export default function Home() {
+  const [changelogOpen, setChangelogOpen] = useState(false);
   const [result, setResult] = useState<TranslationResponse | null>(null);
   const [walletTxs, setWalletTxs] = useState<WalletTx[] | null>(null);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
@@ -158,8 +161,15 @@ export default function Home() {
           <Image src="/logo.svg" alt="Tx·Translator logo" width={28} height={28} priority />
           TX · TRANSLATOR
         </div>
-        <span className="tx-footer">Injective Mainnet</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+          <span className="tx-footer">Injective Mainnet</span>
+          <button className="tx-version-btn" onClick={() => setChangelogOpen(true)}>
+            {CURRENT_VERSION}
+          </button>
+        </div>
       </header>
+
+      {changelogOpen && <Changelog onClose={() => setChangelogOpen(false)} />}
 
       {/* ── Hero ── */}
       <section

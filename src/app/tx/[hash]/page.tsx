@@ -6,7 +6,9 @@ import Link from 'next/link';
 import Image from 'next/image';
 import TranslationResult from '@/components/TranslationResult';
 import InjChart from '@/components/InjChart';
+import Changelog from '@/components/Changelog';
 import { useRecentTxs } from '@/hooks/useRecentTxs';
+import { CURRENT_VERSION } from '@/data/changelog';
 import type { TranslationResponse } from '@/types';
 
 function LoadingSkeleton() {
@@ -36,6 +38,7 @@ export default function TxPage() {
   const hash = typeof params.hash === 'string' ? params.hash : '';
   const viewerAddress = searchParams.get('wallet') ?? undefined;
 
+  const [changelogOpen, setChangelogOpen] = useState(false);
   const [result, setResult] = useState<TranslationResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -94,8 +97,15 @@ export default function TxPage() {
             TX · TRANSLATOR
           </div>
         </Link>
-        <span className="tx-footer">Injective Mainnet</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+          <span className="tx-footer">Injective Mainnet</span>
+          <button className="tx-version-btn" onClick={() => setChangelogOpen(true)}>
+            {CURRENT_VERSION}
+          </button>
+        </div>
       </header>
+
+      {changelogOpen && <Changelog onClose={() => setChangelogOpen(false)} />}
 
       <div style={{ width: '100%', maxWidth: 680, marginBottom: '1.25rem' }}>
         <Link href="/" className="tx-back-link">← Decode another transaction</Link>
