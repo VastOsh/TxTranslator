@@ -1,3 +1,4 @@
+import https from 'node:https';
 import { NextRequest, NextResponse } from 'next/server';
 import { unstable_cache } from 'next/cache';
 import OpenAI from 'openai';
@@ -161,16 +162,27 @@ function extractValidatorData(rawMessages: any[]): {
   return { address: null, name: null, votingPower: null, commission: null };
 }
 
-function httpsGetJson(url: string) {
-  return fetch(url, {
-    headers: {
-      Accept: 'application/json',
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-    },
-    signal: AbortSignal.timeout(8_000),
-  })
-    .then(res => res.json())
-    .catch(() => null);
+// Same TLS bypass as lib/injective.ts — Windows Node.js lacks the Injective endpoint CA cert
+const bypassAgent = new https.Agent({ rejectUnauthorized: false });
+
+function httpsGetJson(url: string): Promise<any> {
+  return new Promise((resolve) => {
+    const req = https.get(url, {
+      agent: bypassAgent,
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+      },
+    }, (res) => {
+      let raw = '';
+      res.on('data', (chunk) => (raw += chunk));
+      res.on('end', () => {
+        try { resolve(JSON.parse(raw)); } catch { resolve(null); }
+      });
+    });
+    req.on('error', () => resolve(null));
+    req.setTimeout(8_000, () => { req.destroy(); resolve(null); });
+  });
 }
 
 async function fetchCw721CollectionName(contract: string): Promise<string | null> {
@@ -870,7 +882,7 @@ async function computeTranslation(hash: string, viewerAddress: string) {
     // Staking: fetch live validator info + network APR in parallel
     let validatorLiveInfo: ValidatorLiveInfo | null = null;
     let networkAPR: number | null = null;
-    if (txCategory === 'STAKE' && validatorData.address) {
+    if ((txCategory === 'STAKE' || txCategory === 'UNSTAKE' || txCategory === 'REDELEGATE') && validatorData.address) {
       [validatorLiveInfo, networkAPR] = await Promise.all([
         fetchValidatorLiveInfo(validatorData.address),
         fetchNetworkAPR(),

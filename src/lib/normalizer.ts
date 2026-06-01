@@ -435,11 +435,16 @@ const SPOT_TRADE_TYPES = new Set([
   '/injective.exchange.v1beta1.MsgCreateSpotMarketOrder',
   '/injective.exchange.v1beta1.MsgCreateSpotLimitOrder',
   '/injective.exchange.v1beta1.MsgBatchUpdateOrders',
+  '/injective.exchange.v2.MsgCreateSpotMarketOrder',
+  '/injective.exchange.v2.MsgCreateSpotLimitOrder',
+  '/injective.exchange.v2.MsgBatchUpdateOrders',
 ]);
 
 const DERIVATIVE_TRADE_TYPES = new Set([
   '/injective.exchange.v1beta1.MsgCreateDerivativeLimitOrder',
   '/injective.exchange.v1beta1.MsgCreateDerivativeMarketOrder',
+  '/injective.exchange.v2.MsgCreateDerivativeLimitOrder',
+  '/injective.exchange.v2.MsgCreateDerivativeMarketOrder',
 ]);
 
 // Parse a Helix swap that went through the CosmWasm atomic swap router
@@ -725,7 +730,9 @@ function parseDerivativeTradeData(raw: CosmosTxResponse, effectiveMsgs: any[]): 
   const derivMsg = effectiveMsgs.find(m => DERIVATIVE_TRADE_TYPES.has(m['@type'] ?? ''));
   if (!derivMsg) return null;
 
-  const isLimitOrder = derivMsg['@type'] === '/injective.exchange.v1beta1.MsgCreateDerivativeLimitOrder';
+  const isLimitOrder =
+    derivMsg['@type'] === '/injective.exchange.v1beta1.MsgCreateDerivativeLimitOrder' ||
+    derivMsg['@type'] === '/injective.exchange.v2.MsgCreateDerivativeLimitOrder';
   const order = derivMsg.order;
   if (!order) return null;
 
@@ -823,16 +830,25 @@ function parseTradeData(raw: CosmosTxResponse, senderAddress: string, effectiveM
   const tradeMsg = effectiveMsgs.find(m => SPOT_TRADE_TYPES.has(m['@type'] ?? ''));
   if (!tradeMsg) return null;
 
-  const isLimitOrder = tradeMsg['@type'] === '/injective.exchange.v1beta1.MsgCreateSpotLimitOrder';
+  const isLimitOrder =
+    tradeMsg['@type'] === '/injective.exchange.v1beta1.MsgCreateSpotLimitOrder' ||
+    tradeMsg['@type'] === '/injective.exchange.v2.MsgCreateSpotLimitOrder';
 
   // Extract the first spot order from the message
   let order: any = null;
   if (tradeMsg['@type'] === '/injective.exchange.v1beta1.MsgCreateSpotMarketOrder' ||
-      tradeMsg['@type'] === '/injective.exchange.v1beta1.MsgCreateSpotLimitOrder') {
+      tradeMsg['@type'] === '/injective.exchange.v1beta1.MsgCreateSpotLimitOrder' ||
+      tradeMsg['@type'] === '/injective.exchange.v2.MsgCreateSpotMarketOrder' ||
+      tradeMsg['@type'] === '/injective.exchange.v2.MsgCreateSpotLimitOrder') {
     order = tradeMsg.order;
   } else {
-    // MsgBatchUpdateOrders — take the first spot order being created
+    // MsgBatchUpdateOrders — try spot orders first, then derivative
     const created: any[] = tradeMsg.spot_orders_to_create ?? tradeMsg.spot_market_orders_to_create ?? [];
+    if (created.length === 0 && (tradeMsg.derivative_orders_to_create?.length ?? 0) > 0) {
+      // Batch contains only derivative orders — synthesize a limit order msg for the derivative parser
+      const synth = { '@type': '/injective.exchange.v1beta1.MsgCreateDerivativeLimitOrder', order: tradeMsg.derivative_orders_to_create[0] };
+      return parseDerivativeTradeData(raw, [synth]);
+    }
     order = created[0] ?? null;
   }
   if (!order) return null;
