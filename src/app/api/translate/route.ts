@@ -56,7 +56,7 @@ Return ONLY a JSON object with exactly these three fields:
 {
   "action": "One sentence starting with 'You'. State the verb, exact amount, and named actor. For governance: 'You voted [OPTION] on Proposal #[ID]: [TITLE].' — NEVER include a wallet address in action. CRITICAL for STAKE/UNSTAKE: NEVER read the token amount from raw message content (it contains raw atomic units, e.g. 16000000000000000 = 0.016 INJ) — always use the exact amount shown on the 'Token movements' line. Example for staking: 'You delegated 0.016 INJ to Zellic.'",
   "impact": "Wallet balance change only. Use +X TOKEN for gains, -X TOKEN for losses, include USD value when available. Example: '-100 INJ (~$434.00 USD)'. For MULTISEND: use the total aggregated outflow as a single value — never list individual per-recipient amounts here. For UNDELEGATE: write '+X TOKEN (~$Y USD) — unlocks [DATE]' where DATE comes verbatim from the backend-provided 'unbonding_release_date' field. If no balance changed, explain why in one clause.",
-  "details": "2–3 sentences of expert insight the user cannot derive from the action/impact alone. Follow these rules per type: DELEGATE — Output EXACTLY this structure with no deviations: three lines each starting with a bullet "• " followed immediately by the label, a colon, a space, and the content. The three labels are VALIDATOR, YIELD, REMINDER — never write the word CATEGORY. Format verbatim: "• VALIDATOR: [content]\\n• YIELD: [content]\\n• REMINDER: [content]". VALIDATOR: state the validator's name and classify its network standing using the live voting power % provided by the backend (>5% = significant weight, concentration risk; 1–5% = established mid-tier; <1% = smaller/niche validator); mention total staked INJ if provided. YIELD: The effective delegator APR is already displayed in the UI — do NOT restate a percentage. Instead: if the validator's commission ≥ 10%, flag it as notably high and suggest checking lower-commission validators; if < 5%, note it as competitive. Always close with a reminder that re-staking claimed rewards compounds returns over time. REMINDER: undelegating starts a mandatory 21-day unbonding lock with zero staking rewards — consider Hydro Protocol's hINJ for liquid staking that avoids this lockup entirely. UNDELEGATE — Output EXACTLY this structure with no deviations: three lines each starting with a bullet "• " followed immediately by the label, a colon, a space, and the content. The three labels are TIMELINE, WARNING, STRATEGY — never write the word CATEGORY. Format verbatim: "• TIMELINE: [content]\\n• WARNING: [content]\\n• STRATEGY: [content]". TIMELINE content: state the exact release date from 'unbonding_release_date' and that 21 days is Injective's non-negotiable unbonding rule. WARNING content: zero staking rewards during the window; if INJ price known, compute missed_USD = amount × price × 0.15 ÷ 365 × 21 and state it (e.g. "At $12/INJ, ~$8.64 in foregone yield"). STRATEGY content: Hydro Protocol's hINJ avoids this lockup — it stays liquid while earning staking rewards; name one specific action for release (redelegate, Mito vault, or Helix). Example output: "• TIMELINE: Funds release on June 2, 2026 — Injective enforces a strict 21-day unbonding rule with no exceptions.\\n• WARNING: Zero staking rewards for 21 days. At $12/INJ, ~$8.64 in foregone yield on 100 INJ.\\n• STRATEGY: Hydro Protocol's hINJ avoids this lockup entirely — liquid and earning rewards simultaneously. On release, consider staking again or depositing into a Mito vault." REDELEGATE — note the redelegation is instant with no 21-day gap, but the destination validator's commission and VP apply going forward. CLAIM REWARDS — mention that re-delegating the claimed amount compounds yield and state approximately how much more that adds annually at the same APR. SEND — one sentence naming the recipient (use resolved name if known, otherwise truncate address to first 8 + last 6 chars); one sentence on speed and cost (INJ transfers settle in ~1 second for a fraction of a cent); if the recipient is a known exchange or smart contract, flag that funds are moving to a custodial or protocol address. MULTISEND — state the number of recipients and total value distributed in one sentence; note whether the pattern looks like a batch payment (few large outputs) or a distribution/airdrop (many small outputs); mention that all transfers in a MsgMultiSend are atomic — they all succeed or all revert together. TRADE (Helix) — Output exactly 3 bullet lines separated by literal \\n, each starting with "• " then the label, then ": ". The three labels are FEES, EXECUTION, OPPORTUNITY — never write the word CATEGORY. All numeric values (fee, price, slippage, savings) are pre-calculated by the backend — copy them verbatim, do NOT recompute or round differently. FEES: state the exact fee amount and symbol; mention the effective rate %; if next-VIP-tier savings data is provided, quote the exact saving amount — e.g. "staking 500 more INJ saves 0.0007 USDT on this trade". For limit (maker) orders: note fee is 0% (maker rebate). EXECUTION: state the exact backend-calculated execution price and slippage (never recompute these); for limit orders say "filled at your exact limit price — 0% slippage, a key advantage of limit orders"; for market orders classify slippage (< 0.05% = near-perfect, 0.05–0.3% = clean, 0.3–1% = moderate, > 1% = significant). OPPORTUNITY: state one specific, actionable next step for the tokens just received — no speculation about why the trade was made. If received token is a stablecoin (USDT/USDC/USDe): mention Mito Finance yield vaults on Injective. If received is INJ: mention staking earns ~15% APY and increases governance weight. If received is another asset: name one concrete use case in the Injective ecosystem. Example for CosmWasm market sell: "• FEES: 0.0023 USDT (0.100% taker rate). Staking 500 more INJ (VIP2) saves 0.0005 USDT on this trade.\\n• EXECUTION: 4.5054 USDT/INJ — 0.10% slippage, clean execution for a market swap.\\n• OPPORTUNITY: Your 2.25 USDT can earn yield in Mito Finance's automated USDT vault." For DERIVATIVE/PERP trades (order type contains "PERP"): FEES: limit (maker) PERP orders pay 0% fee when they fill — state "0% maker fee: your limit order earns the spread instead of paying it." Market (taker) PERP orders pay a taker fee; state the rate if known. EXECUTION: state the limit price in quote/base format; if fill status is RESTING say "Order resting at [price] — not yet filled. [marginAmount] [marginSymbol] is locked as margin. Leverage: [leverage]. Notional value: [quantity × price] [quote]."; if filled, state the execution price and slippage. OPPORTUNITY: for a BUY PERP on a stock/IPO (SpaceX, AAPL, TSLA etc.): note that tokenized perpetuals on Injective track real-world equity prices via oracle feeds; state that leverage amplifies both gains and losses — a 1% underlying price move results in approximately [leverage] × 1% PnL on the margin; suggest setting a stop-loss or monitoring the oracle price feed to manage liquidation risk. VOTE — Output exactly 3 bullet lines separated by literal \\n, each starting with "• " then the label then ": ". Labels: WHAT'S AT STAKE, POSITION RISK, STATUS. WHAT'S AT STAKE: 1-2 sentences — explain what the proposal changes AND the strategic reason behind it; never just restate the title. Go one layer deeper: if migrating collateral (e.g., USDT → USDC), explain it unifies liquidity on Helix and reduces slippage; if a software upgrade, name the specific improvement; if a parameter change, explain the economic effect. Translate all technical terms into plain language. POSITION RISK: scan the proposal title and summary for any of these trigger keywords: "settle", "settlement", "migrat", "migration", "close", "deprecat", "delist", "suspend", "halt", "liquidat". If ANY match: issue a direct warning naming the specific market and deadline — format: "⚠ If you hold open positions on [MARKET], they will be force-closed at the settlement price on [DATE]. Close them manually before the deadline to control your exit." Do NOT fabricate a market name or date — use only what is stated in the proposal summary. If no trigger keyword matches: state the governance weight of the vote — note whether NO WITH VETO (if that was the option cast) would burn depositor funds if it exceeds 33.4%; do NOT invent penalty narratives for YES or NO votes. STATUS: always state Injective's passing conditions — quorum requires >33.4% of total staked INJ to participate, then YES must exceed 50% of non-abstain votes cast. If tally data is provided, report it and note whether quorum and YES majority appear on track. If no tally data is provided, do NOT say "not yet available" — instead state "Voting is live — a real-time tracking link is shown below." PROPOSE — Output exactly 3 bullet lines (• PROPOSAL, • PROCESS, • RISK). PROPOSAL: explain what the proposal would change or enable on Injective — base this on the title and summary, translating technical content into plain language; state the proposal ID if known. PROCESS: the proposal has entered the deposit period — once the minimum INJ deposit threshold is reached (typically 500 INJ on Injective), a 5-day voting period opens automatically; validators and delegators vote with their staked INJ weight. RISK: if more than 33.4% of votes are NO WITH VETO, the entire deposit pool (including the proposer's initial deposit) is burned — this is Injective's anti-spam mechanism to deter frivolous or malicious governance proposals. GOV_DEPOSIT — Output exactly 3 bullet lines (• PROPOSAL, • MECHANICS, • RISK). PROPOSAL: explain what the proposal is about in plain English using the title and summary provided. MECHANICS: the deposited INJ is held in escrow by the governance module and returned to depositors if the proposal passes or is normally rejected; once cumulative deposits meet the minimum threshold, the proposal moves to the active voting period. RISK: if the proposal is vetoed by >33.4% NO WITH VETO votes, your deposit is burned along with all other depositors' funds — research the proposal's community reception before depositing. REVOKE — Output exactly 3 bullet lines separated by literal \\n, each starting with "• " then the label then ": ". Labels: AUTHORIZATION, SECURITY, IMPACT. AUTHORIZATION: state what permission was revoked (use the human-readable label provided, e.g. "delegation rights") and identify the grantee by name if known, otherwise truncate the address to first 8 + last 6 chars. SECURITY: authz grants persist indefinitely on-chain until explicitly revoked — this revocation is good key hygiene; if the grantee is an unknown address, suggest the user verify what originally prompted the grant (e.g. a bot, a DApp, or a portfolio manager). IMPACT: no token movement occurs — balances, staked positions, and pending rewards are entirely unaffected; the permission change takes effect immediately and is irreversible (a new MsgGrant would be required to restore it). GRANT — Output exactly 3 bullet lines separated by literal \\n, each starting with "• " then the label then ": ". Labels: PERMISSION, RISK, MANAGEMENT. PERMISSION: state what capability was granted and to whom (use the human-readable label from the backend). RISK: the grantee can now execute this action on your behalf without further confirmation — only grant to addresses you fully trust, such as your own automation bots or audited smart contracts. MANAGEMENT: this grant is active indefinitely until revoked with MsgRevoke; review your active grants periodically on any Injective explorer to avoid forgotten access. TRANSFER — fee paid and destination chain if IBC. NFT (Talis Protocol) — Output exactly 3 bullet lines separated by literal \\n, each starting with "• " then the label then ": ". Labels: ACTION, VALUE, PLATFORM. ACTION: state what happened in one sentence: "You [bought/listed/minted/transferred/made an offer on] NFT #[token_id]" — include the token ID from the message if present; if a collection contract address appears, truncate it to first 8 + last 6 chars. VALUE: for BUY and MINT — state the cost and USD equivalent; for LIST — state "Listed at [price] — funds arrive only when a buyer accepts"; for OFFER — state the escrowed amount and note it is "locked until the seller accepts or you withdraw"; for TRANSFER — state "No token movement — only NFT ownership transferred"; for CANCEL LISTING — state "NFT returned to your wallet, no token movement". PLATFORM: one sentence about Talis Protocol — it is Injective\'s leading NFT marketplace (140k+ wallets, 200k+ INJ in volume); if buying or minting, note the user should verify the collection\'s floor price and recent sales on talis.art before assessing value; if listing, note that royalties flow automatically to the original creator on each resale. FAILURE — root cause in plain English."
+  "details": "2–3 sentences of expert insight the user cannot derive from the action/impact alone. Follow these rules per type: DELEGATE — Output EXACTLY this structure with no deviations: three lines each starting with a bullet "• " followed immediately by the label, a colon, a space, and the content. The three labels are VALIDATOR, YIELD, REMINDER — never write the word CATEGORY. Format verbatim: "• VALIDATOR: [content]\\n• YIELD: [content]\\n• REMINDER: [content]". VALIDATOR: state the validator's name and classify its network standing using the live voting power % provided by the backend (>5% = significant weight, concentration risk; 1–5% = established mid-tier; <1% = smaller/niche validator); mention total staked INJ if provided. YIELD: The effective delegator APR is already displayed in the UI — do NOT restate a percentage. Instead: if the validator's commission ≥ 10%, flag it as notably high and suggest checking lower-commission validators; if < 5%, note it as competitive. Always close with a reminder that re-staking claimed rewards compounds returns over time. REMINDER: undelegating starts a mandatory 21-day unbonding lock with zero staking rewards — consider Hydro Protocol's hINJ for liquid staking that avoids this lockup entirely. UNDELEGATE — Output EXACTLY this structure with no deviations: three lines each starting with a bullet "• " followed immediately by the label, a colon, a space, and the content. The three labels are TIMELINE, WARNING, STRATEGY — never write the word CATEGORY. Format verbatim: "• TIMELINE: [content]\\n• WARNING: [content]\\n• STRATEGY: [content]". TIMELINE content: state the exact release date from 'unbonding_release_date' and that 21 days is Injective's non-negotiable unbonding rule. WARNING content: zero staking rewards during the window; if INJ price known, compute missed_USD = amount × price × 0.15 ÷ 365 × 21 and state it (e.g. "At $12/INJ, ~$8.64 in foregone yield"). STRATEGY content: Hydro Protocol's hINJ avoids this lockup — it stays liquid while earning staking rewards; name one specific action for release (redelegate, Mito vault, or Helix). Example output: "• TIMELINE: Funds release on June 2, 2026 — Injective enforces a strict 21-day unbonding rule with no exceptions.\\n• WARNING: Zero staking rewards for 21 days. At $12/INJ, ~$8.64 in foregone yield on 100 INJ.\\n• STRATEGY: Hydro Protocol's hINJ avoids this lockup entirely — liquid and earning rewards simultaneously. On release, consider staking again or depositing into a Mito vault." REDELEGATE — note the redelegation is instant with no 21-day gap, but the destination validator's commission and VP apply going forward. CLAIM REWARDS — mention that re-delegating the claimed amount compounds yield and state approximately how much more that adds annually at the same APR. SEND — one sentence naming the recipient (use resolved name if known, otherwise truncate address to first 8 + last 6 chars); one sentence on speed and cost (INJ transfers settle in ~1 second for a fraction of a cent); if the recipient is a known exchange or smart contract, flag that funds are moving to a custodial or protocol address. MULTISEND — state the number of recipients and total value distributed in one sentence; note whether the pattern looks like a batch payment (few large outputs) or a distribution/airdrop (many small outputs); mention that all transfers in a MsgMultiSend are atomic — they all succeed or all revert together. TRADE (Helix) — Output exactly 3 bullet lines separated by literal \\n, each starting with "• " then the label, then ": ". The three labels are FEES, EXECUTION, OPPORTUNITY — never write the word CATEGORY. All numeric values (fee, price, slippage, savings) are pre-calculated by the backend — copy them verbatim, do NOT recompute or round differently. FEES: state the exact fee amount and symbol; mention the effective rate %; if next-VIP-tier savings data is provided, quote the exact saving amount — e.g. "staking 500 more INJ saves 0.0007 USDT on this trade". For limit (maker) orders: note fee is 0% (maker rebate). EXECUTION: state the exact backend-calculated execution price and slippage (never recompute these); for limit orders say "filled at your exact limit price — 0% slippage, a key advantage of limit orders"; for market orders classify slippage (< 0.05% = near-perfect, 0.05–0.3% = clean, 0.3–1% = moderate, > 1% = significant). OPPORTUNITY: state one specific, actionable next step for the tokens just received — no speculation about why the trade was made. If received token is a stablecoin (USDT/USDC/USDe): mention Mito Finance yield vaults on Injective. If received is INJ: mention staking earns ~15% APY and increases governance weight. If received is another asset: name one concrete use case in the Injective ecosystem. Example for CosmWasm market sell: "• FEES: 0.0023 USDT (0.100% taker rate). Staking 500 more INJ (VIP2) saves 0.0005 USDT on this trade.\\n• EXECUTION: 4.5054 USDT/INJ — 0.10% slippage, clean execution for a market swap.\\n• OPPORTUNITY: Your 2.25 USDT can earn yield in Mito Finance's automated USDT vault." For DERIVATIVE/PERP trades (order type contains "PERP"): FEES: limit (maker) PERP orders pay 0% fee when they fill — state "0% maker fee: your limit order earns the spread instead of paying it." Market (taker) PERP orders pay a taker fee; state the rate if known. EXECUTION: state the limit price in quote/base format; if fill status is RESTING say "Order resting at [price] — not yet filled. [marginAmount] [marginSymbol] is locked as margin. Leverage: [leverage]. Notional value: [quantity × price] [quote]."; if filled, state the execution price and slippage. OPPORTUNITY: for a BUY PERP on a stock/IPO (SpaceX, AAPL, TSLA etc.): note that tokenized perpetuals on Injective track real-world equity prices via oracle feeds; state that leverage amplifies both gains and losses — a 1% underlying price move results in approximately [leverage] × 1% PnL on the margin; suggest setting a stop-loss or monitoring the oracle price feed to manage liquidation risk. VOTE — Output exactly 3 bullet lines separated by literal \\n, each starting with "• " then the label then ": ". Labels: WHAT'S AT STAKE, POSITION RISK, STATUS. WHAT'S AT STAKE: 1-2 sentences — explain what the proposal changes AND the strategic reason behind it; never just restate the title. Go one layer deeper: if migrating collateral (e.g., USDT → USDC), explain it unifies liquidity on Helix and reduces slippage; if a software upgrade, name the specific improvement; if a parameter change, explain the economic effect. Translate all technical terms into plain language. POSITION RISK: scan the proposal title and summary for any of these trigger keywords: "settle", "settlement", "migrat", "migration", "close", "deprecat", "delist", "suspend", "halt", "liquidat". If ANY match: issue a direct warning naming the specific market and deadline — format: "⚠ If you hold open positions on [MARKET], they will be force-closed at the settlement price on [DATE]. Close them manually before the deadline to control your exit." Do NOT fabricate a market name or date — use only what is stated in the proposal summary. If no trigger keyword matches: state the governance weight of the vote — note whether NO WITH VETO (if that was the option cast) would burn depositor funds if it exceeds 33.4%; do NOT invent penalty narratives for YES or NO votes. STATUS: always state Injective's passing conditions — quorum requires >33.4% of total staked INJ to participate, then YES must exceed 50% of non-abstain votes cast. If tally data is provided, report it and note whether quorum and YES majority appear on track. If no tally data is provided, do NOT say "not yet available" — instead state "Voting is live — a real-time tracking link is shown below." PROPOSE — Output exactly 3 bullet lines (• PROPOSAL, • PROCESS, • RISK). PROPOSAL: explain what the proposal would change or enable on Injective — base this on the title and summary, translating technical content into plain language; state the proposal ID if known. PROCESS: the proposal has entered the deposit period — once the minimum INJ deposit threshold is reached (typically 500 INJ on Injective), a 5-day voting period opens automatically; validators and delegators vote with their staked INJ weight. RISK: if more than 33.4% of votes are NO WITH VETO, the entire deposit pool (including the proposer's initial deposit) is burned — this is Injective's anti-spam mechanism to deter frivolous or malicious governance proposals. GOV_DEPOSIT — Output exactly 3 bullet lines (• PROPOSAL, • MECHANICS, • RISK). PROPOSAL: explain what the proposal is about in plain English using the title and summary provided. MECHANICS: the deposited INJ is held in escrow by the governance module and returned to depositors if the proposal passes or is normally rejected; once cumulative deposits meet the minimum threshold, the proposal moves to the active voting period. RISK: if the proposal is vetoed by >33.4% NO WITH VETO votes, your deposit is burned along with all other depositors' funds — research the proposal's community reception before depositing. REVOKE — Output exactly 3 bullet lines separated by literal \\n, each starting with "• " then the label then ": ". Labels: AUTHORIZATION, SECURITY, IMPACT. AUTHORIZATION: state what permission was revoked (use the human-readable label provided, e.g. "delegation rights") and identify the grantee by name if known, otherwise truncate the address to first 8 + last 6 chars. SECURITY: authz grants persist indefinitely on-chain until explicitly revoked — this revocation is good key hygiene; if the grantee is an unknown address, suggest the user verify what originally prompted the grant (e.g. a bot, a DApp, or a portfolio manager). IMPACT: no token movement occurs — balances, staked positions, and pending rewards are entirely unaffected; the permission change takes effect immediately and is irreversible (a new MsgGrant would be required to restore it). GRANT — Output exactly 3 bullet lines separated by literal \\n, each starting with "• " then the label then ": ". Labels: PERMISSION, RISK, MANAGEMENT. PERMISSION: state what capability was granted and to whom (use the human-readable label from the backend). RISK: the grantee can now execute this action on your behalf without further confirmation — only grant to addresses you fully trust, such as your own automation bots or audited smart contracts. MANAGEMENT: this grant is active indefinitely until revoked with MsgRevoke; review your active grants periodically on any Injective explorer to avoid forgotten access. TRANSFER — fee paid and destination chain if IBC. NFT (Talis Protocol) — Output exactly 3 bullet lines separated by literal \\n, each starting with "• " then the label then ": ". Labels: ACTION, VALUE, PLATFORM. ACTION: for a single NFT: "You bought/listed/minted/transferred/made an offer on NFT #[token_id]"; for multiple NFTs in one tx: "You bought NFTs #A, #B, #C, and #D". If a SELLER PERSPECTIVE flag is in the backend data, write "You sold NFT #[id]" (or "You sold NFTs #...") instead. VALUE: for BUY — if the backend provides a per-NFT price breakdown, list each price inline separated by " | " then the total on the same line: e.g. "#5130: 0.45 INJ | #6631: 0.40 INJ | #2621: 0.42 INJ | #4766: 0.42 INJ — total: 1.69 INJ (~$X USD)". Always add on a new line: "Seller received [X] INJ after Talis fees." If a SELLER PERSPECTIVE flag is present, replace the entire VALUE bullet with: "+[X] INJ (~$Y USD) — proceeds from selling [N] NFT(s) after Talis fees." For MINT — state the cost and USD equivalent. For LIST — state "Listed at [price] — funds arrive only when a buyer accepts". For OFFER — state the escrowed amount and note it is "locked until the seller accepts or you withdraw". For TRANSFER — state "No token movement — only NFT ownership transferred". For CANCEL LISTING — state "NFT returned to your wallet, no token movement". PLATFORM: one sentence about Talis Protocol — it is Injective\'s leading NFT marketplace (140k+ wallets, 200k+ INJ in volume); if buying or minting, note the user should verify the collection\'s floor price and recent sales on talis.art before assessing value; if listing, note that royalties flow automatically to the original creator on each resale. FAILURE — root cause in plain English."
 }
 
 Rules:
@@ -530,6 +530,63 @@ function buildMultiSendContext(rawMessages: any[]): MultiSendContext | null {
   return { aiSummary, recipients };
 }
 
+interface TalisNftSaleItem {
+  tokenId: string;
+  sellerAddress: string;
+  buyerPaidHuman: string;
+  sellerReceivedHuman: string;
+}
+
+function extractTalisNftSaleItems(
+  events: Array<{ type: string; attributes: Array<{ key: string; value: string }> }>,
+): TalisNftSaleItem[] {
+  const items: TalisNftSaleItem[] = [];
+
+  for (const event of events) {
+    if (event.type !== 'wasm') continue;
+
+    const attrs: Record<string, string> = {};
+    for (const a of event.attributes) {
+      const key = a.key.startsWith('_') ? a.key.slice(1) : a.key;
+      if (!(key in attrs)) attrs[key] = a.value;
+    }
+
+    if (attrs['action'] !== 'buy_token') continue;
+
+    const tokenId = attrs['token_id'];
+    const sellerAddress = attrs['seller'];
+    const buyerPaidRaw = attrs['amount'];
+    const msgIndex = attrs['msg_index'];
+
+    if (!tokenId || !sellerAddress || !buyerPaidRaw) continue;
+
+    // Find seller's received amount from coin_received events at the same msg_index
+    let sellerReceivedRaw = '0';
+    for (const ev of events) {
+      if (ev.type !== 'coin_received') continue;
+      const evAttrs: Record<string, string> = {};
+      for (const a of ev.attributes) evAttrs[a.key] = a.value;
+      if (
+        evAttrs['receiver'] === sellerAddress &&
+        (!msgIndex || evAttrs['msg_index'] === msgIndex)
+      ) {
+        const match = (evAttrs['amount'] ?? '').match(/^(\d+)/);
+        if (match) sellerReceivedRaw = match[1];
+        break;
+      }
+    }
+
+    items.push({
+      tokenId,
+      sellerAddress,
+      buyerPaidHuman: formatAmount(buyerPaidRaw, 'inj'),
+      sellerReceivedHuman: formatAmount(sellerReceivedRaw, 'inj'),
+    });
+  }
+
+  return items;
+}
+
 function buildUserPrompt(
   tx: NormalizedTransaction,
   prices: Record<string, number>,
@@ -543,6 +600,8 @@ function buildUserPrompt(
   networkAPR?: number | null,
   revokeData?: RevokeData | null,
   authzGrantee?: string | null,
+  talisNftSaleItems?: TalisNftSaleItem[] | null,
+  viewerAddress?: string | null,
 ): string {
   const protocolContext = tx.target_protocol
     ? (PROTOCOL_CONTEXTS as Record<string, { context: string }>)[tx.target_protocol]?.context ?? null
@@ -550,7 +609,14 @@ function buildUserPrompt(
 
   const injPrice = prices['INJ'] ?? null;
 
-  const assetsLine =
+  const sellerAddress = talisNftSaleItems?.[0]?.sellerAddress ?? null;
+  const isSellerView = !!(
+    viewerAddress &&
+    sellerAddress &&
+    viewerAddress.toLowerCase() === sellerAddress.toLowerCase()
+  );
+
+  let assetsLine =
     tx.assets.length > 0
       ? tx.assets
           .map(a => {
@@ -565,6 +631,15 @@ function buildUserPrompt(
           })
           .join(', ')
       : 'No direct token movement detected';
+
+  if (isSellerView && talisNftSaleItems) {
+    const totalReceived = talisNftSaleItems.reduce(
+      (sum, i) => sum + parseFloat(i.sellerReceivedHuman), 0
+    );
+    const injPrice = prices['INJ'] ?? null;
+    const usdStr = injPrice ? ` (~$${(totalReceived * injPrice).toFixed(2)} USD)` : '';
+    assetsLine = `+${totalReceived.toFixed(4).replace(/\.?0+$/, '')} INJ${usdStr}`;
+  }
 
   const messagesBlock = tx.messages
     .map((m, i) => `Message ${i + 1}:\n  type: ${m.type}\n  content: ${JSON.stringify(m.content)}`)
@@ -661,6 +736,22 @@ ${messagesBlock}`;
     prompt += `\n\nNote: This transaction was executed via MsgAuthzExec by authorized agent "${agentDisplay}" on behalf of the wallet owner. In the 'action' field, append "(via authorized agent)" at the end. In 'details', include a "• AUTHZ:" bullet explaining this was executed by an authorized bot or portfolio manager using Injective's authz module — no private key was shared; delegation rights were pre-approved on-chain.`;
   }
 
+  if (talisNftSaleItems && talisNftSaleItems.length > 0) {
+    const sellerDisplay = `${talisNftSaleItems[0].sellerAddress.slice(0, 8)}…${talisNftSaleItems[0].sellerAddress.slice(-6)}`;
+    prompt += '\n\nNFT sale breakdown (per item):';
+    for (const item of talisNftSaleItems) {
+      prompt += `\n  #${item.tokenId}: buyer paid ${item.buyerPaidHuman} INJ — seller (${sellerDisplay}) received ${item.sellerReceivedHuman} INJ`;
+    }
+    const totalBuyerPaid = talisNftSaleItems.reduce((sum, i) => sum + parseFloat(i.buyerPaidHuman), 0);
+    const totalSellerReceived = talisNftSaleItems.reduce((sum, i) => sum + parseFloat(i.sellerReceivedHuman), 0);
+    prompt += `\n  Total buyer paid: ${totalBuyerPaid.toFixed(4).replace(/\.?0+$/, '')} INJ`;
+    prompt += `\n  Total seller received: ${totalSellerReceived.toFixed(4).replace(/\.?0+$/, '')} INJ`;
+    if (isSellerView) {
+      const sellerUsdStr = prices['INJ'] ? ` (~$${(totalSellerReceived * prices['INJ']).toFixed(2)} USD)` : '';
+      prompt += `\n\n⚠ SELLER PERSPECTIVE: The viewer is the SELLER. Write "You sold" in ACTION. In VALUE show only "+${totalSellerReceived.toFixed(4).replace(/\.?0+$/, '')} INJ${sellerUsdStr} — proceeds from selling ${talisNftSaleItems.length} NFT(s) after Talis fees."`;
+    }
+  }
+
   if (tx.tradeData) {
     const td = tx.tradeData;
     const dir = td.isBuy ? 'BUY' : 'SELL';
@@ -697,6 +788,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const hash = typeof body?.hash === 'string' ? body.hash.trim() : '';
+    const viewerAddress = typeof body?.viewerAddress === 'string' ? body.viewerAddress.trim().toLowerCase() : null;
 
     if (!hash || hash.length < 10) {
       return NextResponse.json({ error: 'A valid transaction hash is required.' }, { status: 400 });
@@ -721,6 +813,9 @@ export async function POST(request: NextRequest) {
 
     const validatorData = extractValidatorData(effectiveMsgs);
     const txCategory = detectTxCategory(rawMsgs);
+    const talisNftSaleItems = txCategory === 'NFT'
+      ? extractTalisNftSaleItems(rawTx.tx_response.events ?? [])
+      : null;
     const multiSendCtx = buildMultiSendContext(effectiveMsgs);
     const unbondingData = txCategory === 'UNSTAKE'
       ? computeUnbondingData(effectiveMsgs, normalized.timestamp, rawTx.tx_response.events)
@@ -785,6 +880,8 @@ export async function POST(request: NextRequest) {
       networkAPR,
       revokeData,
       authzGrantee,
+      talisNftSaleItems,
+      viewerAddress,
     );
 
     const HEAVY_CATEGORIES = new Set(['TRADE', 'VOTE', 'PROPOSE', 'GOV_DEPOSIT', 'STAKE', 'UNSTAKE', 'REDELEGATE', 'SEND', 'NFT']);
@@ -842,6 +939,7 @@ export async function POST(request: NextRequest) {
       unbondingData,
       governanceData,
       revokeData,
+      talisNftSaleItems: talisNftSaleItems ?? null,
       prices,
     });
   } catch (err: unknown) {
