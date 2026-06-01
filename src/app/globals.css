@@ -1227,6 +1227,10 @@
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
 }
 
 .tx-back-link:hover { color: var(--tx-cyan); }

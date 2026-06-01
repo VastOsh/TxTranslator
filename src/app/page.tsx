@@ -204,6 +204,14 @@ export default function Home() {
 
       {result && (
         <>
+          <div style={{ width: '100%', maxWidth: 680, marginBottom: '1.25rem' }}>
+            <button
+              className="tx-back-link"
+              onClick={() => { resetState(true); window.history.replaceState(null, '', '/'); }}
+            >
+              ← Decode another transaction
+            </button>
+          </div>
           <TranslationResult data={result} />
           <div style={{
             marginTop: '0.75rem',
