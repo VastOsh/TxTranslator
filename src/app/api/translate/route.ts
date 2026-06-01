@@ -852,8 +852,15 @@ export async function POST(request: NextRequest) {
         if (typeof msgBody === 'string') {
           try { msgBody = JSON.parse(Buffer.from(msgBody, 'base64').toString('utf-8')); } catch { continue; }
         }
-        const contract = msgBody?.buy_token?.contract_address as string | undefined;
-        if (contract) collectionContracts.add(contract);
+        // buy_token: collection contract is inside the message body
+        const buyTokenContract = msgBody?.buy_token?.contract_address as string | undefined;
+        if (buyTokenContract) { collectionContracts.add(buyTokenContract); continue; }
+        // send_nft / transfer_nft / other actions: the outer contract IS the collection contract
+        // (user calls the collection contract directly, not the marketplace)
+        const outerContract = msg.contract as string | undefined;
+        if (outerContract && !TALIS_MARKETPLACE_CONTRACTS.has(outerContract) && !TALIS_OFFERS_CONTRACTS.has(outerContract)) {
+          collectionContracts.add(outerContract);
+        }
       }
       if (collectionContracts.size > 0) {
         const entries = await Promise.all(
