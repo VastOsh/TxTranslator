@@ -665,6 +665,9 @@ export default function TranslationResult({ data }: Props) {
           {tradeBadgeLabel && (
             <span className={`tx-badge ${tradeBadgeClass}`}>{tradeBadgeLabel}</span>
           )}
+          {data.isBlueChipCollection && (
+            <span className="tx-badge tx-badge-blue-chip">◆ Blue Chip</span>
+          )}
         </div>
         <span className={`tx-badge ${isSuccess ? 'tx-badge-green' : 'tx-badge-red'}`}>
           {isSuccess ? <CheckIcon size={8} /> : <XIcon />}

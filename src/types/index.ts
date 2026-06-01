@@ -98,5 +98,15 @@ export interface TranslationResponse {
   unbondingData: UnbondingData | null;
   governanceData: GovernanceData | null;
   revokeData: RevokeData | null;
+  talisNftSaleItems: TalisNftSaleItem[] | null;
+  nftCollectionNames: Record<string, string> | null;
+  isBlueChipCollection: boolean;
   prices: Record<string, number>;
+}
+
+export interface TalisNftSaleItem {
+  tokenId: string;
+  sellerAddress: string;
+  buyerPaidHuman: string;
+  sellerReceivedHuman: string;
 }
