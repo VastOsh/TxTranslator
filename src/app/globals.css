@@ -914,6 +914,11 @@
   flex-shrink: 0;
 }
 
+.tx-ai-bullet > span:not(.tx-ai-bullet-cat) {
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
 /* Mito Finance inline link in AI insight bullets */
 .tx-mito-link {
   color: var(--tx-cyan);
