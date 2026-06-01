@@ -1639,6 +1639,12 @@
   gap: 0.55rem;
 }
 
+.tx-cl-entry .tx-badge {
+  width: 6.8rem;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
 .tx-cl-entry-text {
   font-size: 0.8rem;
   line-height: 1.55;
