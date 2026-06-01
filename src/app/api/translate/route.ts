@@ -609,11 +609,13 @@ function buildUserPrompt(
 
   const injPrice = prices['INJ'] ?? null;
 
-  const sellerAddress = talisNftSaleItems?.[0]?.sellerAddress ?? null;
+  const allSellerAddresses = new Set(
+    (talisNftSaleItems ?? []).map(i => i.sellerAddress.toLowerCase())
+  );
   const isSellerView = !!(
     viewerAddress &&
-    sellerAddress &&
-    viewerAddress.toLowerCase() === sellerAddress.toLowerCase()
+    allSellerAddresses.size > 0 &&
+    allSellerAddresses.has(viewerAddress.toLowerCase())
   );
 
   let assetsLine =
@@ -632,13 +634,13 @@ function buildUserPrompt(
           .join(', ')
       : 'No direct token movement detected';
 
-  if (isSellerView && talisNftSaleItems) {
-    const totalReceived = talisNftSaleItems.reduce(
-      (sum, i) => sum + parseFloat(i.sellerReceivedHuman), 0
+  if (isSellerView && talisNftSaleItems && viewerAddress) {
+    const myItems = talisNftSaleItems.filter(
+      i => i.sellerAddress.toLowerCase() === viewerAddress.toLowerCase()
     );
-    const injPrice = prices['INJ'] ?? null;
-    const usdStr = injPrice ? ` (~$${(totalReceived * injPrice).toFixed(2)} USD)` : '';
-    assetsLine = `+${totalReceived.toFixed(4).replace(/\.?0+$/, '')} INJ${usdStr}`;
+    const myTotalReceived = myItems.reduce((sum, i) => sum + parseFloat(i.sellerReceivedHuman), 0);
+    const usdStr = injPrice ? ` (~$${(myTotalReceived * injPrice).toFixed(2)} USD)` : '';
+    assetsLine = `+${myTotalReceived.toFixed(4).replace(/\.?0+$/, '')} INJ${usdStr}`;
   }
 
   const messagesBlock = tx.messages
@@ -737,18 +739,22 @@ ${messagesBlock}`;
   }
 
   if (talisNftSaleItems && talisNftSaleItems.length > 0) {
-    const sellerDisplay = `${talisNftSaleItems[0].sellerAddress.slice(0, 8)}…${talisNftSaleItems[0].sellerAddress.slice(-6)}`;
-    prompt += '\n\nNFT sale breakdown (per item):';
+    prompt += `\n\nNFT sale breakdown (${allSellerAddresses.size} seller(s), per item):`;
     for (const item of talisNftSaleItems) {
-      prompt += `\n  #${item.tokenId}: buyer paid ${item.buyerPaidHuman} INJ — seller (${sellerDisplay}) received ${item.sellerReceivedHuman} INJ`;
+      const sellerDisp = `${item.sellerAddress.slice(0, 8)}…${item.sellerAddress.slice(-6)}`;
+      prompt += `\n  #${item.tokenId}: buyer paid ${item.buyerPaidHuman} INJ — seller (${sellerDisp}) received ${item.sellerReceivedHuman} INJ`;
     }
     const totalBuyerPaid = talisNftSaleItems.reduce((sum, i) => sum + parseFloat(i.buyerPaidHuman), 0);
     const totalSellerReceived = talisNftSaleItems.reduce((sum, i) => sum + parseFloat(i.sellerReceivedHuman), 0);
     prompt += `\n  Total buyer paid: ${totalBuyerPaid.toFixed(4).replace(/\.?0+$/, '')} INJ`;
-    prompt += `\n  Total seller received: ${totalSellerReceived.toFixed(4).replace(/\.?0+$/, '')} INJ`;
-    if (isSellerView) {
-      const sellerUsdStr = prices['INJ'] ? ` (~$${(totalSellerReceived * prices['INJ']).toFixed(2)} USD)` : '';
-      prompt += `\n\n⚠ SELLER PERSPECTIVE: The viewer is the SELLER. Write "You sold" in ACTION. In VALUE show only "+${totalSellerReceived.toFixed(4).replace(/\.?0+$/, '')} INJ${sellerUsdStr} — proceeds from selling ${talisNftSaleItems.length} NFT(s) after Talis fees."`;
+    prompt += `\n  Total paid to all sellers: ${totalSellerReceived.toFixed(4).replace(/\.?0+$/, '')} INJ`;
+    if (isSellerView && viewerAddress) {
+      const myItems = talisNftSaleItems.filter(
+        i => i.sellerAddress.toLowerCase() === viewerAddress.toLowerCase()
+      );
+      const myTotalReceived = myItems.reduce((sum, i) => sum + parseFloat(i.sellerReceivedHuman), 0);
+      const sellerUsdStr = injPrice ? ` (~$${(myTotalReceived * injPrice).toFixed(2)} USD)` : '';
+      prompt += `\n\n⚠ SELLER PERSPECTIVE: The viewer is ONE OF THE SELLERS (their NFTs: #${myItems.map(i => i.tokenId).join(', #')}). Write "You sold NFT(s) #..." in ACTION listing only their token IDs. In VALUE show only "+${myTotalReceived.toFixed(4).replace(/\.?0+$/, '')} INJ${sellerUsdStr} — proceeds from selling ${myItems.length} NFT(s) after Talis fees."`;
     }
   }
 
