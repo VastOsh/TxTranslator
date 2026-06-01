@@ -394,6 +394,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
+  white-space: nowrap;
 }
 
 .tx-badge-cyan {
