@@ -1496,6 +1496,45 @@
   border-color: rgba(0, 212, 255, 0.45);
 }
 
+/* ── Talis seller perspective strip ── */
+.tx-seller-hint {
+  border-top: 1px solid var(--tx-border);
+  padding: 0.45rem 1.2rem;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  background: rgba(0, 212, 255, 0.015);
+}
+
+.tx-seller-hint-label {
+  font-family: var(--font-rajdhani), sans-serif;
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--tx-text-dim);
+  white-space: nowrap;
+  margin-right: 0.15rem;
+}
+
+.tx-seller-hint-btn {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.68rem;
+  color: var(--tx-cyan);
+  text-decoration: none;
+  padding: 0.12rem 0.45rem;
+  border: 1px solid rgba(0, 212, 255, 0.2);
+  border-radius: 3px;
+  transition: background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.tx-seller-hint-btn:hover {
+  background: rgba(0, 212, 255, 0.08);
+  border-color: rgba(0, 212, 255, 0.4);
+}
+
 /* ── Version badge in header ── */
 .tx-version-btn {
   font-family: var(--font-mono), monospace;

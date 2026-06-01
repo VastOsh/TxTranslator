@@ -772,6 +772,26 @@ export default function TranslationResult({ data }: Props) {
         {data.details && <DetailsBlock text={data.details} txCategory={data.txCategory} governanceData={data.governanceData} />}
       </div>
 
+      {/* ── Seller perspective prompt ── */}
+      {data.txCategory === 'NFT' && data.talisNftSaleItems && data.talisNftSaleItems.length > 0 && (() => {
+        const uniqueSellers = [...new Set(data.talisNftSaleItems!.map(i => i.sellerAddress))];
+        return (
+          <div className="tx-seller-hint">
+            <span className="tx-seller-hint-label">SELLER IN THIS TX?</span>
+            {uniqueSellers.map(addr => (
+              <a
+                key={addr}
+                href={`/tx/${data.hash}?wallet=${addr}`}
+                className="tx-seller-hint-btn"
+                title={addr}
+              >
+                {addr.slice(0, 8)}…{addr.slice(-6)}
+              </a>
+            ))}
+          </div>
+        );
+      })()}
+
       {/* ── Footer: hash + share + copy ── */}
       <div className="tx-card-footer">
         <span className="tx-hash" title={data.hash}>{shortHash}</span>
