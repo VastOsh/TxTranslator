@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { unstable_cache } from 'next/cache';
 import OpenAI from 'openai';
 import { fetchTransaction } from '@/lib/injective';
 import { normalizeTransaction, formatAmount, getDisplayDenom } from '@/lib/normalizer';
@@ -809,16 +810,7 @@ ${messagesBlock}`;
   return prompt;
 }
 
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const hash = typeof body?.hash === 'string' ? body.hash.trim() : '';
-    const viewerAddress = typeof body?.viewerAddress === 'string' ? body.viewerAddress.trim().toLowerCase() : null;
-
-    if (!hash || hash.length < 10) {
-      return NextResponse.json({ error: 'A valid transaction hash is required.' }, { status: 400 });
-    }
-
+async function computeTranslation(hash: string, viewerAddress: string) {
     const [rawTx, prices] = await Promise.all([
       fetchTransaction(hash),
       fetchTokenPrices(),
@@ -977,7 +969,7 @@ export async function POST(request: NextRequest) {
       return String(v);
     };
 
-    return NextResponse.json({
+    return {
       action: coerceField(translation.action),
       impact: coerceField(translation.impact),
       details: coerceField(translation.details),
@@ -1000,7 +992,27 @@ export async function POST(request: NextRequest) {
         ? Object.values(nftCollectionNames).some(n => BLUE_CHIP_COLLECTIONS.has(n))
         : false,
       prices,
-    });
+    };
+}
+
+const getCachedTranslation = unstable_cache(
+  computeTranslation,
+  ['tx-translation'],
+  { revalidate: 3600 },
+);
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const hash = typeof body?.hash === 'string' ? body.hash.trim() : '';
+    const viewerAddress = typeof body?.viewerAddress === 'string' ? body.viewerAddress.trim().toLowerCase() : '';
+
+    if (!hash || hash.length < 10) {
+      return NextResponse.json({ error: 'A valid transaction hash is required.' }, { status: 400 });
+    }
+
+    const result = await getCachedTranslation(hash, viewerAddress);
+    return NextResponse.json(result);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'An unexpected error occurred.';
     const status = msg.toLowerCase().includes('not found') ? 404 : 500;
