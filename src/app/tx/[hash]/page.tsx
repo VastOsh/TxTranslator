@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import TranslationResult from '@/components/TranslationResult';
@@ -32,7 +32,9 @@ function LoadingSkeleton() {
 
 export default function TxPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const hash = typeof params.hash === 'string' ? params.hash : '';
+  const viewerAddress = searchParams.get('wallet') ?? undefined;
 
   const [result, setResult] = useState<TranslationResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -49,7 +51,7 @@ export default function TxPage() {
     fetch('/api/translate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ hash }),
+      body: JSON.stringify({ hash, ...(viewerAddress ? { viewerAddress } : {}) }),
     })
       .then(res => res.json().then(data => ({ ok: res.ok, data })))
       .then(({ ok, data }) => {

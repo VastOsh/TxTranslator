@@ -60,10 +60,10 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const { recent, addRecent, clearRecent } = useRecentTxs();
 
-  function resetState() {
+  function resetState(clearWallet = true) {
     setResult(null);
     setWalletTxs(null);
-    setWalletAddress(null);
+    if (clearWallet) setWalletAddress(null);
     setError(null);
     window.history.replaceState(null, '', '/');
   }
@@ -71,26 +71,27 @@ export default function Home() {
   async function handleSearch(input: string) {
     const trimmed = input.trim();
     setLoading(true);
-    resetState();
 
     if (ADDR_RE.test(trimmed)) {
+      resetState();
       setLoadingMode('wallet');
       await handleWalletScan(trimmed);
     } else if (HASH_RE.test(trimmed)) {
+      resetState(false); // preserve walletAddress as viewer context
       setLoadingMode('hash');
-      await handleHashDecode(trimmed);
+      await handleHashDecode(trimmed, walletAddress ?? undefined);
     } else {
       setError('Enter a valid tx hash or inj1… wallet address.');
       setLoading(false);
     }
   }
 
-  async function handleHashDecode(hash: string) {
+  async function handleHashDecode(hash: string, viewerAddress?: string) {
     try {
       const res = await fetch('/api/translate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ hash }),
+        body: JSON.stringify({ hash, ...(viewerAddress ? { viewerAddress } : {}) }),
       });
       const data = await res.json();
       if (!res.ok) {

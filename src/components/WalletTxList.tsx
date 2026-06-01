@@ -62,7 +62,7 @@ export default function WalletTxList({ address, txs }: Props) {
                   <span className="tx-wallet-time">{relativeTime(tx.timestamp)}</span>
                 </div>
               </div>
-              <Link href={`/tx/${tx.hash}`} className="tx-wallet-decode-btn">
+              <Link href={`/tx/${tx.hash}?wallet=${address}`} className="tx-wallet-decode-btn">
                 Decode →
               </Link>
             </li>
