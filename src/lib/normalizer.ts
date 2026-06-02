@@ -318,7 +318,8 @@ function extractAssetsFromMessages(messages: ParsedMessage[]): NormalizedAsset[]
 
     if (
       (msg.type === '/cosmos.staking.v1beta1.MsgDelegate' ||
-        msg.type === '/cosmos.staking.v1beta1.MsgUndelegate') &&
+        msg.type === '/cosmos.staking.v1beta1.MsgUndelegate' ||
+        msg.type === '/cosmos.staking.v1beta1.MsgBeginRedelegate') &&
       c.amount
     ) {
       assets.push({
