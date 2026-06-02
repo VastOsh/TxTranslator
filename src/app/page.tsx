@@ -152,39 +152,45 @@ export default function Home() {
           marginRight: '-1rem',
           background: 'rgba(255, 179, 71, 0.08)',
           borderBottom: '1px solid rgba(255, 179, 71, 0.3)',
-          padding: '0.6rem 1.25rem',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '0.6rem',
-          fontSize: '0.78rem',
-          color: 'rgba(255, 179, 71, 0.95)',
-          letterSpacing: '0.02em',
+          padding: '0.6rem 2.5rem',
           position: 'sticky',
           top: 0,
           zIndex: 50,
           backdropFilter: 'blur(8px)',
         }}>
-          <span style={{ fontSize: '0.85rem', flexShrink: 0 }}>⚠</span>
-          <span>
-            <strong style={{ fontWeight: 600 }}>Zellic validator is shutting down.</strong>
-            {' '}If you are delegating to Zellic, please redelegate to another validator to keep earning staking rewards.
-            {' '}
-            <a
-              href="https://hub.injective.network/staking"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: 'rgba(255, 179, 71, 1)', textDecoration: 'underline', textUnderlineOffset: '2px' }}
-            >
-              Redelegate on Injective Hub ↗
-            </a>
-          </span>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.6rem',
+            fontSize: '0.78rem',
+            color: 'rgba(255, 179, 71, 0.95)',
+            letterSpacing: '0.02em',
+            textAlign: 'center',
+          }}>
+            <span style={{ fontSize: '0.85rem', flexShrink: 0 }}>⚠</span>
+            <span>
+              <strong style={{ fontWeight: 600 }}>Zellic validator is shutting down.</strong>
+              {' '}If you are delegating to Zellic, please redelegate to another validator to keep earning staking rewards.
+              {' '}
+              <a
+                href="https://injhub.com/stake/"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: 'rgba(255, 179, 71, 1)', textDecoration: 'underline', textUnderlineOffset: '2px' }}
+              >
+                Redelegate on Injective Hub ↗
+              </a>
+            </span>
+          </div>
           <button
             onClick={() => setNewsBannerDismissed(true)}
             aria-label="Dismiss"
             style={{
-              marginLeft: 'auto',
-              flexShrink: 0,
+              position: 'absolute',
+              right: '1rem',
+              top: '50%',
+              transform: 'translateY(-50%)',
               background: 'none',
               border: 'none',
               cursor: 'pointer',
