@@ -11,10 +11,20 @@ export interface ChangelogVersion {
   entries: ChangelogEntry[];
 }
 
-export const CURRENT_VERSION = 'v1.4.1';
+export const CURRENT_VERSION = 'v1.4.2';
 
 // Entries within each version are ordered: critical → fix → improvement → feature
 export const CHANGELOG: ChangelogVersion[] = [
+  {
+    version: 'v1.4.2',
+    date: '2026-06-02',
+    entries: [
+      {
+        type: 'fix',
+        text: 'Fixed MsgBeginRedelegate showing the auto-claimed reward amount (e.g. 0.179 INJ) instead of the actual redelegated amount — the primary asset now correctly reflects the full stake being moved between validators',
+      },
+    ],
+  },
   {
     version: 'v1.4.1',
     date: '2026-06-02',
