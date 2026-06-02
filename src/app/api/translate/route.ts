@@ -630,6 +630,7 @@ function buildUserPrompt(
   talisNftSaleItems?: TalisNftSaleItem[] | null,
   viewerAddress?: string | null,
   nftCollectionNames?: Record<string, string> | null,
+  multiSendRecipients?: MultiSendRecipient[] | null,
 ): string {
   const protocolContext = tx.target_protocol
     ? (PROTOCOL_CONTEXTS as Record<string, { context: string }>)[tx.target_protocol]?.context ?? null
@@ -713,6 +714,20 @@ ${messagesBlock}`;
 
   if (multiSendSummary) {
     prompt += `\n\n${multiSendSummary}`;
+  }
+
+  if (multiSendRecipients && viewerAddress) {
+    const myEntry = multiSendRecipients.find(
+      r => r.address.toLowerCase() === viewerAddress.toLowerCase()
+    );
+    if (myEntry) {
+      const myAmts = myEntry.amounts.map(a => {
+        const price = prices[a.humanDenom];
+        const base = `${a.amount} ${a.humanDenom}`;
+        return price ? `${base} (~$${(parseFloat(a.amount) * price).toFixed(2)} USD)` : base;
+      }).join(', ');
+      prompt += `\n\n⚠ RECIPIENT PERSPECTIVE: The viewer is ONE OF THE RECIPIENTS in this MultiSend (not the sender). In ACTION write "You received ${myAmts} from a batch payment to ${multiSendRecipients.length} recipients." — do NOT say "You distributed". In IMPACT show only "+${myAmts}" (what the viewer received, not the total outflow).`;
+    }
   }
 
   if (unbondingAvailableDate) {
@@ -941,13 +956,11 @@ async function computeTranslation(hash: string, viewerAddress: string) {
       talisNftSaleItems,
       viewerAddress,
       nftCollectionNames,
+      multiSendCtx?.recipients ?? null,
     );
 
-    const HEAVY_CATEGORIES = new Set(['TRADE', 'VOTE', 'PROPOSE', 'GOV_DEPOSIT', 'STAKE', 'UNSTAKE', 'REDELEGATE', 'SEND', 'NFT']);
-    const model = HEAVY_CATEGORIES.has(txCategory) ? 'llama-3.3-70b-versatile' : 'llama-3.1-8b-instant';
-
     const message = await groq.chat.completions.create({
-      model,
+      model: 'llama-3.3-70b-versatile',
       max_tokens: 512,
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
