@@ -11,10 +11,20 @@ export interface ChangelogVersion {
   entries: ChangelogEntry[];
 }
 
-export const CURRENT_VERSION = 'v1.4.0';
+export const CURRENT_VERSION = 'v1.4.1';
 
 // Entries within each version are ordered: critical → fix → improvement → feature
 export const CHANGELOG: ChangelogVersion[] = [
+  {
+    version: 'v1.4.1',
+    date: '2026-06-02',
+    entries: [
+      {
+        type: 'improvement',
+        text: 'Added dismissible amber info banner at the top of the page to surface important Injective network news — currently warning delegators that Zellic validator is shutting down and linking to Injective Hub for redelegation',
+      },
+    ],
+  },
   {
     version: 'v1.4.0',
     date: '2026-06-01',
