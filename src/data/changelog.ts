@@ -11,10 +11,24 @@ export interface ChangelogVersion {
   entries: ChangelogEntry[];
 }
 
-export const CURRENT_VERSION = 'v1.4.2';
+export const CURRENT_VERSION = 'v1.4.3';
 
 // Entries within each version are ordered: critical → fix → improvement → feature
 export const CHANGELOG: ChangelogVersion[] = [
+  {
+    version: 'v1.4.3',
+    date: '2026-06-02',
+    entries: [
+      {
+        type: 'fix',
+        text: 'Fixed MultiSend recipient perspective — viewers who received funds in a batch transfer were incorrectly shown the sender\'s view ("You distributed 500 INJ"); the AI now identifies the viewer\'s received amount and writes from the recipient\'s point of view',
+      },
+      {
+        type: 'fix',
+        text: 'Removed llama-3.1-8b-instant fallback model that was hitting Groq\'s 6000 TPM rate limit on large payloads (e.g. 18-recipient MultiSends); all transactions now route through llama-3.3-70b-versatile',
+      },
+    ],
+  },
   {
     version: 'v1.4.2',
     date: '2026-06-02',

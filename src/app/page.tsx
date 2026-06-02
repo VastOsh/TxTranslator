@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import SearchForm from '@/components/SearchForm';
 import TranslationResult from '@/components/TranslationResult';
@@ -53,9 +53,16 @@ function WalletSkeleton() {
   );
 }
 
+const CHANGELOG_READ_KEY = 'tx-changelog-read';
+
 export default function Home() {
   const [changelogOpen, setChangelogOpen] = useState(false);
+  const [hasUnread, setHasUnread] = useState(false);
   const [newsBannerDismissed, setNewsBannerDismissed] = useState(false);
+
+  useEffect(() => {
+    setHasUnread(localStorage.getItem(CHANGELOG_READ_KEY) !== CURRENT_VERSION);
+  }, []);
   const [result, setResult] = useState<TranslationResponse | null>(null);
   const [walletTxs, setWalletTxs] = useState<WalletTx[] | null>(null);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
@@ -225,7 +232,14 @@ export default function Home() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
           <span className="tx-footer">Injective Mainnet</span>
-          <button className="tx-version-btn" onClick={() => setChangelogOpen(true)}>
+          <button
+            className={`tx-version-btn${hasUnread ? ' tx-version-btn--unread' : ''}`}
+            onClick={() => {
+              setChangelogOpen(true);
+              setHasUnread(false);
+              localStorage.setItem(CHANGELOG_READ_KEY, CURRENT_VERSION);
+            }}
+          >
             {CURRENT_VERSION}
           </button>
         </div>

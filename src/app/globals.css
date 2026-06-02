@@ -1553,6 +1553,14 @@
   color: var(--tx-cyan);
   border-color: rgba(0, 212, 255, 0.4);
 }
+.tx-version-btn--unread {
+  color: rgba(255, 179, 71, 0.9);
+  border-color: rgba(255, 179, 71, 0.5);
+}
+.tx-version-btn--unread:hover {
+  color: rgba(255, 179, 71, 1);
+  border-color: rgba(255, 179, 71, 0.75);
+}
 
 /* ── Changelog modal ── */
 .tx-cl-overlay {
