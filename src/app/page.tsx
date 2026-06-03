@@ -226,7 +226,11 @@ export default function Home() {
           marginBottom: '4rem',
         }}
       >
-        <div className="tx-logo">
+        <div
+          className="tx-logo"
+          onClick={() => resetState(true)}
+          style={{ cursor: hasOutput ? 'pointer' : 'default' }}
+        >
           <Image src="/logo.svg" alt="Tx·Translator logo" width={28} height={28} priority />
           TX · TRANSLATOR
         </div>
