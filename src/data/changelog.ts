@@ -11,10 +11,28 @@ export interface ChangelogVersion {
   entries: ChangelogEntry[];
 }
 
-export const CURRENT_VERSION = 'v1.4.4';
+export const CURRENT_VERSION = 'v1.4.5';
 
 // Entries within each version are ordered: critical → fix → improvement → feature
 export const CHANGELOG: ChangelogVersion[] = [
+  {
+    version: 'v1.4.5',
+    date: '2026-06-03',
+    entries: [
+      {
+        type: 'fix',
+        text: 'Fixed redelegate AI insight failing to parse — the LLM occasionally closed a JSON string with a single quote instead of a double quote, causing "Translation unavailable"; a repair pass now corrects this before falling back to the error state',
+      },
+      {
+        type: 'fix',
+        text: 'Fixed redelegate impact showing a wrong token outflow (e.g. -99.821 INJ) — redelegated tokens are already staked and never leave the bank, so the asset movement is now suppressed; the AI correctly reports no direct bank balance change',
+      },
+      {
+        type: 'fix',
+        text: 'Redelegate messages now resolve validator names for both source and destination — the AI sees "Zellic" and "Injective Foundation 2" instead of raw inj1… addresses, producing a correctly labelled action sentence',
+      },
+    ],
+  },
   {
     version: 'v1.4.4',
     date: '2026-06-03',

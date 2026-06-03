@@ -318,8 +318,7 @@ function extractAssetsFromMessages(messages: ParsedMessage[]): NormalizedAsset[]
 
     if (
       (msg.type === '/cosmos.staking.v1beta1.MsgDelegate' ||
-        msg.type === '/cosmos.staking.v1beta1.MsgUndelegate' ||
-        msg.type === '/cosmos.staking.v1beta1.MsgBeginRedelegate') &&
+        msg.type === '/cosmos.staking.v1beta1.MsgUndelegate') &&
       c.amount
     ) {
       assets.push({
@@ -329,6 +328,7 @@ function extractAssetsFromMessages(messages: ParsedMessage[]): NormalizedAsset[]
         direction: msg.type.includes('Undelegate') ? 'in' : 'out',
       });
     }
+    // MsgBeginRedelegate: tokens are already staked (not in bank), so no bank balance change occurs.
 
     if (msg.type === '/ibc.applications.transfer.v1.MsgTransfer' && c.token) {
       assets.push({
@@ -987,7 +987,7 @@ function parseTradeData(raw: CosmosTxResponse, senderAddress: string, effectiveM
 // Replace known raw addresses with human names inside message content
 function resolveAddressesInContent(content: Record<string, any>): Record<string, any> {
   const resolved = { ...content };
-  const addressFields = ['validator_address', 'contract', 'contract_address', 'to_address', 'receiver', 'dst_validator'];
+  const addressFields = ['validator_address', 'validator_src_address', 'validator_dst_address', 'contract', 'contract_address', 'to_address', 'receiver', 'dst_validator'];
   for (const field of addressFields) {
     if (typeof resolved[field] === 'string') {
       resolved[field] = resolveAddress(resolved[field]);
