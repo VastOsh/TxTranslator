@@ -20,6 +20,10 @@ export const CHANGELOG: ChangelogVersion[] = [
     date: '2026-06-03',
     entries: [
       {
+        type: 'fix',
+        text: 'Fixed BUYBACK amount hallucination — the AI was reading the raw funds string (e.g. 43000000000000000000inj) from message content and misinterpreting the 18 decimal places as 0.043 INJ instead of 43 INJ; now explicitly guarded to always use the Token movements line',
+      },
+      {
         type: 'feature',
         text: 'Added Injective Community BuyBack support — transactions to the INJ BuyBack contract (inj10n78w…) now resolve as protocol "Injective Hub" with a dedicated BUYBACK category; AI Insight explains the permanent burn mechanism, historically 20%+ APY on committed INJ, and slot eligibility rules',
       },
