@@ -31,6 +31,10 @@ export const CHANGELOG: ChangelogVersion[] = [
         type: 'fix',
         text: 'Redelegate messages now resolve validator names for both source and destination — the AI sees "Zellic" and "Injective Foundation 2" instead of raw inj1… addresses, producing a correctly labelled action sentence',
       },
+      {
+        type: 'fix',
+        text: 'Fixed logo not clickable after decoding — clicking "TX · TRANSLATOR" in the header now resets the page to its initial state; previously the logo was an inert div with no handler on the home page',
+      },
     ],
   },
   {
