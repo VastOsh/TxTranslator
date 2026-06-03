@@ -25,7 +25,7 @@ export const CHANGELOG: ChangelogVersion[] = [
       },
       {
         type: 'fix',
-        text: 'Fixed redelegate impact showing a wrong token outflow (e.g. -99.821 INJ) — redelegated tokens are already staked and never leave the bank, so the asset movement is now suppressed; the AI correctly reports no direct bank balance change',
+        text: 'Fixed redelegate action showing the auto-claimed reward amount (e.g. 0.179 INJ) instead of the actual principal — the redelegate amount is now extracted from the message and passed explicitly to the AI; the token movements line (which shows only rewards) is no longer used for the action or impact',
       },
       {
         type: 'fix',
