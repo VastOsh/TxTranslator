@@ -11,10 +11,20 @@ export interface ChangelogVersion {
   entries: ChangelogEntry[];
 }
 
-export const CURRENT_VERSION = 'v1.4.3';
+export const CURRENT_VERSION = 'v1.4.4';
 
 // Entries within each version are ordered: critical → fix → improvement → feature
 export const CHANGELOG: ChangelogVersion[] = [
+  {
+    version: 'v1.4.4',
+    date: '2026-06-03',
+    entries: [
+      {
+        type: 'feature',
+        text: 'Added Injective Community BuyBack support — transactions to the INJ BuyBack contract (inj10n78w…) now resolve as protocol "Injective Hub" with a dedicated BUYBACK category; AI Insight explains the permanent burn mechanism, historically 20%+ APY on committed INJ, and slot eligibility rules',
+      },
+    ],
+  },
   {
     version: 'v1.4.3',
     date: '2026-06-02',

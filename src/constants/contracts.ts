@@ -8,6 +8,7 @@ export type ProtocolName =
   | 'Choice Exchange'
   | 'Paradyze'
   | 'Talis Protocol'
+  | 'Injective Hub'
   | 'IBC Transfer'
   | 'Staking'
   | 'Governance'
@@ -96,7 +97,14 @@ export const CONTRACT_PROTOCOLS: Record<string, ProtocolName> = {
   'inj1u2l88u94h056z7lz0vkksxgwkdwn35x23r5dg8': 'Talis Protocol', // P2P escrow (label: "Talis P2P escrow", code 1102)
   'inj1gwutptfmlxd7netk5jw58zcqux00jx2pas73p9': 'Talis Protocol', // Offers v1 (label: "Talis offers", code 79)
   'inj1u30yff9df5mu0rcp3jtr5wv5j8069asdl9ywl7': 'Talis Protocol', // Offers v2 (label: "Talis offers", code 79)
+  // Injective Hub — Community BuyBack program
+  'inj10n78w79xhxmytnuhjcck633nj4e7hrqaglgnfz': 'Injective Hub',
 };
+
+// Injective Hub — Community BuyBack pool contract
+export const BUYBACK_CONTRACTS = new Set<string>([
+  'inj10n78w79xhxmytnuhjcck633nj4e7hrqaglgnfz',
+]);
 
 // Talis Protocol marketplace contracts — used to detect NFT listing via send_nft in normalizer
 export const TALIS_MARKETPLACE_CONTRACTS = new Set<string>([
@@ -165,6 +173,12 @@ export const PROTOCOL_CONTEXTS: Record<ProtocolName, Protocol> = {
     description: 'NFT Marketplace on Injective',
     context:
       'Talis Protocol is the leading NFT marketplace on Injective — the first to launch on mainnet (June 2023). Users can buy, sell, mint, and trade NFTs using INJ and other Injective-native tokens. NFT collections use the CW721 standard. Key actions: fixed-price listings (via send_nft to marketplace), direct purchases, collection and individual offers, and randomized mints (CandyMachine). TALIS is the protocol\'s governance and fee-distribution token. Over 140,000 wallets registered and 200,000+ INJ transacted.',
+  },
+  'Injective Hub': {
+    name: 'Injective Hub',
+    description: 'INJ Community BuyBack program',
+    context:
+      'Injective Hub hosts the INJ Community BuyBack — a monthly on-chain event where participants commit INJ tokens that are permanently burned (removed from circulating supply forever). In return, each participant receives a pro-rata share of Injective ecosystem revenue (trading fees, liquidations, oracle fees, etc.) proportional to their committed amount versus the total INJ committed in that round. Slot eligibility favors active stakers and on-chain participants and is randomized to prevent bots. Historically, completed rounds have distributed revenue equivalent to 20%+ APY on committed INJ. Rewards are distributed automatically on-chain after each round closes — no manual claiming required.',
   },
   'IBC Transfer': {
     name: 'IBC Transfer',
