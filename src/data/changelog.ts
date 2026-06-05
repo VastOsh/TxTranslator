@@ -11,18 +11,24 @@ export interface ChangelogVersion {
   entries: ChangelogEntry[];
 }
 
-export const CURRENT_VERSION = 'v1.4.5';
+export const CURRENT_VERSION = 'v1.4.6';
 
 // Entries within each version are ordered: critical → fix → improvement → feature
 export const CHANGELOG: ChangelogVersion[] = [
   {
-    version: 'v1.4.5',
-    date: '2026-06-03',
+    version: 'v1.4.6',
+    date: '2026-06-05',
     entries: [
       {
         type: 'fix',
         text: 'Fixed AI response failing to parse when the LLM emits literal newlines inside JSON string values — a repair pass now escapes raw \\n/\\r characters before JSON.parse; previously caused "Translation unavailable" for any transaction where the model broke a string across lines',
       },
+    ],
+  },
+  {
+    version: 'v1.4.5',
+    date: '2026-06-03',
+    entries: [
       {
         type: 'fix',
         text: 'Fixed redelegate AI insight failing to parse — the LLM occasionally closed a JSON string with a single quote instead of a double quote, causing "Translation unavailable"; a repair pass now corrects this before falling back to the error state',
