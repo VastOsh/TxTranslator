@@ -21,7 +21,11 @@ export const CHANGELOG: ChangelogVersion[] = [
     entries: [
       {
         type: 'feature',
-        text: 'Added live news ticker — automatically surfaces Injective chain upgrade schedules and impactful governance proposals (settlement, delist, halt, migration) by polling the on-chain LCD at page load; scrolls continuously, pauses on hover, and falls back to a manual override file for off-chain events like validator shutdowns',
+        text: 'Added live news ticker — automatically surfaces Injective chain upgrade schedules and impactful governance proposals (settlement, delist, halt, migration) by polling the on-chain LCD at page load; scrolls right-to-left continuously, pauses on hover, and falls back to a manual override file for off-chain events like validator shutdowns',
+      },
+      {
+        type: 'fix',
+        text: 'Fixed ticker scroll starting from the middle of the screen — animation now measures the container width at runtime and starts the content just off the right edge, with a dynamic gap that guarantees the content always exits left before the seamless loop restarts',
       },
       {
         type: 'fix',

@@ -16,4 +16,11 @@ export const MANUAL_BANNER_ITEMS: BannerItem[] = [
     link: 'https://injhub.com/stake/',
     linkText: 'Redelegate on Injective Hub ↗',
   },
+  {
+    id: 'vulcan-upgrade',
+    type: 'info',
+    text: 'Injective Vulcan (v1.20.0) upgrade complete — modernized oracles, stablecoin support, tokenized RWAs, and reduced transaction costs.',
+    link: 'https://hub.injective.network/governance/650',
+    linkText: 'View proposal ↗',
+  },
 ];
