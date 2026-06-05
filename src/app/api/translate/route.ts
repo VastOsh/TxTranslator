@@ -1004,7 +1004,7 @@ async function computeTranslation(hash: string, viewerAddress: string) {
       } catch {
         // LLM sometimes emits literal newlines inside JSON strings or closes with ' — repair and retry
         const repaired = candidate
-          .replace(/:\s*"((?:[^"\\]|\\.)*)"/gs, (_, v) =>
+          .replace(/:\s*"((?:[^"\\]|\\.)*)"/g, (_, v) =>
             ': "' + v.replace(/\n/g, '\\n').replace(/\r/g, '\\r') + '"'
           )
           .replace(/"((?:[^"\\]|\\.)*)'(\s*[,}\]])/g, '"$1"$2');
