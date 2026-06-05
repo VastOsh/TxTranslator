@@ -994,30 +994,75 @@ async function computeTranslation(hash: string, viewerAddress: string) {
 
     const rawText = message.choices[0]?.message?.content ?? '';
 
-    let translation: { action: string; impact: string; details: string };
-    try {
-      const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-      const candidate = jsonMatch ? jsonMatch[0] : rawText;
-      let parsed: any;
-      try {
-        parsed = JSON.parse(candidate);
-      } catch {
-        // LLM sometimes emits literal newlines inside JSON strings or closes with ' — repair and retry
-        const repaired = candidate
-          .replace(/:\s*"((?:[^"\\]|\\.)*)"/g, (_, v) =>
-            ': "' + v.replace(/\n/g, '\\n').replace(/\r/g, '\\r') + '"'
-          )
-          .replace(/"((?:[^"\\]|\\.)*)'(\s*[,}\]])/g, '"$1"$2');
-        parsed = JSON.parse(repaired);
+    // Extract the first balanced JSON object by counting braces (avoids greedy-regex over-capture)
+    const extractJsonObject = (text: string): string | null => {
+      const start = text.indexOf('{');
+      if (start === -1) return null;
+      let depth = 0, inString = false, escape = false;
+      for (let i = start; i < text.length; i++) {
+        const ch = text[i];
+        if (escape) { escape = false; continue; }
+        if (inString) {
+          if (ch === '\\') escape = true;
+          else if (ch === '"') inString = false;
+        } else {
+          if (ch === '"') inString = true;
+          else if (ch === '{') depth++;
+          else if (ch === '}') { depth--; if (depth === 0) return text.slice(start, i + 1); }
+        }
       }
-      translation = parsed;
-    } catch {
-      translation = {
-        action: 'Translation unavailable.',
-        impact: 'Could not parse AI response.',
-        details: rawText.slice(0, 200),
+      return null;
+    };
+
+    // Escape literal newlines in string values; fix trailing single-quote close
+    const repairJsonStr = (text: string): string =>
+      text
+        .replace(/:\s*"((?:[^"\\]|\\.)*)"/g, (_, v) =>
+          ': "' + v.replace(/\n/g, '\\n').replace(/\r/g, '\\r') + '"'
+        )
+        .replace(/"((?:[^"\\]|\\.)*)'(\s*[,}\]])/g, '"$1"$2');
+
+    // Last-resort: extract the three known fields by position, tolerating unescaped inner quotes
+    const extractFieldsGreedy = (text: string): { action: string; impact: string; details: string } | null => {
+      const between = (key: string, until: string): string | null => {
+        const marker = `"${key}": "`, next = `"${until}": "`;
+        const s = text.indexOf(marker);
+        if (s === -1) return null;
+        const vs = s + marker.length;
+        const e = text.indexOf(next, vs);
+        if (e === -1) return null;
+        let q = e - 1;
+        while (q > vs && text[q] !== '"') q--;
+        return q > vs ? text.slice(vs, q) : null;
       };
+      const lastField = (key: string): string | null => {
+        const marker = `"${key}": "`;
+        const s = text.lastIndexOf(marker);
+        if (s === -1) return null;
+        const vs = s + marker.length;
+        const m = text.slice(vs).match(/([\s\S]*)"[\s\S]*?\}/);
+        return m ? m[1] : null;
+      };
+      const action = between('action', 'impact');
+      const impact = between('impact', 'details');
+      const details = lastField('details');
+      if (!action || !impact || !details) return null;
+      return { action, impact, details };
+    };
+
+    const trimmed = rawText.trim();
+    const candidate = extractJsonObject(trimmed) ?? trimmed;
+    let parsed: any = null;
+    for (const variant of [candidate, repairJsonStr(candidate)]) {
+      try { parsed = JSON.parse(variant); break; } catch {}
     }
+    if (!parsed) parsed = extractFieldsGreedy(trimmed);
+
+    const translation: { action: string; impact: string; details: string } = parsed ?? {
+      action: 'Translation unavailable.',
+      impact: 'Could not parse AI response.',
+      details: rawText.slice(0, 500),
+    };
 
     const coerceField = (v: unknown): string => {
       if (v == null) return '';
@@ -1059,7 +1104,7 @@ async function computeTranslation(hash: string, viewerAddress: string) {
 
 const getCachedTranslation = unstable_cache(
   computeTranslation,
-  ['tx-translation'],
+  ['tx-translation-v2'],
   { revalidate: 3600 },
 );
 
