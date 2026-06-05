@@ -3,8 +3,8 @@
 @import "shadcn/tailwind.css";
 
 @keyframes news-ticker-scroll {
-  0%   { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
+  from { transform: translateX(var(--ticker-from, 100vw)); }
+  to   { transform: translateX(var(--ticker-to, -100%)); }
 }
 
 .news-ticker-track {
