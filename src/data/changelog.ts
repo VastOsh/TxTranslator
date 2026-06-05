@@ -20,6 +20,10 @@ export const CHANGELOG: ChangelogVersion[] = [
     date: '2026-06-05',
     entries: [
       {
+        type: 'feature',
+        text: 'Added live news ticker — automatically surfaces Injective chain upgrade schedules and impactful governance proposals (settlement, delist, halt, migration) by polling the on-chain LCD at page load; scrolls continuously, pauses on hover, and falls back to a manual override file for off-chain events like validator shutdowns',
+      },
+      {
         type: 'fix',
         text: 'Fixed AI response failing to parse when the LLM emits literal newlines inside JSON string values — a repair pass now escapes raw \\n/\\r characters before JSON.parse; previously caused "Translation unavailable" for any transaction where the model broke a string across lines',
       },
