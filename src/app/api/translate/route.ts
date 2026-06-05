@@ -1002,8 +1002,12 @@ async function computeTranslation(hash: string, viewerAddress: string) {
       try {
         parsed = JSON.parse(candidate);
       } catch {
-        // LLM sometimes closes a JSON string with ' instead of " — repair and retry
-        const repaired = candidate.replace(/"((?:[^"\\]|\\.)*)'(\s*[,}\]])/g, '"$1"$2');
+        // LLM sometimes emits literal newlines inside JSON strings or closes with ' — repair and retry
+        const repaired = candidate
+          .replace(/:\s*"((?:[^"\\]|\\.)*)"/gs, (_, v) =>
+            ': "' + v.replace(/\n/g, '\\n').replace(/\r/g, '\\r') + '"'
+          )
+          .replace(/"((?:[^"\\]|\\.)*)'(\s*[,}\]])/g, '"$1"$2');
         parsed = JSON.parse(repaired);
       }
       translation = parsed;

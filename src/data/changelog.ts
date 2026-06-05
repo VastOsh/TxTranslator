@@ -21,6 +21,10 @@ export const CHANGELOG: ChangelogVersion[] = [
     entries: [
       {
         type: 'fix',
+        text: 'Fixed AI response failing to parse when the LLM emits literal newlines inside JSON string values — a repair pass now escapes raw \\n/\\r characters before JSON.parse; previously caused "Translation unavailable" for any transaction where the model broke a string across lines',
+      },
+      {
+        type: 'fix',
         text: 'Fixed redelegate AI insight failing to parse — the LLM occasionally closed a JSON string with a single quote instead of a double quote, causing "Translation unavailable"; a repair pass now corrects this before falling back to the error state',
       },
       {
