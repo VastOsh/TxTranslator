@@ -23,6 +23,10 @@ export const CHANGELOG: ChangelogVersion[] = [
         type: 'fix',
         text: 'Fixed AI response failing to parse when the LLM emits literal newlines inside JSON string values — a repair pass now escapes raw \\n/\\r characters before JSON.parse; previously caused "Translation unavailable" for any transaction where the model broke a string across lines',
       },
+      {
+        type: 'fix',
+        text: 'Further hardened AI response parsing — switched from a greedy regex to brace-counting extraction (prevents over-capture when trailing text contains braces), added a greedy field-by-field fallback that tolerates unescaped inner quotes, and busted a stale 1-hour server cache that was serving old parse failures after the fix was deployed',
+      },
     ],
   },
   {
