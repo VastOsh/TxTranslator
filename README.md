@@ -52,10 +52,23 @@ Tx·Translator adds a **financial intelligence layer on top of the Injective SDK
 | **IBC Transfers** | Cross-chain bridge with source/destination chain context |
 | **Governance** | Vote / Propose / Deposit with live tally, proposal title/summary, voting deadline |
 | **Bank transfers** | Single sends and MultiSend (atomic batch payments / airdrops) |
+| **Talis Protocol** | NFT buy, list, mint, transfer, offer, and cancel-listing with per-NFT price breakdown, seller received amounts, and Blue Chip Collection badge (Premier Ninja, MASKED, Pedro, Cult of Anons, Injective Quants) |
+| **Injective Hub BuyBack** | Transactions to the INJ BuyBack contract resolve as protocol "Injective Hub"; AI explains the permanent burn mechanism, historical APY, and slot eligibility rules |
 | **Authz grants** | MsgGrant and MsgRevoke with human-readable permission labels |
 | **MsgAuthzExec** | Bot and portfolio manager transactions — inner messages unwrapped and decoded in full; trade data, staking, governance and all enrichment work exactly as for direct txs; AI identifies the authorized agent |
 
 ---
+
+### Live news ticker
+A scrolling banner at the top of the page auto-fetches critical on-chain events from the Injective LCD every 5 minutes:
+- **Chain upgrade schedule** — detects pending software upgrade plans and estimates the ETA from current block height
+- **High-impact governance proposals** — surfaces only voting-period proposals matching keywords like `settlement`, `delist`, `halt`, `emergency`, `upgrade`, `migration` (routine proposals are filtered out)
+- **Manual override layer** — `src/data/banner.ts` lets maintainers pin off-chain events (e.g. validator shutdowns, frontend incidents) that the chain doesn't announce on-chain
+
+Critical items render with a red tint; warnings amber. The ticker scrolls right-to-left, pauses on hover, and can be dismissed.
+
+### INJ price chart
+A live mini price chart for INJ/USD is displayed below every decoded transaction, giving traders instant market context without leaving the page.
 
 ### Wallet address scan
 Paste any `inj1…` address to decode the **last 10 transactions** from that wallet — no hash needed. Ideal for reviewing a wallet's recent on-chain activity at a glance.
@@ -84,6 +97,8 @@ The last 5 decoded transactions are persisted in `localStorage` and shown on the
 - Structured prompt engineering: AI receives pre-computed, chain-verified numbers — no hallucinated amounts
 - Outputs three typed fields: `action` (what happened), `impact` (wallet balance change + USD), `details` (expert bullets with actionable context)
 - Domain-specific prompt rules per tx type (21+ categories) enforce consistent, accurate output
+- Robust multi-strategy JSON parser: brace-counting extraction → literal newline repair → greedy field-by-field fallback — handles all common LLM formatting failures without surfacing errors to the user
+- Server-side response cache (Next.js `unstable_cache`, 1-hour TTL) — repeated lookups of the same hash skip the AI call entirely
 
 ### Live on-chain enrichment
 - Injective mainnet via 4 LCD endpoints with automatic failover
@@ -156,16 +171,27 @@ npm run dev
 ## Architecture
 
 ```
+Page load
+        │
+        ├─ /api/news  (GET, cached 5 min)
+        │    ├─ Injective LCD: /cosmos/upgrade/v1beta1/current_plan
+        │    ├─ Injective LCD: /cosmos/gov/v1/proposals (voting period, keyword filter)
+        │    └─ src/data/banner.ts (manual overrides: validator news, incidents)
+        │         → NewsTicker renders scrolling right-to-left banner
+        │
 User input: tx hash  OR  inj1… wallet address
         │
         ▼
 API route: /api/translate  (POST)  ·  /api/wallet  (GET)
         │
+        ├─ Server-side cache (Next.js unstable_cache, 1h TTL) — cache hit returns immediately
+        │
         ├─ fetchTransaction() → Injective LCD (4 endpoints, failover)
         │
         ├─ normalizeTransaction() → typed NormalizedTransaction
         │    └─ protocol detection: message types + contract addresses + fee address heuristics
-        │       (Helix / Mito / Hydro / DojoSwap / Neptune / Black Panther / Choice / Paradyze / …)
+        │       (Helix / Mito / Hydro / DojoSwap / Neptune / Black Panther / Choice / Paradyze /
+        │        Talis / Injective Hub BuyBack / …)
         │
         ├─ Parallel enrichment
         │    ├─ CoinGecko prices → USD values on all token amounts
@@ -174,16 +200,19 @@ API route: /api/translate  (POST)  ·  /api/wallet  (GET)
         │
         ├─ Structured prompt built with chain-verified numbers
         │
-        └─ Groq / Llama 3.3 70B → { action, impact, details }
-                │
-                ▼
-        UI renders:
-          · Protocol badge + swap visual / unbonding countdown / gov tally
-          · AI insight bullets with expert context
-          · Validator card with live APR
-          · Token amounts with USD values
-          · /tx/[hash] URL pushed to browser (shareable, OG image auto-generated)
-          · Recent history saved to localStorage
+        ├─ Groq / Llama 3.3 70B → raw JSON text
+        │    └─ Multi-strategy parser: brace-count → newline repair → greedy field fallback
+        │         → { action, impact, details }
+        │
+        ▼
+UI renders:
+  · Protocol badge + swap visual / unbonding countdown / gov tally / NFT breakdown
+  · AI insight bullets with expert context
+  · Validator card with live APR
+  · Token amounts with USD values
+  · INJ/USD price chart
+  · /tx/[hash] URL pushed to browser (shareable, OG image auto-generated)
+  · Recent history saved to localStorage
 ```
 
 ---
