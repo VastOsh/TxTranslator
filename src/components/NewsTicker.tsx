@@ -10,12 +10,11 @@ interface NewsItem {
   linkText?: string;
 }
 
-const GAP_PX = 80; // gap between the two copies (matches paddingLeft below)
-
 export default function NewsTicker() {
-  const [items, setItems]           = useState<NewsItem[]>([]);
-  const [dismissed, setDismissed]   = useState(false);
-  const [animStyle, setAnimStyle]   = useState<React.CSSProperties>({});
+  const [items, setItems]         = useState<NewsItem[]>([]);
+  const [dismissed, setDismissed] = useState(false);
+  const [animStyle, setAnimStyle] = useState<React.CSSProperties>({});
+  const [gapPx, setGapPx]         = useState(80);
   const containerRef = useRef<HTMLDivElement>(null);
   const firstCopyRef = useRef<HTMLSpanElement>(null);
 
@@ -26,22 +25,24 @@ export default function NewsTicker() {
       .catch(() => {});
   }, []);
 
-  // Measure container + first copy to set the exact pixel start/end for the animation.
-  // FROM = container width  (content starts just off the right edge)
-  // TO   = container width − (firstCopyWidth + gap)
-  // At TO the second copy is exactly at the right edge → seamless loop.
   useEffect(() => {
     if (items.length === 0) return;
 
     const measure = () => {
       if (!containerRef.current || !firstCopyRef.current) return;
-      const cw   = containerRef.current.offsetWidth;
-      const tw   = firstCopyRef.current.offsetWidth;
-      const span = tw + GAP_PX;
-      const dur  = Math.max(15, Math.min(60, span / 80)); // 80 px/s
+      const cw  = containerRef.current.offsetWidth;
+      const tw  = firstCopyRef.current.offsetWidth;
+      // Gap must be >= containerWidth so the content always exits the left edge
+      // before the loop restarts. At loop-restart the second copy lands exactly
+      // at containerWidth (right edge) → seamless regardless of content length.
+      const gap  = cw + 80;
+      const span = tw + gap;                        // pixels per cycle
+      const dur  = Math.max(10, Math.min(60, span / 80)); // 80 px/s
+
+      setGapPx(gap);
       setAnimStyle({
-        '--ticker-from': `${cw}px`,
-        '--ticker-to':   `${cw - span}px`,
+        '--ticker-from': `${cw}px`,   // start: first copy just off right edge
+        '--ticker-to':   `${cw - span}px`, // = -(tw + 80): first copy fully off left
         animationDuration: `${dur}s`,
       } as React.CSSProperties);
     };
@@ -99,7 +100,6 @@ export default function NewsTicker() {
       display: 'flex',
       alignItems: 'stretch',
     }}>
-      {/* LIVE label */}
       <div style={{
         flexShrink: 0,
         display: 'flex',
@@ -114,7 +114,6 @@ export default function NewsTicker() {
         LIVE
       </div>
 
-      {/* Scrolling track — ref on the container so we can measure its width */}
       <div ref={containerRef} style={{ flex: 1, overflow: 'hidden', position: 'relative', height: '2.2rem' }}>
         <span
           className="news-ticker-track"
@@ -128,14 +127,11 @@ export default function NewsTicker() {
             ...animStyle,
           }}
         >
-          {/* First copy — ref used to measure single-copy width */}
           <span ref={firstCopyRef}>{renderItems()}</span>
-          {/* Second copy — seamless loop continuation */}
-          <span style={{ paddingLeft: `${GAP_PX}px` }}>{renderItems('-dup')}</span>
+          <span style={{ paddingLeft: `${gapPx}px` }}>{renderItems('-dup')}</span>
         </span>
       </div>
 
-      {/* Dismiss */}
       <button
         onClick={() => setDismissed(true)}
         aria-label="Dismiss news ticker"
