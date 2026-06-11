@@ -51,7 +51,7 @@ async function fetchUpgradeItem(): Promise<BannerItem | null> {
   };
 }
 
-const CRITICAL_RE = /settle|settlement|delist|halt|emergency|critical/i;
+const CRITICAL_RE = /settle|settlement|delist|halt|emergency|critical|liquidat|close/i;
 const WARNING_RE  = /upgrade|migration|migrate|suspend|deprecat/i;
 
 async function fetchGovernanceItems(): Promise<BannerItem[]> {

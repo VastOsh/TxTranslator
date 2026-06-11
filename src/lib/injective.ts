@@ -146,10 +146,17 @@ async function fetchFromEndpoint(base: string, txHash: string): Promise<CosmosTx
 export async function fetchTransaction(hash: string): Promise<CosmosTxResponse> {
   const txHash = normalizeHash(hash);
 
-  for (const base of LCD_ENDPOINTS) {
-    const result = await fetchFromEndpoint(base, txHash);
-    if (result) return result;
-  }
+  // Race all LCD endpoints in parallel — first successful response wins.
+  // Sequential retries cost up to 10s per blocked/slow endpoint; parallel costs one round-trip.
+  const lcdResult = await Promise.any(
+    LCD_ENDPOINTS.map(base =>
+      fetchFromEndpoint(base, txHash).then(r => {
+        if (r === null) throw new Error('no result');
+        return r;
+      })
+    )
+  ).catch(() => null);
+  if (lcdResult) return lcdResult;
 
   // Fallback: Injective on-chain indexer has full history (no tx-index pruning)
   const indexerResult = await fetchFromIndexer(txHash);
