@@ -11,10 +11,44 @@ export interface ChangelogVersion {
   entries: ChangelogEntry[];
 }
 
-export const CURRENT_VERSION = 'v1.4.6';
+export const CURRENT_VERSION = 'v1.4.7';
 
 // Entries within each version are ordered: critical → fix → improvement → feature
 export const CHANGELOG: ChangelogVersion[] = [
+  {
+    version: 'v1.4.7',
+    date: '2026-06-14',
+    entries: [
+      {
+        type: 'critical',
+        text: 'Fixed v2 exchange messages (MsgCreateSpotMarketOrder, MsgCreateDerivativeLimitOrder, MsgBatchUpdateOrders, etc.) not resolving protocol or action label — all modern Helix trades were showing protocol "Unknown" and a raw type fragment instead of "Spot Swap" / "Market Derivatives Trade" / etc.; added the full v2 type set to MESSAGE_TYPE_PROTOCOLS and ACTION_LABELS',
+      },
+      {
+        type: 'fix',
+        text: 'Fixed v2 MsgDeposit and MsgWithdraw not producing token movement entries — deposits into and withdrawals from a Helix subaccount via the v2 module were silently ignored by the asset extractor, causing the AI to report no funds moved when they clearly did',
+      },
+      {
+        type: 'fix',
+        text: 'Fixed AI response truncation on complex transactions — raised Groq max_tokens from 512 to 1024; governance votes with live tally data, multi-NFT sales, and perpetual trades with margin details were routinely hitting the limit and producing incomplete JSON that the repair pipeline had to patch',
+      },
+      {
+        type: 'fix',
+        text: 'Fixed unbonding missed-yield warning always using a hardcoded 15% APY — the warning line now reads the live network APR fetched from the chain and uses it for the USD calculation; the label and figure now reflect the actual current rate',
+      },
+      {
+        type: 'fix',
+        text: 'Fixed governance banner silently skipping proposals about market liquidations and closures — CRITICAL_RE now matches "liquidat" and "close" keywords in addition to the existing settle/delist/halt/emergency/critical set',
+      },
+      {
+        type: 'fix',
+        text: 'Fixed missing action labels for cosmos distribution and authz message types — MsgWithdrawDelegatorReward, MsgWithdrawValidatorCommission, MsgSetWithdrawAddress, MsgCancelUnbondingDelegation, MsgExec, MsgGrant, and MsgRevoke were falling through to the raw type fragment (e.g. "WithdrawDelegatorReward") in the wallet history panel; now display as "Claim Staking Rewards", "Authorized Action", etc.',
+      },
+      {
+        type: 'improvement',
+        text: 'LCD endpoint failover is now parallel instead of sequential — all four endpoints (Polkachu, InjectiveLabs, publicnode, lcd.injective.network) race simultaneously via Promise.any(); worst-case latency drops from ~40s (4 × 10s timeouts) to ~10s when one or more endpoints are blocked or slow',
+      },
+    ],
+  },
   {
     version: 'v1.4.6',
     date: '2026-06-05',
