@@ -298,6 +298,7 @@ export const ACTION_LABELS: Record<string, string> = {
   '/cosmos.staking.v1beta1.MsgDelegate': 'Stake INJ',
   '/cosmos.staking.v1beta1.MsgBeginRedelegate': 'Redelegate Stake',
   '/cosmos.staking.v1beta1.MsgUndelegate': 'Unstake INJ',
+  '/cosmos.staking.v1beta1.MsgCancelUnbondingDelegation': 'Cancel Unstake',
   '/ibc.applications.transfer.v1.MsgTransfer': 'IBC Transfer',
   '/cosmwasm.wasm.v1.MsgExecuteContract': 'Smart Contract Call',
   '/injective.wasmx.v1.MsgExecuteContractCompat': 'Smart Contract Call',
@@ -307,4 +308,10 @@ export const ACTION_LABELS: Record<string, string> = {
   '/cosmos.gov.v1.MsgSubmitProposal': 'Submit Governance Proposal',
   '/cosmos.gov.v1beta1.MsgDeposit': 'Governance Deposit',
   '/cosmos.gov.v1.MsgDeposit': 'Governance Deposit',
+  '/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward': 'Claim Staking Rewards',
+  '/cosmos.distribution.v1beta1.MsgWithdrawValidatorCommission': 'Claim Validator Commission',
+  '/cosmos.distribution.v1beta1.MsgSetWithdrawAddress': 'Set Reward Address',
+  '/cosmos.authz.v1beta1.MsgExec': 'Authorized Action',
+  '/cosmos.authz.v1beta1.MsgGrant': 'Grant Authorization',
+  '/cosmos.authz.v1beta1.MsgRevoke': 'Revoke Authorization',
 };
