@@ -299,7 +299,11 @@ function extractAssetsFromMessages(messages: ParsedMessage[]): NormalizedAsset[]
       }
     }
 
-    if (msg.type === '/injective.exchange.v1beta1.MsgDeposit' && c.amount) {
+    if (
+      (msg.type === '/injective.exchange.v1beta1.MsgDeposit' ||
+        msg.type === '/injective.exchange.v2.MsgDeposit') &&
+      c.amount
+    ) {
       assets.push({
         denom: c.amount.denom,
         humanDenom: getDisplayDenom(c.amount.denom),
@@ -307,7 +311,11 @@ function extractAssetsFromMessages(messages: ParsedMessage[]): NormalizedAsset[]
         direction: 'out',
       });
     }
-    if (msg.type === '/injective.exchange.v1beta1.MsgWithdraw' && c.amount) {
+    if (
+      (msg.type === '/injective.exchange.v1beta1.MsgWithdraw' ||
+        msg.type === '/injective.exchange.v2.MsgWithdraw') &&
+      c.amount
+    ) {
       assets.push({
         denom: c.amount.denom,
         humanDenom: getDisplayDenom(c.amount.denom),
