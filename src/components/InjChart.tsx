@@ -40,7 +40,7 @@ export default function InjChart() {
         border: '1px solid var(--tx-border)',
       }}>
         <iframe
-          src="https://s.tradingview.com/widgetembed/?symbol=BINANCE%3AINJUSDT&interval=60&hidesidetoolbar=1&symboledit=0&saveimage=0&theme=Dark&style=1&timezone=Etc%2FUTC&withdateranges=1&locale=en"
+          src="https://s.tradingview.com/widgetembed/?symbol=BINANCE%3AINJUSDT&interval=60&hidesidetoolbar=1&hide_top_toolbar=1&symboledit=0&saveimage=0&theme=Dark&style=1&timezone=Etc%2FUTC&withdateranges=0&locale=en"
           style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
           title="INJ/USDT Live Price Chart"
           loading="lazy"
