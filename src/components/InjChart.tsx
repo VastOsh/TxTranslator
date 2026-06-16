@@ -1,39 +1,90 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
+
+declare global {
+  interface Window {
+    TradingView?: { widget: new (c: Record<string, unknown>) => void };
+  }
+}
+
+const CHART_ID = 'tv-inj-chart';
+
 export default function InjChart() {
+  const initialized = useRef(false);
+
+  useEffect(() => {
+    if (initialized.current) return;
+    initialized.current = true;
+
+    function init() {
+      if (!window.TradingView) return;
+      new window.TradingView.widget({
+        container_id: CHART_ID,
+        symbol: 'BINANCE:INJUSDT',
+        interval: '60',
+        timezone: 'Etc/UTC',
+        theme: 'dark',
+        style: '1',
+        locale: 'en',
+        backgroundColor: 'rgba(11, 24, 43, 1)',
+        gridColor: 'rgba(75, 57, 248, 0.06)',
+        toolbar_bg: '#0B182B',
+        hide_side_toolbar: true,
+        withdateranges: true,
+        save_image: false,
+        enable_publishing: false,
+        width: '100%',
+        height: 400,
+      });
+    }
+
+    if (window.TradingView) {
+      init();
+    } else {
+      const script = document.createElement('script');
+      script.src = 'https://s3.tradingview.com/tv.js';
+      script.async = true;
+      script.onload = init;
+      document.head.appendChild(script);
+    }
+  }, []);
+
   return (
-    <div
-      className="tx-card"
-      style={{ marginTop: '1.5rem', marginBottom: '2rem' }}
-    >
-      <div className="tx-card-header">
+    <section style={{ width: '100%', maxWidth: 680, marginTop: '2rem', marginBottom: '2rem' }}>
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '0 0.15rem',
+        marginBottom: '0.6rem',
+      }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <span className="tx-badge tx-badge-cyan">INJ / USDT</span>
-          <span style={{ fontSize: '0.65rem', color: 'var(--tx-text-dim)' }}>
-            Live Price
-          </span>
+          <span style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: '0.65rem',
+            color: 'var(--tx-text-dim)',
+          }}>1h</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
           <span style={{
-            width: 6,
-            height: 6,
-            borderRadius: '50%',
-            background: 'var(--tx-green)',
-            display: 'inline-block',
-            flexShrink: 0,
+            width: 6, height: 6, borderRadius: '50%',
+            background: 'var(--tx-green)', display: 'inline-block', flexShrink: 0,
           }} />
-          <span style={{ fontSize: '0.65rem', color: 'var(--tx-text-dim)' }}>Binance</span>
+          <span style={{ fontSize: '0.65rem', color: 'var(--tx-text-dim)' }}>Live · Binance</span>
         </div>
       </div>
-      <div style={{ height: 320 }}>
-        <iframe
-          src="https://s.tradingview.com/widgetembed/?symbol=BINANCE%3AINJUSDT&interval=60&hidesidetoolbar=1&symboledit=0&saveimage=0&theme=Dark&style=1&timezone=Etc%2FUTC&withdateranges=1&locale=en"
-          style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
-          title="INJ/USDT Live Price Chart"
-          loading="lazy"
-          allow="clipboard-write"
-        />
-      </div>
-    </div>
+      <div
+        id={CHART_ID}
+        style={{
+          width: '100%',
+          height: 400,
+          borderRadius: 8,
+          overflow: 'hidden',
+          border: '1px solid var(--tx-border)',
+        }}
+      />
+    </section>
   );
 }
