@@ -45,3 +45,6 @@ AGENTS.md
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# graphify knowledge graph (generated, cached, machine-specific)
+graphify-out/

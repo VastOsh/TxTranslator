@@ -1,0 +1,107 @@
+{
+  "version": 1,
+  "skills": {
+    "injective-ai-cost-optimization": {
+      "source": "InjectiveLabs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/injective-ai-cost-optimization/SKILL.md",
+      "computedHash": "9dab1c6c9ca75636e6e87ac2c3e614310c973b5070ba77f98c3304f6c4360d4d"
+    },
+    "injective-cli": {
+      "source": "InjectiveLabs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/injective-cli/SKILL.md",
+      "computedHash": "91b0e9a3f00338cfec7fbfcf80f13b243cee26b07d2b0acf9e83ff8a739a5096"
+    },
+    "injective-docs-style": {
+      "source": "InjectiveLabs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/injective-docs-style/SKILL.md",
+      "computedHash": "ed1573ee866691f88cf8132a11a4663b07310e96ad7ba434665e7a88f52ca697"
+    },
+    "injective-evm-developer": {
+      "source": "InjectiveLabs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/injective-evm-developer/SKILL.md",
+      "computedHash": "bab049bd0b38e77f3b182a93d4ba5262b5e5809c6404044387282fb03c76a841"
+    },
+    "injective-faucet": {
+      "source": "InjectiveLabs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/injective-faucet/SKILL.md",
+      "computedHash": "85c8bc550430016f4b95db9b4ea60ac1e835004a9a771f73c186aa153b0e5360"
+    },
+    "injective-funding": {
+      "source": "InjectiveLabs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/injective-funding/SKILL.md",
+      "computedHash": "d7fb22d4f80e16743a5018abf8926d8dc9c0ee438e9c795aa6b1d8054f8fbeb1"
+    },
+    "injective-mcp-servers": {
+      "source": "InjectiveLabs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/injective-mcp-servers/SKILL.md",
+      "computedHash": "0cf3cee43f9cf8fea5d9992065a688919203e0a66722fb0f19861da7a1a8075f"
+    },
+    "injective-rfq-integrations": {
+      "source": "InjectiveLabs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/injective-rfq-integrations/SKILL.md",
+      "computedHash": "b916843c65fffa1b493f48f0b88b8d884bb9446ae29c61cb249a7e80f14918d3"
+    },
+    "injective-trading-account": {
+      "source": "InjectiveLabs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/injective-trading-account/SKILL.md",
+      "computedHash": "9a71a80fb445a872779e2b03fe6d1eb38ba26ecfae780040d8276a40f8288a6f"
+    },
+    "injective-trading-autosign": {
+      "source": "InjectiveLabs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/injective-trading-autosign/SKILL.md",
+      "computedHash": "1daa11809748f4e0f97e142c869d8bc40e56f779b4a9f17ac94c3b3e030120fd"
+    },
+    "injective-trading-bridge": {
+      "source": "InjectiveLabs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/injective-trading-bridge/SKILL.md",
+      "computedHash": "a2500adecd19c69735ca2e7044f029f495394289ba84dda36e36e2db06346271"
+    },
+    "injective-trading-chain-analysis": {
+      "source": "InjectiveLabs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/injective-trading-chain-analysis/SKILL.md",
+      "computedHash": "36573bc0ac830235e88a462d4c6ad666fa130e46de7d11f8a979b9ccc0ba6165"
+    },
+    "injective-trading-market-data": {
+      "source": "InjectiveLabs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/injective-trading-market-data/SKILL.md",
+      "computedHash": "c98e1d4935c78140f96760b9ac4d75b674f5acb0e7bde179fb16f1410c4cb5d0"
+    },
+    "injective-trading-staking": {
+      "source": "InjectiveLabs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/injective-trading-staking/SKILL.md",
+      "computedHash": "ffe19b20841425e7ba0dc50bb7ac39223027cfd65e8991f5218fe241ad9b9820"
+    },
+    "injective-trading-tokens": {
+      "source": "InjectiveLabs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/injective-trading-tokens/SKILL.md",
+      "computedHash": "5b64790e06ca0c1f0fa1dc4449cdc0c5b422717f3f5a8b6eaaf20a1e41a1cef8"
+    },
+    "injective-wallet-ops": {
+      "source": "InjectiveLabs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/injective-wallet-ops/SKILL.md",
+      "computedHash": "edeb1ab0ab503bfcad87fbfbc5fbe3b243ed5474919c32ce1dc0bbc75a66dd61"
+    },
+    "linear-cli": {
+      "source": "InjectiveLabs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/linear-cli/SKILL.md",
+      "computedHash": "8020d4753c91c780cd0d8a00671132e3db9bf861392c19e04ba74042dc1ef532"
+    }
+  }
+}
