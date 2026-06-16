@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
-import { Rajdhani, IBM_Plex_Sans, JetBrains_Mono } from 'next/font/google';
+import { Inter, IBM_Plex_Sans, JetBrains_Mono } from 'next/font/google';
 import { Analytics } from '@vercel/analytics/next';
 import './globals.css';
 
-const rajdhani = Rajdhani({
-  weight: ['400', '600', '700'],
+const inter = Inter({
+  weight: ['400', '500', '600', '700'],
   subsets: ['latin'],
   variable: '--font-rajdhani',
 });
@@ -31,7 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="en"
-      className={`${rajdhani.variable} ${ibmPlexSans.variable} ${jetbrainsMono.variable}`}
+      className={`${inter.variable} ${ibmPlexSans.variable} ${jetbrainsMono.variable}`}
     >
       <body>
         {children}

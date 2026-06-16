@@ -765,8 +765,7 @@ export default function TranslationResult({ data }: Props) {
       {/* ── AI insight block ── */}
       <div className="tx-ai-block">
         <div className="tx-ai-eyebrow">
-          <span className="tx-ai-glyph">◈</span>
-          AI INSIGHT
+          SUMMARY
         </div>
         <p className="tx-ai-action">{data.action}</p>
         {data.details && <DetailsBlock text={data.details} txCategory={data.txCategory} governanceData={data.governanceData} />}

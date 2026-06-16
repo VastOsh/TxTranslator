@@ -164,7 +164,7 @@ export default function Home() {
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: '1.25rem 0',
-          borderBottom: '1px solid rgba(0,212,255,0.08)',
+          borderBottom: '1px solid var(--tx-border)',
           marginBottom: '4rem',
         }}
       >
