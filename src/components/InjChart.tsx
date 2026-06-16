@@ -1,55 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-
-declare global {
-  interface Window {
-    TradingView?: { widget: new (c: Record<string, unknown>) => void };
-  }
-}
-
-const CHART_ID = 'tv-inj-chart';
-
 export default function InjChart() {
-  const initialized = useRef(false);
-
-  useEffect(() => {
-    if (initialized.current) return;
-    initialized.current = true;
-
-    function init() {
-      if (!window.TradingView) return;
-      new window.TradingView.widget({
-        container_id: CHART_ID,
-        symbol: 'BINANCE:INJUSDT',
-        interval: '60',
-        timezone: 'Etc/UTC',
-        theme: 'dark',
-        style: '1',
-        locale: 'en',
-        backgroundColor: 'rgba(11, 24, 43, 1)',
-        gridColor: 'rgba(75, 57, 248, 0.06)',
-        toolbar_bg: '#0B182B',
-        hide_side_toolbar: true,
-        withdateranges: true,
-        save_image: false,
-        enable_publishing: false,
-        width: '100%',
-        height: 400,
-      });
-    }
-
-    if (window.TradingView) {
-      init();
-    } else {
-      const script = document.createElement('script');
-      script.src = 'https://s3.tradingview.com/tv.js';
-      script.async = true;
-      script.onload = init;
-      document.head.appendChild(script);
-    }
-  }, []);
-
   return (
     <section style={{ width: '100%', maxWidth: 680, marginTop: '2rem', marginBottom: '2rem' }}>
       <div style={{
@@ -75,16 +26,28 @@ export default function InjChart() {
           <span style={{ fontSize: '0.65rem', color: 'var(--tx-text-dim)' }}>Live · Binance</span>
         </div>
       </div>
-      <div
-        id={CHART_ID}
-        style={{
-          width: '100%',
-          height: 400,
-          borderRadius: 8,
-          overflow: 'hidden',
-          border: '1px solid var(--tx-border)',
-        }}
-      />
+      {/*
+        Iframe keeps TradingView origin-isolated: their script runs in its own
+        browsing context and cannot access our localStorage or cookies.
+        The JS widget approach (tv.js injected into our origin) was reverted
+        for this reason — same-origin script trust boundary.
+      */}
+      <div style={{
+        width: '100%',
+        height: 400,
+        borderRadius: 8,
+        overflow: 'hidden',
+        border: '1px solid var(--tx-border)',
+      }}>
+        <iframe
+          src="https://s.tradingview.com/widgetembed/?symbol=BINANCE%3AINJUSDT&interval=60&hidesidetoolbar=1&symboledit=0&saveimage=0&theme=Dark&style=1&timezone=Etc%2FUTC&withdateranges=1&locale=en"
+          style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
+          title="INJ/USDT Live Price Chart"
+          loading="lazy"
+          allow="clipboard-write"
+          sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+        />
+      </div>
     </section>
   );
 }
