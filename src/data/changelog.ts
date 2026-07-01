@@ -11,10 +11,32 @@ export interface ChangelogVersion {
   entries: ChangelogEntry[];
 }
 
-export const CURRENT_VERSION = 'v1.4.7';
+export const CURRENT_VERSION = 'v1.5.0';
 
 // Entries within each version are ordered: critical → fix → improvement → feature
 export const CHANGELOG: ChangelogVersion[] = [
+  {
+    version: 'v1.5.0',
+    date: '2026-07-01',
+    entries: [
+      {
+        type: 'improvement',
+        text: 'Full visual redesign aligned to the Injective brand — replaced the neon/cyberpunk theme with the official Injective palette (#4B39F8 brand purple, #F4F1E9 warm cream, #0B182B deep navy) plus refined white accents; removed every glow, scanline, dot-grid, and pulse animation for a calmer, product-grade surface that matches injective.com',
+      },
+      {
+        type: 'improvement',
+        text: 'Swapped the Rajdhani display font for Inter across the entire UI and the social share (OG) cards — retuned letter-spacing throughout for the new typeface so headings stay crisp and legible on both the live site and Twitter/Discord link previews',
+      },
+      {
+        type: 'improvement',
+        text: 'INJ / USDT price chart is now natively integrated instead of looking like a bolted-on external widget — its background matches the page (#0B182B), grid lines use a subtle brand-purple tint, and the TradingView top toolbar and bottom date-range bar are hidden for a clean candlestick view',
+      },
+      {
+        type: 'improvement',
+        text: 'Unified accent colors across every surface — decode cards, badges, buttons, headers, and the transaction-detail page now all draw from the shared design tokens; eliminated the last stray cyan borders and the leftover "AI" glyph from the previous theme',
+      },
+    ],
+  },
   {
     version: 'v1.4.7',
     date: '2026-06-14',
