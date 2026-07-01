@@ -95,7 +95,7 @@ const VALID_FONT_SIGS = [
 
 async function loadFont(): Promise<ArrayBuffer | null> {
   try {
-    const buf = await readFile(join(process.cwd(), 'public/fonts/Rajdhani-Bold.ttf'));
+    const buf = await readFile(join(process.cwd(), 'public/fonts/Inter-Bold.ttf'));
     // Reject corrupt or WOFF/WOFF2 files — Satori only accepts raw TTF/OTF buffers
     const sig = buf.slice(0, 4).toString('hex');
     if (!VALID_FONT_SIGS.includes(sig)) return null;
@@ -147,7 +147,7 @@ export default async function Image({ params }: { params: Promise<{ hash: string
       : hash.toUpperCase();
 
   const fontData = await loadFont();
-  const fontFamily = fontData ? 'Rajdhani' : 'sans-serif';
+  const fontFamily = fontData ? 'Inter' : 'sans-serif';
 
   const card = (
       <div
@@ -345,7 +345,7 @@ export default async function Image({ params }: { params: Promise<{ hash: string
   try {
     return new ImageResponse(card, {
       ...size,
-      fonts: fontData ? [{ name: 'Rajdhani', data: fontData, weight: 700, style: 'normal' }] : [],
+      fonts: fontData ? [{ name: 'Inter', data: fontData, weight: 700, style: 'normal' }] : [],
     });
   } catch (err) {
     console.error('[og-image] ImageResponse render failed:', err);
