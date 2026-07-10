@@ -1,5 +1,5 @@
 import type { FeedCandidate } from './watch';
-import type { Tier } from './thresholds';
+import { TEST_MODE, type Tier } from './thresholds';
 
 const SITE_URL = process.env.FEED_SITE_URL ?? 'https://txtranslator.vercel.app';
 
@@ -43,12 +43,13 @@ function contextLine(c: FeedCandidate): string {
 export function formatPost(c: FeedCandidate, tier: Tier): string {
   const url = `${SITE_URL}/tx/0x${c.hash}`;
   const base = c.baseSymbol;
+  const prefix = TEST_MODE ? '[TEST] ' : '';
 
   if (c.kind === 'liquidation') {
     const emoji = tier === 'hero' ? '🚨💀' : '💀';
     const side = c.direction ? ` ${c.direction}` : '';
     const lines = [
-      `${emoji} Rekt. A ${fmtUsd(c.notionalUsd)} ${base}${side} just got liquidated on Injective.`,
+      `${prefix}${emoji} Rekt. A ${fmtUsd(c.notionalUsd)} ${base}${side} just got liquidated on Injective.`,
       `Size ${fmtQty(c.quantity ?? 0)} ${base} · forced out at ${fmtPrice(c.price ?? 0)}.`,
       contextLine(c),
       `Full breakdown 👉 ${url}`,
@@ -60,7 +61,7 @@ export function formatPost(c: FeedCandidate, tier: Tier): string {
   const side = c.direction === 'short' ? 'Short' : 'Long';
   const lev = c.leverage ? `, ${c.leverage.toFixed(c.leverage >= 10 ? 0 : 1).replace(/\.0$/, '')}x` : '';
   const lines = [
-    `${emoji} Someone just opened a ${fmtUsd(c.notionalUsd)} ${base} perp on Injective. ${side}${lev}.`,
+    `${prefix}${emoji} Someone just opened a ${fmtUsd(c.notionalUsd)} ${base} perp on Injective. ${side}${lev}.`,
     `Entry ${fmtPrice(c.price ?? 0)} · margin ${fmtUsd(c.marginUsd ?? 0)} ${c.quoteSymbol}.`,
     contextLine(c),
     `Decoded 👉 ${url}`,

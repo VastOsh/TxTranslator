@@ -15,8 +15,13 @@ const HERO_USD: Record<FeedCandidate['kind'], number> = {
 // Tokenized stocks / FX are the exclusive content — halve the bar for them
 const TRADFI_FLOOR_FACTOR = 0.5;
 
+// FEED_TEST_MODE=1 drops the floors 100× and relaxes the hourly cap so a
+// private test channel sees traffic quickly. Posts get a [TEST] prefix.
+export const TEST_MODE = process.env.FEED_TEST_MODE === '1';
+const TEST_FLOOR_FACTOR = TEST_MODE ? 0.01 : 1;
+
 // Hero-tier events bypass this cap; everything else queues behind it
-export const MAX_POSTS_PER_HOUR = 3;
+export const MAX_POSTS_PER_HOUR = TEST_MODE ? 20 : 3;
 
 export type Tier = 'skip' | 'notable' | 'hero';
 
@@ -26,7 +31,7 @@ export interface Decision {
 }
 
 export function decide(c: FeedCandidate): Decision {
-  const factor = c.isTradFi ? TRADFI_FLOOR_FACTOR : 1;
+  const factor = (c.isTradFi ? TRADFI_FLOOR_FACTOR : 1) * TEST_FLOOR_FACTOR;
   const floor = FLOOR_USD[c.kind] * factor;
   const hero = HERO_USD[c.kind] * factor;
 

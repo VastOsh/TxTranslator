@@ -100,7 +100,9 @@ interface RawTxHit {
 
 async function searchTxsFromEndpoint(base: string, action: string): Promise<RawTxHit[] | null> {
   const query = encodeURIComponent(`message.action='${action}'`);
-  const url = `${base}/cosmos/tx/v1beta1/txs?query=${query}&order_by=ORDER_BY_DESC&pagination.limit=50`;
+  // SDK 0.50 renamed the search pagination params to page/limit; older
+  // gateways still read pagination.limit. Send both — unknown ones are ignored.
+  const url = `${base}/cosmos/tx/v1beta1/txs?query=${query}&order_by=ORDER_BY_DESC&limit=50&page=1&pagination.limit=50`;
   const result = await fetchJsonOverHttps(url);
   if (!result || result.status !== 200) return null;
   const txs: any[] = result.body?.txs;
