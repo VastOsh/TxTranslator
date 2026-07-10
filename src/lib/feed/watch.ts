@@ -25,9 +25,28 @@ export interface FeedCandidate {
 // many blocks (~10 min at 1.5s/block) instead of backfilling old history.
 const FIRST_RUN_LOOKBACK_BLOCKS = 400;
 
-const PERP_OPEN_ACTIONS = [
+// Market orders execute (or reject) at submission; limit/batch orders only
+// count when they fill immediately in the same tx (taker), otherwise they're
+// resting market-maker orders — the overwhelming majority of chain traffic.
+const MARKET_ORDER_ACTIONS = [
   '/injective.exchange.v2.MsgCreateDerivativeMarketOrder',
   '/injective.exchange.v1beta1.MsgCreateDerivativeMarketOrder',
+];
+
+const LIMIT_ORDER_ACTIONS = [
+  '/injective.exchange.v2.MsgCreateDerivativeLimitOrder',
+  '/injective.exchange.v1beta1.MsgCreateDerivativeLimitOrder',
+];
+
+const BATCH_ORDER_ACTIONS = [
+  '/injective.exchange.v2.MsgBatchUpdateOrders',
+  '/injective.exchange.v1beta1.MsgBatchUpdateOrders',
+];
+
+const PERP_OPEN_ACTIONS = [
+  ...MARKET_ORDER_ACTIONS,
+  ...LIMIT_ORDER_ACTIONS,
+  ...BATCH_ORDER_ACTIONS,
 ];
 
 const LIQUIDATION_ACTIONS = [
@@ -102,7 +121,9 @@ async function searchTxsFromEndpoint(base: string, action: string): Promise<RawT
   const query = encodeURIComponent(`message.action='${action}'`);
   // SDK 0.50 renamed the search pagination params to page/limit; older
   // gateways still read pagination.limit. Send both — unknown ones are ignored.
-  const url = `${base}/cosmos/tx/v1beta1/txs?query=${query}&order_by=ORDER_BY_DESC&limit=50&page=1&pagination.limit=50`;
+  // limit=100: batch-order traffic runs ~1-2 tx/s, so a small page only
+  // covers seconds of chain time between ticks
+  const url = `${base}/cosmos/tx/v1beta1/txs?query=${query}&order_by=ORDER_BY_DESC&limit=100&page=1&pagination.limit=100`;
   const result = await fetchJsonOverHttps(url);
   if (!result || result.status !== 200) return null;
   const txs: any[] = result.body?.txs;
@@ -155,11 +176,13 @@ function unwrapAuthz(messages: any[]): any[] {
 }
 
 // Trade objects inside EventBatchDerivativeExecution differ between chain
-// versions; probe both flat and position_delta shapes.
+// versions; probe both flat and position_delta shapes. Batch txs carry many
+// trades (market makers), so return the largest matching fill, not the first.
 function tradeFromEvents(
   events: RawTxHit['events'],
   marketId: string,
 ): { price: number; quantity: number; isLong: boolean | null } | null {
+  let best: { price: number; quantity: number; isLong: boolean | null } | null = null;
   for (const ev of events) {
     if (!ev.type.includes('DerivativeExecution')) continue;
     const attrs: Record<string, string> = {};
@@ -175,59 +198,88 @@ function tradeFromEvents(
         const price = parseFloat(t.price ?? t.position_delta?.execution_price ?? '0');
         const quantity = parseFloat(t.quantity ?? t.position_delta?.execution_quantity ?? '0');
         if (price <= 0 || quantity <= 0) continue;
+        if (best && price * quantity <= best.price * best.quantity) continue;
         const dirRaw = (t.position_delta?.trade_direction ?? '').toString().toLowerCase();
         const isLong = t.position_delta?.is_long ?? (dirRaw ? dirRaw.includes('buy') || dirRaw.includes('long') : null);
-        return { price, quantity, isLong: typeof isLong === 'boolean' ? isLong : null };
+        best = { price, quantity, isLong: typeof isLong === 'boolean' ? isLong : null };
       }
     } catch { /* malformed attribute — keep scanning */ }
   }
-  return null;
+  return best;
+}
+
+// Every order shape that can open a derivative position, tagged with whether
+// an immediate fill is required for it to count as a whale "open".
+function ordersFromMsg(msg: any): Array<{ order: any; requireFill: boolean }> {
+  const type = msg['@type'] ?? '';
+  if (MARKET_ORDER_ACTIONS.includes(type)) {
+    return msg.order ? [{ order: msg.order, requireFill: false }] : [];
+  }
+  if (LIMIT_ORDER_ACTIONS.includes(type)) {
+    return msg.order ? [{ order: msg.order, requireFill: true }] : [];
+  }
+  if (BATCH_ORDER_ACTIONS.includes(type)) {
+    const created: any[] = msg.derivative_orders_to_create ?? [];
+    return created.map(order => ({ order, requireFill: true }));
+  }
+  return [];
 }
 
 function extractPerpOpen(hit: RawTxHit, markets: Map<string, DerivativeMarketInfo>): FeedCandidate | null {
-  const msg = unwrapAuthz(hit.messages).find(m =>
-    PERP_OPEN_ACTIONS.includes(m['@type'] ?? '')
-  );
-  const order = msg?.order;
-  if (!order?.order_info) return null;
+  let best: FeedCandidate | null = null;
 
-  const marketId = (order.market_id ?? '').toLowerCase();
-  const market = markets.get(marketId);
-  if (!market) return null;
+  for (const msg of unwrapAuthz(hit.messages)) {
+    for (const { order, requireFill } of ordersFromMsg(msg)) {
+      if (!order?.order_info) continue;
 
-  const scale = Math.pow(10, market.quoteDecimals);
-  const margin = parseFloat(order.margin ?? order.order_info.margin ?? '0') / scale;
-  // margin == 0 means reduce-only (closing a position) — closes are M4 territory
-  if (margin <= 0) return null;
+      const marketId = (order.market_id ?? '').toLowerCase();
+      const market = markets.get(marketId);
+      if (!market) continue;
 
-  const orderPrice = parseFloat(order.order_info.price ?? '0') / scale;
-  const orderQty = parseFloat(order.order_info.quantity ?? '0');
+      const scale = Math.pow(10, market.quoteDecimals);
+      const margin = parseFloat(order.margin ?? order.order_info.margin ?? '0') / scale;
+      // margin == 0 means reduce-only (closing a position) — closes are M4 territory
+      if (margin <= 0) continue;
 
-  // Prefer the actual fill from execution events over the order's worst-price bound
-  const fill = tradeFromEvents(hit.events, marketId);
-  const price = fill ? fill.price / scale : orderPrice;
-  const quantity = fill ? fill.quantity : orderQty;
-  if (price <= 0 || quantity <= 0) return null;
+      const orderPrice = parseFloat(order.order_info.price ?? '0') / scale;
+      const orderQty = parseFloat(order.order_info.quantity ?? '0');
 
-  const notionalUsd = price * quantity;
-  return {
-    kind: 'perp_open',
-    hash: hit.hash,
-    height: hit.height,
-    timestamp: hit.timestamp,
-    marketId,
-    ticker: market.ticker,
-    baseSymbol: market.baseSymbol,
-    quoteSymbol: market.quoteSymbol,
-    direction: (order.order_type ?? '').toUpperCase().includes('BUY') ? 'long' : 'short',
-    notionalUsd,
-    marginUsd: margin,
-    leverage: margin > 0 ? notionalUsd / margin : null,
-    price,
-    quantity,
-    subaccountId: order.order_info.subaccount_id ?? null,
-    isTradFi: market.isTradFi,
-  };
+      // Resting limit/batch orders without an immediate fill are MM noise
+      const fill = tradeFromEvents(hit.events, marketId);
+      if (requireFill && !fill) continue;
+
+      const price = fill ? fill.price / scale : orderPrice;
+      const quantity = fill ? fill.quantity : orderQty;
+      if (price <= 0 || quantity <= 0) continue;
+
+      const notionalUsd = price * quantity;
+      if (best && notionalUsd <= best.notionalUsd) continue;
+
+      // Intended leverage comes from the full order, not the (possibly
+      // partial) fill that happened to execute in this tx
+      const orderNotional = orderPrice * orderQty;
+      best = {
+        kind: 'perp_open',
+        hash: hit.hash,
+        height: hit.height,
+        timestamp: hit.timestamp,
+        marketId,
+        ticker: market.ticker,
+        baseSymbol: market.baseSymbol,
+        quoteSymbol: market.quoteSymbol,
+        direction: (order.order_type ?? '').toUpperCase().includes('BUY') ? 'long' : 'short',
+        notionalUsd,
+        marginUsd: margin,
+        leverage: orderNotional > 0 ? orderNotional / margin : null,
+        price,
+        quantity,
+        subaccountId: order.order_info.subaccount_id ?? null,
+        isTradFi: market.isTradFi,
+      };
+    }
+  }
+
+  return best;
 }
 
 function extractLiquidation(hit: RawTxHit, markets: Map<string, DerivativeMarketInfo>): FeedCandidate | null {
