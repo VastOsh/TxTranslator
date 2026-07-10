@@ -5,7 +5,7 @@ const endpoints = getNetworkEndpoints(Network.Mainnet);
 
 // LCD endpoints tried in order. Polkachu is first because *.injective.network
 // and publicnode.com are commonly blocked by DNS filters (OpenDNS/corporate).
-const LCD_ENDPOINTS = [
+export const LCD_ENDPOINTS = [
   'https://injective-api.polkachu.com',
   endpoints.rest,
   'https://injective-rest.publicnode.com',
@@ -56,7 +56,7 @@ const HEADERS = {
   'Accept-Encoding': 'gzip, deflate',
 };
 
-async function fetchJsonOverHttps(url: string): Promise<{ status: number; body: any } | null> {
+export async function fetchJsonOverHttps(url: string): Promise<{ status: number; body: any } | null> {
   return new Promise((resolve) => {
     const req = https.get(url, { agent: injectiveAgent, headers: HEADERS }, (res) => {
       let raw = '';
@@ -82,7 +82,7 @@ async function fetchJsonOverHttps(url: string): Promise<{ status: number; body: 
 
 // Injective on-chain indexer — full history, no tx-index pruning.
 // api.injective.network issues a 302 to this sentry endpoint, so we call it directly.
-const INDEXER_BASE = 'https://sentry.exchange.grpc-web.injective.network';
+export const INDEXER_BASE = 'https://sentry.exchange.grpc-web.injective.network';
 
 async function fetchFromIndexer(txHash: string): Promise<CosmosTxResponse | null> {
   const url = `${INDEXER_BASE}/api/explorer/v1/txs/${txHash}`;
