@@ -15,10 +15,12 @@ const HERO_USD: Record<FeedCandidate['kind'], number> = {
 // Tokenized stocks / FX are the exclusive content — halve the bar for them
 const TRADFI_FLOOR_FACTOR = 0.5;
 
-// FEED_TEST_MODE=1 drops the floors 100× and relaxes the hourly cap so a
-// private test channel sees traffic quickly. Posts get a [TEST] prefix.
+// FEED_TEST_MODE=1 drops the floors 500× ($50 perp open / $30 liquidation)
+// and relaxes the hourly cap so a private test channel sees traffic quickly.
+// On-chain perp flow is mostly $1-100 MM trades, so even this catches only
+// the larger organic ones. Posts get a [TEST] prefix.
 export const TEST_MODE = process.env.FEED_TEST_MODE === '1';
-const TEST_FLOOR_FACTOR = TEST_MODE ? 0.01 : 1;
+const TEST_FLOOR_FACTOR = TEST_MODE ? 0.002 : 1;
 
 // Hero-tier events bypass this cap; everything else queues behind it
 export const MAX_POSTS_PER_HOUR = TEST_MODE ? 20 : 3;

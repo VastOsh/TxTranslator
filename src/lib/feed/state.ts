@@ -3,15 +3,15 @@
 // for dry runs, but live publishing is refused (dedup wouldn't survive
 // across serverless invocations and the feed would double-post).
 
-const LAST_BLOCK_KEY = 'feed:last_block';
+const CHECKPOINT_KEY = 'feed:checkpoint'; // newest executedAt (ms) processed
 const POSTED_TTL_S = 48 * 3600;
 
 export interface FeedState {
   persistent: boolean;
-  getLastBlock(): Promise<number>;
-  setLastBlock(height: number): Promise<void>;
+  getCheckpoint(): Promise<number>;
+  setCheckpoint(timestampMs: number): Promise<void>;
   /** Atomic test-and-set dedup. True = first time seen, safe to post. */
-  tryMarkPosted(hash: string): Promise<boolean>;
+  tryMarkPosted(key: string): Promise<boolean>;
   /** Increments and returns this hour's post count. */
   incrPostCount(): Promise<number>;
 }
@@ -39,17 +39,17 @@ class UpstashState implements FeedState {
     return data.result;
   }
 
-  async getLastBlock(): Promise<number> {
-    const v = await this.cmd(['GET', LAST_BLOCK_KEY]);
+  async getCheckpoint(): Promise<number> {
+    const v = await this.cmd(['GET', CHECKPOINT_KEY]);
     return v ? parseInt(v, 10) : 0;
   }
 
-  async setLastBlock(height: number): Promise<void> {
-    await this.cmd(['SET', LAST_BLOCK_KEY, height]);
+  async setCheckpoint(timestampMs: number): Promise<void> {
+    await this.cmd(['SET', CHECKPOINT_KEY, timestampMs]);
   }
 
-  async tryMarkPosted(hash: string): Promise<boolean> {
-    const v = await this.cmd(['SET', `feed:posted:${hash}`, '1', 'NX', 'EX', POSTED_TTL_S]);
+  async tryMarkPosted(key: string): Promise<boolean> {
+    const v = await this.cmd(['SET', `feed:posted:${key}`, '1', 'NX', 'EX', POSTED_TTL_S]);
     return v === 'OK';
   }
 
@@ -62,7 +62,7 @@ class UpstashState implements FeedState {
 }
 
 const memory = {
-  lastBlock: 0,
+  checkpoint: 0,
   posted: new Set<string>(),
   rate: new Map<string, number>(),
 };
@@ -70,17 +70,17 @@ const memory = {
 class MemoryState implements FeedState {
   persistent = false;
 
-  async getLastBlock(): Promise<number> {
-    return memory.lastBlock;
+  async getCheckpoint(): Promise<number> {
+    return memory.checkpoint;
   }
 
-  async setLastBlock(height: number): Promise<void> {
-    memory.lastBlock = height;
+  async setCheckpoint(timestampMs: number): Promise<void> {
+    memory.checkpoint = timestampMs;
   }
 
-  async tryMarkPosted(hash: string): Promise<boolean> {
-    if (memory.posted.has(hash)) return false;
-    memory.posted.add(hash);
+  async tryMarkPosted(key: string): Promise<boolean> {
+    if (memory.posted.has(key)) return false;
+    memory.posted.add(key);
     return true;
   }
 

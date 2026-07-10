@@ -24,6 +24,9 @@ function fmtQty(n: number): string {
 // this exact output as the fallback.
 function contextLine(c: FeedCandidate): string {
   if (c.kind === 'liquidation') {
+    if (c.pnlUsd && c.pnlUsd < 0) {
+      return `${fmtUsd(Math.abs(c.pnlUsd))} gone. This is why you set a stop-loss.`;
+    }
     return 'This is why you set a stop-loss.';
   }
   if (c.leverage && c.leverage >= 2) {

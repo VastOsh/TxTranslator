@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { pollCandidates } from '@/lib/feed/watch';
+import { pollCandidates, resolveTxHash } from '@/lib/feed/watch';
 import { decide, MAX_POSTS_PER_HOUR } from '@/lib/feed/thresholds';
 import { formatPost } from '@/lib/feed/format';
 import { publishToX, publishToDiscord, xConfigured, discordConfigured } from '@/lib/feed/publish';
 import { createState } from '@/lib/feed/state';
 
-// One tick: poll the chain for whale perp opens + liquidations since the
-// last checkpoint, filter, format, publish. Fired by an external cron
-// (e.g. cron-job.org every 3 min). See feed-mvp-plan.md.
+// One tick: pull executed derivative trades from the indexer since the last
+// checkpoint, aggregate per aggressing order, filter, resolve the tx hash,
+// format, publish. Fired by an external cron (e.g. cron-job.org every 3-5
+// min). See feed-mvp-plan.md.
 export const maxDuration = 60;
 
 export async function GET(req: NextRequest) {
@@ -28,8 +29,8 @@ export async function GET(req: NextRequest) {
   }
 
   const state = createState();
-  const lastBlock = await state.getLastBlock().catch(() => 0);
-  const { candidates, maxHeight, scanned } = await pollCandidates(lastBlock);
+  const checkpoint = await state.getCheckpoint().catch(() => 0);
+  const { candidates, maxTimestamp, scanned } = await pollCandidates(checkpoint);
 
   const results: Array<Record<string, unknown>> = [];
   let published = 0;
@@ -41,15 +42,37 @@ export async function GET(req: NextRequest) {
       ticker: c.ticker,
       notionalUsd: Math.round(c.notionalUsd),
       leverage: c.leverage ? Number(c.leverage.toFixed(1)) : null,
+      pnlUsd: c.pnlUsd ? Math.round(c.pnlUsd) : null,
       tier: decision.tier,
       reason: decision.reason,
-      hash: `0x${c.hash}`,
+      orderHash: c.orderHash,
     };
 
     if (decision.tier === 'skip') {
       results.push(entry);
       continue;
     }
+
+    if (!dry && !state.persistent) {
+      entry.outcome = 'blocked: no persistent state (configure Upstash) — refusing to publish';
+      results.push(entry);
+      continue;
+    }
+    if (!dry && !xConfigured() && !discordConfigured()) {
+      entry.outcome = 'blocked: no publish channel configured';
+      results.push(entry);
+      continue;
+    }
+
+    // One explorer call per whale — only for candidates that will post
+    const txHash = await resolveTxHash(c).catch(() => null);
+    if (!txHash) {
+      entry.outcome = 'skipped: could not resolve tx hash';
+      results.push(entry);
+      continue;
+    }
+    c.hash = txHash;
+    entry.hash = `0x${txHash}`;
 
     const text = formatPost(c, decision.tier);
     entry.post = text;
@@ -60,19 +83,8 @@ export async function GET(req: NextRequest) {
       continue;
     }
 
-    if (!state.persistent) {
-      entry.outcome = 'blocked: no persistent state (configure Upstash) — refusing to publish';
-      results.push(entry);
-      continue;
-    }
-    if (!xConfigured() && !discordConfigured()) {
-      entry.outcome = 'blocked: no publish channel configured';
-      results.push(entry);
-      continue;
-    }
-
     // Atomic dedup before anything else — a concurrent tick loses this race
-    const first = await state.tryMarkPosted(c.hash).catch(() => false);
+    const first = await state.tryMarkPosted(c.orderHash).catch(() => false);
     if (!first) {
       entry.outcome = 'skipped: already posted';
       results.push(entry);
@@ -101,15 +113,15 @@ export async function GET(req: NextRequest) {
   }
 
   // Advance the checkpoint even when nothing was posted
-  if (!dry && state.persistent && maxHeight > lastBlock) {
-    await state.setLastBlock(maxHeight).catch(() => { /* next tick re-scans */ });
+  if (!dry && state.persistent && maxTimestamp > checkpoint) {
+    await state.setCheckpoint(maxTimestamp).catch(() => { /* next tick re-scans */ });
   }
 
   return NextResponse.json({
     dryRun: dry,
     persistentState: state.persistent,
     channels: { x: xConfigured(), discord: discordConfigured() },
-    checkpoint: { from: lastBlock, to: maxHeight },
+    checkpoint: { from: checkpoint, to: maxTimestamp },
     scanned,
     candidates: candidates.length,
     published,
