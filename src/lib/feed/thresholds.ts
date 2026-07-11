@@ -1,15 +1,18 @@
 import type { FeedCandidate } from './watch';
 
-// Static USD floors calibrated to INJ ≈ $4.85 (July 2026). M2 layers a
-// rolling top-percentile window on top; these are the hard minimums.
+// Static USD floors calibrated against a 24h indexer sample (July 2026):
+// distinct-whale opens ≥$25k ≈ 1-2/day once bot bursts are cooled down;
+// liquidations ≥$1k were zero all day, so the liq bar sits low — rekt posts
+// are rare, high-value events. M2 layers a rolling top-percentile window on
+// top; these are the hard minimums.
 const FLOOR_USD: Record<FeedCandidate['kind'], number> = {
   perp_open: 25_000,
-  liquidation: 15_000,
+  liquidation: 5_000,
 };
 
 const HERO_USD: Record<FeedCandidate['kind'], number> = {
   perp_open: 150_000,
-  liquidation: 100_000,
+  liquidation: 50_000,
 };
 
 // Tokenized stocks / FX are the exclusive content — halve the bar for them
@@ -24,6 +27,11 @@ const TEST_FLOOR_FACTOR = TEST_MODE ? 0.002 : 1;
 
 // Hero-tier events bypass this cap; everything else queues behind it
 export const MAX_POSTS_PER_HOUR = TEST_MODE ? 20 : 3;
+
+// One post per subaccount per window, heroes included. Calibration (July
+// 2026) found a single account behind 67 of 68 opens ≥$25k in a 24h sample —
+// without this, one bot burst monopolizes the feed.
+export const SUBACCOUNT_COOLDOWN_S = TEST_MODE ? 15 * 60 : 6 * 3600;
 
 export type Tier = 'skip' | 'notable' | 'hero';
 

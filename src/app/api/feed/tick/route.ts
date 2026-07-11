@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pollCandidates, resolveTxHash } from '@/lib/feed/watch';
-import { decide, MAX_POSTS_PER_HOUR } from '@/lib/feed/thresholds';
+import { decide, MAX_POSTS_PER_HOUR, SUBACCOUNT_COOLDOWN_S } from '@/lib/feed/thresholds';
 import { formatPost } from '@/lib/feed/format';
 import { publishToX, publishToDiscord, xConfigured, discordConfigured } from '@/lib/feed/publish';
 import { createState } from '@/lib/feed/state';
@@ -87,6 +87,15 @@ export async function GET(req: NextRequest) {
     const first = await state.tryMarkPosted(c.orderHash).catch(() => false);
     if (!first) {
       entry.outcome = 'skipped: already posted';
+      results.push(entry);
+      continue;
+    }
+
+    // One post per subaccount per window, heroes included — a single bot
+    // burst (dozens of $25k+ orders in hours) must not monopolize the feed.
+    const offCooldown = await state.trySubaccountCooldown(c.subaccountId, SUBACCOUNT_COOLDOWN_S).catch(() => true);
+    if (!offCooldown) {
+      entry.outcome = 'skipped: subaccount on cooldown';
       results.push(entry);
       continue;
     }

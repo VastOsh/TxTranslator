@@ -12,6 +12,8 @@ export interface FeedState {
   setCheckpoint(timestampMs: number): Promise<void>;
   /** Atomic test-and-set dedup. True = first time seen, safe to post. */
   tryMarkPosted(key: string): Promise<boolean>;
+  /** Per-subaccount cooldown. True = not on cooldown, safe to post. */
+  trySubaccountCooldown(subaccountId: string, ttlS: number): Promise<boolean>;
   /** Increments and returns this hour's post count. */
   incrPostCount(): Promise<number>;
 }
@@ -53,6 +55,11 @@ class UpstashState implements FeedState {
     return v === 'OK';
   }
 
+  async trySubaccountCooldown(subaccountId: string, ttlS: number): Promise<boolean> {
+    const v = await this.cmd(['SET', `feed:sub:${subaccountId}`, '1', 'NX', 'EX', ttlS]);
+    return v === 'OK';
+  }
+
   async incrPostCount(): Promise<number> {
     const key = hourBucket();
     const count = await this.cmd(['INCR', key]);
@@ -64,6 +71,7 @@ class UpstashState implements FeedState {
 const memory = {
   checkpoint: 0,
   posted: new Set<string>(),
+  subCooldown: new Map<string, number>(), // subaccountId → expiry ms
   rate: new Map<string, number>(),
 };
 
@@ -81,6 +89,13 @@ class MemoryState implements FeedState {
   async tryMarkPosted(key: string): Promise<boolean> {
     if (memory.posted.has(key)) return false;
     memory.posted.add(key);
+    return true;
+  }
+
+  async trySubaccountCooldown(subaccountId: string, ttlS: number): Promise<boolean> {
+    const until = memory.subCooldown.get(subaccountId);
+    if (until && until > Date.now()) return false;
+    memory.subCooldown.set(subaccountId, Date.now() + ttlS * 1000);
     return true;
   }
 
