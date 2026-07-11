@@ -33,6 +33,26 @@ export const MAX_POSTS_PER_HOUR = TEST_MODE ? 20 : 3;
 // without this, one bot burst monopolizes the feed.
 export const SUBACCOUNT_COOLDOWN_S = TEST_MODE ? 15 * 60 : 6 * 3600;
 
+// ── Rolling dynamic bar ──
+// Every non-dust candidate notional enters a 24h window; notable-tier posts
+// must also clear its p85, so a busy day raises the bar and a quiet day
+// lowers it. Heroes bypass the bar (a $150k open posts regardless).
+
+// 99% of raw flow is $1-3 dust that would drag the percentile to $2 —
+// only orders at least this large enter the window.
+export const DYNAMIC_MIN_NOTIONAL_USD = 1_000;
+// Below this many samples the percentile is noise; floors alone apply.
+export const DYNAMIC_MIN_SAMPLES = 20;
+export const NOTIONALS_WINDOW_MS = 24 * 3600 * 1000;
+export const DYNAMIC_PERCENTILE = 0.85;
+
+/** Nearest-rank percentile of an ascending-sorted array. */
+export function percentile(sortedAsc: number[], p: number): number {
+  if (sortedAsc.length === 0) return 0;
+  const idx = Math.min(sortedAsc.length - 1, Math.floor(sortedAsc.length * p));
+  return sortedAsc[idx];
+}
+
 export type Tier = 'skip' | 'notable' | 'hero';
 
 export interface Decision {
@@ -40,16 +60,22 @@ export interface Decision {
   reason: string;
 }
 
-export function decide(c: FeedCandidate): Decision {
+export function decide(c: FeedCandidate, dynamicBarUsd?: number | null): Decision {
   const factor = (c.isTradFi ? TRADFI_FLOOR_FACTOR : 1) * TEST_FLOOR_FACTOR;
   const floor = FLOOR_USD[c.kind] * factor;
   const hero = HERO_USD[c.kind] * factor;
 
-  if (c.notionalUsd < floor) {
-    return { tier: 'skip', reason: `$${Math.round(c.notionalUsd).toLocaleString()} below $${floor.toLocaleString()} floor` };
-  }
   if (c.notionalUsd >= hero) {
     return { tier: 'hero', reason: `$${Math.round(c.notionalUsd).toLocaleString()} ≥ hero threshold` };
   }
-  return { tier: 'notable', reason: `$${Math.round(c.notionalUsd).toLocaleString()} ≥ floor` };
+  if (c.notionalUsd < floor) {
+    return { tier: 'skip', reason: `$${Math.round(c.notionalUsd).toLocaleString()} below $${floor.toLocaleString()} floor` };
+  }
+  // The window holds real (unscaled) notionals, so the bar takes the same
+  // TradFi/test scaling as the floors.
+  const bar = dynamicBarUsd != null ? dynamicBarUsd * factor : null;
+  if (bar != null && c.notionalUsd < bar) {
+    return { tier: 'skip', reason: `$${Math.round(c.notionalUsd).toLocaleString()} below rolling p85 $${Math.round(bar).toLocaleString()}` };
+  }
+  return { tier: 'notable', reason: `$${Math.round(c.notionalUsd).toLocaleString()} ≥ floor${bar != null ? ' and rolling p85' : ''}` };
 }

@@ -3,7 +3,10 @@
 // for dry runs, but live publishing is refused (dedup wouldn't survive
 // across serverless invocations and the feed would double-post).
 
+import { NOTIONALS_WINDOW_MS } from './thresholds';
+
 const CHECKPOINT_KEY = 'feed:checkpoint'; // newest executedAt (ms) processed
+const NOTIONALS_KEY = 'feed:notionals'; // 24h rolling window, score = executedAt
 const POSTED_TTL_S = 48 * 3600;
 
 export interface FeedState {
@@ -16,6 +19,17 @@ export interface FeedState {
   trySubaccountCooldown(subaccountId: string, ttlS: number): Promise<boolean>;
   /** Increments and returns this hour's post count. */
   incrPostCount(): Promise<number>;
+  /**
+   * Add entries to the 24h rolling notionals window, prune expired ones,
+   * and return every notional still in the window, ascending.
+   */
+  recordNotionals(entries: NotionalEntry[]): Promise<number[]>;
+}
+
+export interface NotionalEntry {
+  executedAt: number; // ms — the window is pruned on this
+  orderHash: string;
+  notionalUsd: number;
 }
 
 function hourBucket(): string {
@@ -66,6 +80,25 @@ class UpstashState implements FeedState {
     if (count === 1) await this.cmd(['EXPIRE', key, 3900]);
     return count;
   }
+
+  async recordNotionals(entries: NotionalEntry[]): Promise<number[]> {
+    if (entries.length > 0) {
+      const args: (string | number)[] = ['ZADD', NOTIONALS_KEY];
+      for (const e of entries) {
+        args.push(e.executedAt, `${e.orderHash}:${Math.round(e.notionalUsd)}`);
+      }
+      await this.cmd(args);
+      // Self-destruct if the feed stops running; the window otherwise
+      // prunes itself by score below.
+      await this.cmd(['EXPIRE', NOTIONALS_KEY, Math.ceil(NOTIONALS_WINDOW_MS / 1000) + 3600]);
+    }
+    await this.cmd(['ZREMRANGEBYSCORE', NOTIONALS_KEY, 0, Date.now() - NOTIONALS_WINDOW_MS]);
+    const members: string[] = (await this.cmd(['ZRANGE', NOTIONALS_KEY, 0, -1])) ?? [];
+    return members
+      .map((m) => parseInt(m.slice(m.lastIndexOf(':') + 1), 10))
+      .filter((n) => Number.isFinite(n))
+      .sort((a, b) => a - b);
+  }
 }
 
 const memory = {
@@ -73,6 +106,7 @@ const memory = {
   posted: new Set<string>(),
   subCooldown: new Map<string, number>(), // subaccountId → expiry ms
   rate: new Map<string, number>(),
+  notionals: new Map<string, { executedAt: number; notionalUsd: number }>(),
 };
 
 class MemoryState implements FeedState {
@@ -104,6 +138,17 @@ class MemoryState implements FeedState {
     const next = (memory.rate.get(key) ?? 0) + 1;
     memory.rate.set(key, next);
     return next;
+  }
+
+  async recordNotionals(entries: NotionalEntry[]): Promise<number[]> {
+    for (const e of entries) {
+      memory.notionals.set(e.orderHash, { executedAt: e.executedAt, notionalUsd: e.notionalUsd });
+    }
+    const cutoff = Date.now() - NOTIONALS_WINDOW_MS;
+    for (const [k, v] of memory.notionals) {
+      if (v.executedAt < cutoff) memory.notionals.delete(k);
+    }
+    return [...memory.notionals.values()].map((v) => v.notionalUsd).sort((a, b) => a - b);
   }
 }
 

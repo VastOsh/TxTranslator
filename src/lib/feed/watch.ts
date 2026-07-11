@@ -42,9 +42,18 @@ interface DerivativeMarketInfo {
   isTradFi: boolean;
 }
 
-// Stocks price via SEDA ("sedafast"), FX/commodities via Pyth Pro ("pythpro");
-// crypto perps use chainlinkdatastreams/pyth/band. TradFi = the former two.
-const TRADFI_ORACLE_TYPES = new Set(['sedafast', 'pythpro']);
+// Stocks and oil price via SEDA ("sedafast") — that oracle is TradFi-only.
+// FX and metals share "pythpro" with 200+ crypto perps (NEAR, ALGO, …), so
+// they're recognized by ticker instead: fiat-code pairs like EURUSD/USDNOK
+// plus spot metals XAU/XAG.
+const FIAT_CODES = 'USD|EUR|GBP|AUD|NZD|CHF|CAD|JPY|NOK|SEK';
+const FX_BASE_RE = new RegExp(`^(?:${FIAT_CODES})(?:${FIAT_CODES})$`);
+const METAL_BASES = new Set(['XAU', 'XAG']);
+
+function isTradFiMarket(oracleType: string, baseSymbol: string): boolean {
+  if (oracleType === 'sedafast') return true;
+  return FX_BASE_RE.test(baseSymbol) || METAL_BASES.has(baseSymbol);
+}
 
 let marketCache: Map<string, DerivativeMarketInfo> | null = null;
 let marketCacheAt = 0;
@@ -69,13 +78,14 @@ async function loadMarkets(): Promise<Map<string, DerivativeMarketInfo>> {
     const marketId: string = (m.marketId ?? '').toLowerCase();
     const ticker: string = m.ticker ?? '';
     if (!marketId || !ticker) continue;
+    const baseSymbol = ticker.split('/')[0] ?? ticker;
     map.set(marketId, {
       marketId,
       ticker,
-      baseSymbol: ticker.split('/')[0] ?? ticker,
+      baseSymbol,
       quoteSymbol: m.quoteTokenMeta?.symbol ?? 'USD',
       quoteDecimals: m.quoteTokenMeta?.decimals ?? 6,
-      isTradFi: TRADFI_ORACLE_TYPES.has(m.oracleType ?? ''),
+      isTradFi: isTradFiMarket(m.oracleType ?? '', baseSymbol),
     });
   }
   marketCache = map;

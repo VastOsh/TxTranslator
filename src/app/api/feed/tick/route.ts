@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pollCandidates, resolveTxHash } from '@/lib/feed/watch';
-import { decide, MAX_POSTS_PER_HOUR, SUBACCOUNT_COOLDOWN_S } from '@/lib/feed/thresholds';
-import { formatPost } from '@/lib/feed/format';
+import {
+  decide,
+  percentile,
+  MAX_POSTS_PER_HOUR,
+  SUBACCOUNT_COOLDOWN_S,
+  DYNAMIC_MIN_NOTIONAL_USD,
+  DYNAMIC_MIN_SAMPLES,
+  DYNAMIC_PERCENTILE,
+} from '@/lib/feed/thresholds';
+import { formatPost, generateContextLine } from '@/lib/feed/format';
 import { publishToX, publishToDiscord, xConfigured, discordConfigured } from '@/lib/feed/publish';
 import { createState } from '@/lib/feed/state';
 
@@ -32,11 +40,27 @@ export async function GET(req: NextRequest) {
   const checkpoint = await state.getCheckpoint().catch(() => 0);
   const { candidates, maxTimestamp, scanned } = await pollCandidates(checkpoint);
 
+  // Feed this tick's non-dust notionals into the 24h rolling window and set
+  // the dynamic bar at its p85 — busy day raises it, quiet day lowers it.
+  // Dry runs read the window without writing to it.
+  const windowEntries = dry
+    ? []
+    : candidates
+        .filter((c) => c.notionalUsd >= DYNAMIC_MIN_NOTIONAL_USD)
+        .map((c) => ({ executedAt: c.executedAt, orderHash: c.orderHash, notionalUsd: c.notionalUsd }));
+  let dynamicBar: number | null = null;
+  if (state.persistent) {
+    const window = await state.recordNotionals(windowEntries).catch(() => [] as number[]);
+    if (window.length >= DYNAMIC_MIN_SAMPLES) {
+      dynamicBar = percentile(window, DYNAMIC_PERCENTILE);
+    }
+  }
+
   const results: Array<Record<string, unknown>> = [];
   let published = 0;
 
   for (const c of candidates) {
-    const decision = decide(c);
+    const decision = decide(c, dynamicBar);
     const entry: Record<string, unknown> = {
       kind: c.kind,
       ticker: c.ticker,
@@ -74,10 +98,10 @@ export async function GET(req: NextRequest) {
     c.hash = txHash;
     entry.hash = `0x${txHash}`;
 
-    const text = formatPost(c, decision.tier);
-    entry.post = text;
-
     if (dry) {
+      const ctx = await generateContextLine(c, decision.tier);
+      entry.post = formatPost(c, decision.tier, ctx.line);
+      entry.contextSource = ctx.source;
       entry.outcome = 'dry-run';
       results.push(entry);
       continue;
@@ -111,6 +135,13 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // Only posts that cleared every gate pay for a Groq call; the template
+    // fallback inside generateContextLine means this can never stall a tick.
+    const ctx = await generateContextLine(c, decision.tier);
+    const text = formatPost(c, decision.tier, ctx.line);
+    entry.post = text;
+    entry.contextSource = ctx.source;
+
     const outcomes = await Promise.all([
       xConfigured() ? publishToX(text) : Promise.resolve(null),
       discordConfigured() ? publishToDiscord(text) : Promise.resolve(null),
@@ -131,6 +162,7 @@ export async function GET(req: NextRequest) {
     persistentState: state.persistent,
     channels: { x: xConfigured(), discord: discordConfigured() },
     checkpoint: { from: checkpoint, to: maxTimestamp },
+    dynamicBar: dynamicBar != null ? Math.round(dynamicBar) : null,
     scanned,
     candidates: candidates.length,
     published,
