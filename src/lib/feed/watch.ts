@@ -155,18 +155,26 @@ export async function pollCandidates(sinceMs: number): Promise<PollResult> {
 
   // A single aggressing order fills as one trade row per maker matched —
   // aggregate by orderHash or a whale order fragments into small fills.
+  // RFQ/contract-routed orders (e.g. accept_quote) carry an all-zero
+  // orderHash; group those per block+subaccount+market+direction instead,
+  // or unrelated whales worldwide would merge into one candidate and share
+  // one dedup key.
+  const ZERO_HASH_RE = /^0x0+$/;
   const groups = new Map<string, IndexerTrade[]>();
   for (const t of trades) {
     if (t.executedAt <= effectiveSince) continue;
     const interesting = t.isLiquidation || t.executionSide === 'taker';
     if (!interesting || !t.positionDelta || !t.orderHash) continue;
-    const group = groups.get(t.orderHash);
+    const key = ZERO_HASH_RE.test(t.orderHash)
+      ? `${(t.tradeId ?? '').split('_')[0]}:${(t.subaccountId ?? '').toLowerCase()}:${(t.marketId ?? '').toLowerCase()}:${t.positionDelta.tradeDirection ?? ''}`
+      : t.orderHash.toLowerCase();
+    const group = groups.get(key);
     if (group) group.push(t);
-    else groups.set(t.orderHash, [t]);
+    else groups.set(key, [t]);
   }
 
   const candidates: FeedCandidate[] = [];
-  for (const fills of groups.values()) {
+  for (const [groupKey, fills] of groups) {
     const first = fills[0];
     const market = markets.get((first.marketId ?? '').toLowerCase());
     if (!market) continue;
@@ -206,7 +214,7 @@ export async function pollCandidates(sinceMs: number): Promise<PollResult> {
 
     candidates.push({
       kind,
-      orderHash: first.orderHash.toLowerCase(),
+      orderHash: groupKey,
       hash: '',
       executedAt,
       blockHeight: parseInt((first.tradeId ?? '0').split('_')[0], 10) || 0,
@@ -233,19 +241,59 @@ export async function pollCandidates(sinceMs: number): Promise<PollResult> {
 // ── Tx hash resolution ──
 // Trades don't carry a tx hash. The aggressing order (taker) or the
 // liquidator's MsgLiquidatePosition landed in the block the trade executed
-// in, and its message JSON names the subaccount — find it there. Called only
-// for candidates that passed thresholds, so it's one call per whale.
+// in, and its message JSON names either the subaccount hex or — for
+// contract-routed flows like RFQ accept_quote — only the trader's inj1…
+// address, which is the subaccount's first 20 bytes bech32-encoded. Match
+// on both. Called only for candidates that passed thresholds, so it's one
+// call per whale.
+
+const BECH32_CHARSET = 'qpzry9x8gf2tvdw0s3jn54khce6mua7l';
+
+function bech32Polymod(values: number[]): number {
+  const GEN = [0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3];
+  let chk = 1;
+  for (const v of values) {
+    const top = chk >> 25;
+    chk = ((chk & 0x1ffffff) << 5) ^ v;
+    for (let i = 0; i < 5; i++) if ((top >> i) & 1) chk ^= GEN[i];
+  }
+  return chk;
+}
+
+/** First 20 bytes of a subaccount id → bech32 inj address (BIP-173). */
+export function subaccountToInjAddress(subaccountId: string): string | null {
+  const hex = subaccountId.replace(/^0x/, '').slice(0, 40);
+  if (!/^[0-9a-f]{40}$/i.test(hex)) return null;
+  const words: number[] = [];
+  let acc = 0;
+  let bits = 0;
+  for (let i = 0; i < 40; i += 2) {
+    acc = (acc << 8) | parseInt(hex.slice(i, i + 2), 16);
+    bits += 8;
+    while (bits >= 5) {
+      bits -= 5;
+      words.push((acc >> bits) & 31);
+    }
+  }
+  if (bits > 0) words.push((acc << (5 - bits)) & 31);
+  const hrp = 'inj';
+  const hrpExpanded = [...[...hrp].map((c) => c.charCodeAt(0) >> 5), 0, ...[...hrp].map((c) => c.charCodeAt(0) & 31)];
+  const polymod = bech32Polymod([...hrpExpanded, ...words, 0, 0, 0, 0, 0, 0]) ^ 1;
+  const checksum = Array.from({ length: 6 }, (_, i) => (polymod >> (5 * (5 - i))) & 31);
+  return `${hrp}1${[...words, ...checksum].map((w) => BECH32_CHARSET[w]).join('')}`;
+}
 
 export async function resolveTxHash(c: FeedCandidate): Promise<string | null> {
   if (!c.blockHeight) return null;
+  const address = subaccountToInjAddress(c.subaccountId);
   const result = await fetchJsonOverHttps(
     `${INDEXER_BASE}/api/explorer/v1/blocks/${c.blockHeight}`,
   );
   const txs: any[] = result?.body?.data?.txs ?? result?.body?.txs ?? [];
   for (const tx of txs) {
     if ((tx.code ?? 0) !== 0) continue;
-    const messages = JSON.stringify(tx.messages ?? '');
-    if (messages.toLowerCase().includes(c.subaccountId)) {
+    const messages = JSON.stringify(tx.messages ?? '').toLowerCase();
+    if (messages.includes(c.subaccountId) || (address && messages.includes(address))) {
       return (tx.hash as string).replace(/^0x/i, '').toLowerCase();
     }
   }
