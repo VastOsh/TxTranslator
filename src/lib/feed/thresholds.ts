@@ -5,15 +5,26 @@ import type { FeedCandidate } from './watch';
 // liquidations ≥$1k were zero all day, so the liq bar sits low — rekt posts
 // are rare, high-value events. M2 layers a rolling top-percentile window on
 // top; these are the hard minimums.
+//
+// position_close gates on |realized pnl|, not notional — a $30k close for
+// +$12 is noise; a $10k close for +$8k is the story. Same 24h sample had
+// zero closes with |pnl| ≥ $500, so these floors are armed for volatile
+// days rather than daily volume.
 const FLOOR_USD: Record<FeedCandidate['kind'], number> = {
   perp_open: 25_000,
   liquidation: 5_000,
+  position_close: 1_000,
 };
 
 const HERO_USD: Record<FeedCandidate['kind'], number> = {
   perp_open: 150_000,
   liquidation: 50_000,
+  position_close: 10_000,
 };
+
+// Voluntarily cutting a loss is only a story when it's big — wins carry the
+// feed ("someone just banked $5k"), losses need a higher bar.
+const CLOSE_LOSS_FACTOR = 2.5;
 
 // Tokenized stocks / FX are the exclusive content — halve the bar for them
 const TRADFI_FLOOR_FACTOR = 0.5;
@@ -69,21 +80,27 @@ export interface Decision {
 }
 
 export function decide(c: FeedCandidate, dynamicBarUsd?: number | null): Decision {
-  const factor = (c.isTradFi ? TRADFI_FLOOR_FACTOR : 1) * TEST_FLOOR_FACTOR;
+  const isClose = c.kind === 'position_close';
+  const lossFactor = isClose && (c.pnlUsd ?? 0) < 0 ? CLOSE_LOSS_FACTOR : 1;
+  const factor = (c.isTradFi ? TRADFI_FLOOR_FACTOR : 1) * TEST_FLOOR_FACTOR * lossFactor;
   const floor = FLOOR_USD[c.kind] * factor;
   const hero = HERO_USD[c.kind] * factor;
 
-  if (c.notionalUsd >= hero) {
-    return { tier: 'hero', reason: `$${Math.round(c.notionalUsd).toLocaleString()} ≥ hero threshold` };
+  // Closes are judged on the realized result; everything else on size
+  const value = isClose ? Math.abs(c.pnlUsd ?? 0) : c.notionalUsd;
+  const label = isClose ? 'pnl' : '';
+
+  if (value >= hero) {
+    return { tier: 'hero', reason: `${label}$${Math.round(value).toLocaleString()} ≥ hero threshold` };
   }
-  if (c.notionalUsd < floor) {
-    return { tier: 'skip', reason: `$${Math.round(c.notionalUsd).toLocaleString()} below $${floor.toLocaleString()} floor` };
+  if (value < floor) {
+    return { tier: 'skip', reason: `${label}$${Math.round(value).toLocaleString()} below $${floor.toLocaleString()} floor` };
   }
-  // The window holds real (unscaled) notionals, so the bar takes the same
-  // TradFi/test scaling as the floors.
-  const bar = dynamicBarUsd != null ? dynamicBarUsd * factor : null;
-  if (bar != null && c.notionalUsd < bar) {
-    return { tier: 'skip', reason: `$${Math.round(c.notionalUsd).toLocaleString()} below rolling p85 $${Math.round(bar).toLocaleString()}` };
+  // The window holds real (unscaled) open notionals, so the bar takes the
+  // same TradFi/test scaling as the floors. It only ever gates opens.
+  const bar = c.kind === 'perp_open' && dynamicBarUsd != null ? dynamicBarUsd * factor : null;
+  if (bar != null && value < bar) {
+    return { tier: 'skip', reason: `$${Math.round(value).toLocaleString()} below rolling p85 $${Math.round(bar).toLocaleString()}` };
   }
-  return { tier: 'notable', reason: `$${Math.round(c.notionalUsd).toLocaleString()} ≥ floor${bar != null ? ' and rolling p85' : ''}` };
+  return { tier: 'notable', reason: `${label}$${Math.round(value).toLocaleString()} ≥ floor${bar != null ? ' and rolling p85' : ''}` };
 }

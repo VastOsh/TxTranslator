@@ -21,6 +21,8 @@ export interface FeedState {
   incrPostCount(): Promise<number>;
   /** Increments and returns today's X post count (X is pay-per-use). */
   incrXPostCount(): Promise<number>;
+  /** Reads today's X post count without incrementing — observability. */
+  getXPostCount(): Promise<number>;
   /**
    * Add entries to the 24h rolling notionals window, prune expired ones,
    * and return every notional still in the window, ascending.
@@ -94,6 +96,11 @@ class UpstashState implements FeedState {
     return count;
   }
 
+  async getXPostCount(): Promise<number> {
+    const v = await this.cmd(['GET', dayBucket()]);
+    return v ? parseInt(v, 10) : 0;
+  }
+
   async recordNotionals(entries: NotionalEntry[]): Promise<number[]> {
     if (entries.length > 0) {
       const args: (string | number)[] = ['ZADD', NOTIONALS_KEY];
@@ -158,6 +165,10 @@ class MemoryState implements FeedState {
     const next = (memory.rate.get(key) ?? 0) + 1;
     memory.rate.set(key, next);
     return next;
+  }
+
+  async getXPostCount(): Promise<number> {
+    return memory.rate.get(dayBucket()) ?? 0;
   }
 
   async recordNotionals(entries: NotionalEntry[]): Promise<number[]> {

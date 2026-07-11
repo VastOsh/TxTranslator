@@ -95,7 +95,7 @@ export async function GET(req: NextRequest) {
   const windowEntries = dry
     ? []
     : candidates
-        .filter((c) => c.notionalUsd >= DYNAMIC_MIN_NOTIONAL_USD)
+        .filter((c) => c.kind === 'perp_open' && c.notionalUsd >= DYNAMIC_MIN_NOTIONAL_USD)
         .map((c) => ({ executedAt: c.executedAt, orderHash: c.orderHash, notionalUsd: c.notionalUsd }));
   let dynamicBar: number | null = null;
   if (state.persistent) {
@@ -222,10 +222,13 @@ export async function GET(req: NextRequest) {
     await state.setCheckpoint(maxTimestamp).catch(() => { /* next tick re-scans */ });
   }
 
+  const xPostedToday = xConfigured() ? await state.getXPostCount().catch(() => -1) : 0;
+
   return NextResponse.json({
     dryRun: dry,
     persistentState: state.persistent,
     channels: { x: xConfigured(), discord: discordConfigured() },
+    xPostedToday,
     checkpoint: { from: checkpoint, to: maxTimestamp },
     dynamicBar: dynamicBar != null ? Math.round(dynamicBar) : null,
     scanned,

@@ -1,6 +1,6 @@
 import { INDEXER_BASE, fetchJsonOverHttps } from '../injective';
 
-export type FeedEventKind = 'perp_open' | 'liquidation';
+export type FeedEventKind = 'perp_open' | 'liquidation' | 'position_close';
 
 export interface FeedCandidate {
   kind: FeedEventKind;
@@ -20,7 +20,7 @@ export interface FeedCandidate {
   leverage: number | null;
   price: number | null; // volume-weighted average fill price
   quantity: number | null;
-  /** Liquidations: realized PnL of the wiped position (negative). */
+  /** Liquidations/closes: realized PnL (negative for a wiped/losing position). */
   pnlUsd: number | null;
   subaccountId: string;
   isTradFi: boolean;
@@ -190,20 +190,22 @@ export async function pollCandidates(sinceMs: number): Promise<PollResult> {
     if (quantity <= 0 || notional <= 0) continue;
 
     const isLiquidation = first.isLiquidation;
-    // margin == 0 on a non-liquidation taker fill means reduce-only (closing) —
-    // "closed position" posts with PnL are M4 territory
-    if (!isLiquidation && margin <= 0) continue;
+    // margin == 0 on a non-liquidation taker fill means reduce-only: the
+    // order closed a position, and pnl is the realized result
+    const kind: FeedEventKind =
+      isLiquidation ? 'liquidation' : margin > 0 ? 'perp_open' : 'position_close';
 
     const tradeDir = (first.positionDelta!.tradeDirection ?? '').toLowerCase();
-    // For liquidations the forced trade closes the position, so the wiped
+    // Liquidations and closes are trades that exit a position, so the
     // position's side is the opposite of the trade direction.
+    const exiting = kind !== 'perp_open';
     const direction: FeedCandidate['direction'] =
-      tradeDir === 'buy' ? (isLiquidation ? 'short' : 'long')
-      : tradeDir === 'sell' ? (isLiquidation ? 'long' : 'short')
+      tradeDir === 'buy' ? (exiting ? 'short' : 'long')
+      : tradeDir === 'sell' ? (exiting ? 'long' : 'short')
       : null;
 
     candidates.push({
-      kind: isLiquidation ? 'liquidation' : 'perp_open',
+      kind,
       orderHash: first.orderHash.toLowerCase(),
       hash: '',
       executedAt,
@@ -218,7 +220,7 @@ export async function pollCandidates(sinceMs: number): Promise<PollResult> {
       leverage: margin > 0 ? notional / margin : null,
       price: notional / quantity,
       quantity,
-      pnlUsd: isLiquidation && pnl !== 0 ? pnl : null,
+      pnlUsd: exiting && pnl !== 0 ? pnl : null,
       subaccountId: (first.subaccountId ?? '').toLowerCase(),
       isTradFi: market.isTradFi,
     });

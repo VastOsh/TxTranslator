@@ -29,6 +29,18 @@ function fallbackContextLine(c: FeedCandidate): string {
     }
     return 'This is why you set a stop-loss.';
   }
+  if (c.kind === 'position_close') {
+    const pnl = c.pnlUsd ?? 0;
+    if (pnl > 0) {
+      // Return on the position's entry value, when the numbers allow it
+      const entryValue = c.notionalUsd - pnl;
+      const pct = entryValue > 0 ? (pnl / entryValue) * 100 : null;
+      return pct && pct >= 0.5
+        ? `A ${pct.toFixed(pct >= 10 ? 0 : 1)}% move, captured. Profit is only real once you close.`
+        : 'Profit is only real once you close. This one just did.';
+    }
+    return 'Cut, not liquidated — the difference is choosing your own exit.';
+  }
   if (c.isTradFi) {
     if (c.leverage && c.leverage >= 2) {
       const pct = Math.round(100 / c.leverage);
@@ -64,8 +76,12 @@ Rules:
 - Return ONLY the line, nothing else.`;
 
 function contextFacts(c: FeedCandidate, tier: Tier): string {
+  const event =
+    c.kind === 'liquidation' ? 'position liquidated (forced close)'
+    : c.kind === 'position_close' ? ((c.pnlUsd ?? 0) > 0 ? 'position closed voluntarily at a profit' : 'position closed voluntarily at a loss (trader cut it before liquidation)')
+    : 'perp position opened';
   const lines = [
-    `Event: ${c.kind === 'liquidation' ? 'position liquidated (forced close)' : 'perp position opened'}${tier === 'hero' ? ' — exceptionally large' : ''}`,
+    `Event: ${event}${tier === 'hero' ? ' — exceptionally large' : ''}`,
     `Market: ${c.ticker}`,
     `Notional: $${Math.round(c.notionalUsd).toLocaleString('en-US')}`,
   ];
@@ -73,6 +89,7 @@ function contextFacts(c: FeedCandidate, tier: Tier): string {
   if (c.leverage) lines.push(`Leverage: ${c.leverage.toFixed(1)}x (a ${Math.round(100 / c.leverage)}% adverse move liquidates it)`);
   if (c.marginUsd) lines.push(`Margin: $${Math.round(c.marginUsd).toLocaleString('en-US')}`);
   if (c.price) lines.push(`Entry/exit price: $${c.price.toLocaleString('en-US')}`);
+  if (c.pnlUsd && c.pnlUsd > 0) lines.push(`Realized profit: $${Math.round(c.pnlUsd).toLocaleString('en-US')}`);
   if (c.pnlUsd && c.pnlUsd < 0) lines.push(`Realized loss: $${Math.round(Math.abs(c.pnlUsd)).toLocaleString('en-US')}`);
   if (c.isTradFi) {
     lines.push('Angle: this is a tokenized stock/FX perpetual — real-world market exposure trading on-chain 24/7, including when the actual exchange is closed. Worth working in.');
@@ -144,6 +161,22 @@ function buildLines(c: FeedCandidate, tier: Tier, context?: string | null): Post
     return {
       hook: `${prefix}${emoji} Rekt. A ${fmtUsd(c.notionalUsd)} ${base}${side} just got liquidated on Injective.`,
       numbers: `Size ${fmtQty(c.quantity ?? 0)} ${base} · forced out at ${fmtPrice(c.price ?? 0)}.`,
+      context: ctx,
+      link: `Full breakdown 👉 ${url}`,
+    };
+  }
+
+  if (c.kind === 'position_close') {
+    const pnl = c.pnlUsd ?? 0;
+    const win = pnl > 0;
+    const emoji = tier === 'hero' ? (win ? '🚨💰' : '🚨🩸') : (win ? '💰' : '🩸');
+    const side = c.direction ? ` ${c.direction}` : '';
+    const result = win
+      ? `banking +${fmtUsd(pnl)} profit`
+      : `eating a ${fmtUsd(Math.abs(pnl))} loss`;
+    return {
+      hook: `${prefix}${emoji} Someone just closed a ${fmtUsd(c.notionalUsd)}${c.isTradFi ? ` tokenized ${base}` : ` ${base}`}${side} on Injective, ${result}.`,
+      numbers: `Size ${fmtQty(c.quantity ?? 0)} ${base} · exit at ${fmtPrice(c.price ?? 0)}.`,
       context: ctx,
       link: `Full breakdown 👉 ${url}`,
     };
