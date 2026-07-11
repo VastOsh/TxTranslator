@@ -22,6 +22,7 @@ export const maxDuration = 60;
 
 export async function GET(req: NextRequest) {
   const dry = req.nextUrl.searchParams.get('dry') === '1';
+  const force = req.nextUrl.searchParams.get('force') === '1';
   const secret = process.env.CRON_SECRET;
 
   // Live ticks always require the secret. Dry runs are read-only previews,
@@ -40,6 +41,53 @@ export async function GET(req: NextRequest) {
   const state = createState();
   const checkpoint = await state.getCheckpoint().catch(() => 0);
   const { candidates, maxTimestamp, scanned } = await pollCandidates(checkpoint);
+
+  // ?force=1 — one-shot publisher test, triggered manually. Takes the
+  // largest fresh candidate regardless of thresholds/caps (dedup stays so
+  // repeat calls pick a new order), publishes exactly one post as hero so
+  // the X link-reply path is exercised too, and returns the API verdicts.
+  // Posts are always [TEST]-prefixed, even outside FEED_TEST_MODE — this
+  // path must never produce a real-looking whale alert for a $3 order.
+  if (force && !dry) {
+    if (!state.persistent) {
+      return NextResponse.json({ error: 'force needs persistent state (Upstash)' }, { status: 503 });
+    }
+    if (!xConfigured() && !discordConfigured()) {
+      return NextResponse.json({ error: 'no publish channel configured' }, { status: 503 });
+    }
+    for (const c of candidates) {
+      const txHash = await resolveTxHash(c).catch(() => null);
+      if (!txHash) continue;
+      c.hash = txHash;
+      const first = await state.tryMarkPosted(c.orderHash).catch(() => false);
+      if (!first) continue;
+
+      const ctx = await generateContextLine(c, 'hero');
+      const withTestTag = (t: string) => {
+        const tagged = t.startsWith('[TEST]') ? t : `[TEST] ${t}`;
+        return tagged.length > 279 ? `${tagged.slice(0, 278)}…` : tagged;
+      };
+      const text = withTestTag(formatPost(c, 'hero', ctx.line));
+      const xPost = formatPostForX(c, 'hero', ctx.line);
+      const outcomes = await Promise.all([
+        xConfigured() ? publishToX(withTestTag(xPost.main), xPost.linkReply) : Promise.resolve(null),
+        discordConfigured() ? publishToDiscord(text) : Promise.resolve(null),
+      ]);
+      return NextResponse.json({
+        forced: true,
+        ticker: c.ticker,
+        notionalUsd: Math.round(c.notionalUsd),
+        hash: `0x${txHash}`,
+        post: text,
+        contextSource: ctx.source,
+        outcomes: outcomes.filter((o) => o !== null),
+      });
+    }
+    return NextResponse.json(
+      { forced: true, error: 'no publishable candidate this tick (all unresolvable or already posted) — try again in a minute' },
+      { status: 404 },
+    );
+  }
 
   // Feed this tick's non-dust notionals into the 24h rolling window and set
   // the dynamic bar at its p85 — busy day raises it, quiet day lowers it.
