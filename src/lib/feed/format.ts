@@ -123,10 +123,16 @@ export async function generateContextLine(c: FeedCandidate, tier: Tier): Promise
   }
 }
 
-// Four lines: hook / numbers / context / link. Keep it comfortably under
-// X's 280-char limit (URL counts as 23 via t.co). `context` comes from
+// Four lines: hook / numbers / context / link. `context` comes from
 // generateContextLine(); omitted → deterministic template.
-export function formatPost(c: FeedCandidate, tier: Tier, context?: string | null): string {
+interface PostLines {
+  hook: string;
+  numbers: string;
+  context: string;
+  link: string;
+}
+
+function buildLines(c: FeedCandidate, tier: Tier, context?: string | null): PostLines {
   const url = `${SITE_URL}/tx/0x${c.hash}`;
   const base = c.baseSymbol;
   const prefix = TEST_MODE ? '[TEST] ' : '';
@@ -135,13 +141,12 @@ export function formatPost(c: FeedCandidate, tier: Tier, context?: string | null
   if (c.kind === 'liquidation') {
     const emoji = tier === 'hero' ? '🚨💀' : '💀';
     const side = c.direction ? ` ${c.direction}` : '';
-    const lines = [
-      `${prefix}${emoji} Rekt. A ${fmtUsd(c.notionalUsd)} ${base}${side} just got liquidated on Injective.`,
-      `Size ${fmtQty(c.quantity ?? 0)} ${base} · forced out at ${fmtPrice(c.price ?? 0)}.`,
-      ctx,
-      `Full breakdown 👉 ${url}`,
-    ];
-    return lines.join('\n');
+    return {
+      hook: `${prefix}${emoji} Rekt. A ${fmtUsd(c.notionalUsd)} ${base}${side} just got liquidated on Injective.`,
+      numbers: `Size ${fmtQty(c.quantity ?? 0)} ${base} · forced out at ${fmtPrice(c.price ?? 0)}.`,
+      context: ctx,
+      link: `Full breakdown 👉 ${url}`,
+    };
   }
 
   const emoji = tier === 'hero' ? '🚨🐋' : '🐋';
@@ -150,11 +155,40 @@ export function formatPost(c: FeedCandidate, tier: Tier, context?: string | null
   const hook = c.isTradFi
     ? `${prefix}${emoji} Someone just opened a ${fmtUsd(c.notionalUsd)} tokenized ${base} position on Injective. ${side}${lev}.`
     : `${prefix}${emoji} Someone just opened a ${fmtUsd(c.notionalUsd)} ${base} perp on Injective. ${side}${lev}.`;
-  const lines = [
+  return {
     hook,
-    `Entry ${fmtPrice(c.price ?? 0)} · margin ${fmtUsd(c.marginUsd ?? 0)} ${c.quoteSymbol}.`,
-    ctx,
-    `Decoded 👉 ${url}`,
-  ];
-  return lines.join('\n');
+    numbers: `Entry ${fmtPrice(c.price ?? 0)} · margin ${fmtUsd(c.marginUsd ?? 0)} ${c.quoteSymbol}.`,
+    context: ctx,
+    link: `Decoded 👉 ${url}`,
+  };
+}
+
+/** Full 4-line post — Discord (no length constraint that matters). */
+export function formatPost(c: FeedCandidate, tier: Tier, context?: string | null): string {
+  const l = buildLines(c, tier, context);
+  return [l.hook, l.numbers, l.context, l.link].join('\n');
+}
+
+export interface XPost {
+  /** Link-free main tweet — X buries link posts and bills them 13× more. */
+  main: string;
+  /** The decode link, posted as a reply (hero tier only — cost control). */
+  linkReply: string;
+}
+
+const X_MAX_CHARS = 275; // headroom under the hard 280
+
+/** X variant: link goes in a reply, main text trimmed to fit 280. */
+export function formatPostForX(c: FeedCandidate, tier: Tier, context?: string | null): XPost {
+  const l = buildLines(c, tier, context);
+  let main = [l.hook, l.numbers, l.context].join('\n');
+  if (main.length > X_MAX_CHARS) {
+    // The context line is the flexible one — trim it before dropping it
+    const fixed = l.hook.length + l.numbers.length + 2;
+    const room = X_MAX_CHARS - fixed;
+    main = room >= 20
+      ? [l.hook, l.numbers, `${l.context.slice(0, room - 1)}…`].join('\n')
+      : [l.hook, l.numbers].join('\n');
+  }
+  return { main, linkReply: l.link };
 }

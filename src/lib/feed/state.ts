@@ -19,6 +19,8 @@ export interface FeedState {
   trySubaccountCooldown(subaccountId: string, ttlS: number): Promise<boolean>;
   /** Increments and returns this hour's post count. */
   incrPostCount(): Promise<number>;
+  /** Increments and returns today's X post count (X is pay-per-use). */
+  incrXPostCount(): Promise<number>;
   /**
    * Add entries to the 24h rolling notionals window, prune expired ones,
    * and return every notional still in the window, ascending.
@@ -34,6 +36,10 @@ export interface NotionalEntry {
 
 function hourBucket(): string {
   return `feed:rate:${Math.floor(Date.now() / 3_600_000)}`;
+}
+
+function dayBucket(): string {
+  return `feed:xrate:${Math.floor(Date.now() / 86_400_000)}`;
 }
 
 class UpstashState implements FeedState {
@@ -78,6 +84,13 @@ class UpstashState implements FeedState {
     const key = hourBucket();
     const count = await this.cmd(['INCR', key]);
     if (count === 1) await this.cmd(['EXPIRE', key, 3900]);
+    return count;
+  }
+
+  async incrXPostCount(): Promise<number> {
+    const key = dayBucket();
+    const count = await this.cmd(['INCR', key]);
+    if (count === 1) await this.cmd(['EXPIRE', key, 90_000]);
     return count;
   }
 
@@ -135,6 +148,13 @@ class MemoryState implements FeedState {
 
   async incrPostCount(): Promise<number> {
     const key = hourBucket();
+    const next = (memory.rate.get(key) ?? 0) + 1;
+    memory.rate.set(key, next);
+    return next;
+  }
+
+  async incrXPostCount(): Promise<number> {
+    const key = dayBucket();
     const next = (memory.rate.get(key) ?? 0) + 1;
     memory.rate.set(key, next);
     return next;

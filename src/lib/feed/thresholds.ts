@@ -33,6 +33,14 @@ export const MAX_POSTS_PER_HOUR = TEST_MODE ? 20 : 3;
 // without this, one bot burst monopolizes the feed.
 export const SUBACCOUNT_COOLDOWN_S = TEST_MODE ? 15 * 60 : 6 * 3600;
 
+// X is pay-per-use since Feb 2026 ($0.015/post, $0.20 with a link) — this
+// daily cap bounds spend regardless of what the hourly cap lets through.
+// Heroes do NOT bypass it. Discord is unaffected.
+export const X_MAX_POSTS_PER_DAY = (() => {
+  const v = parseInt(process.env.X_MAX_POSTS_PER_DAY ?? '', 10);
+  return Number.isFinite(v) && v > 0 ? v : 10;
+})();
+
 // ── Rolling dynamic bar ──
 // Every non-dust candidate notional enters a 24h window; notable-tier posts
 // must also clear its p85, so a busy day raises the bar and a quiet day

@@ -8,8 +8,9 @@ import {
   DYNAMIC_MIN_NOTIONAL_USD,
   DYNAMIC_MIN_SAMPLES,
   DYNAMIC_PERCENTILE,
+  X_MAX_POSTS_PER_DAY,
 } from '@/lib/feed/thresholds';
-import { formatPost, generateContextLine } from '@/lib/feed/format';
+import { formatPost, formatPostForX, generateContextLine } from '@/lib/feed/format';
 import { publishToX, publishToDiscord, xConfigured, discordConfigured } from '@/lib/feed/publish';
 import { createState } from '@/lib/feed/state';
 
@@ -101,6 +102,8 @@ export async function GET(req: NextRequest) {
     if (dry) {
       const ctx = await generateContextLine(c, decision.tier);
       entry.post = formatPost(c, decision.tier, ctx.line);
+      const xPreview = formatPostForX(c, decision.tier, ctx.line);
+      entry.xPost = xPreview.main + (decision.tier === 'hero' ? `\n↳ reply: ${xPreview.linkReply}` : '');
       entry.contextSource = ctx.source;
       entry.outcome = 'dry-run';
       results.push(entry);
@@ -142,8 +145,22 @@ export async function GET(req: NextRequest) {
     entry.post = text;
     entry.contextSource = ctx.source;
 
+    // X is pay-per-use — a daily budget gates it independently of Discord,
+    // and heroes don't bypass it. The link goes in a reply, hero tier only
+    // (link posts bill at $0.20 vs $0.015 plain).
+    let xAllowed = false;
+    if (xConfigured()) {
+      const xCount = await state.incrXPostCount().catch(() => Number.MAX_SAFE_INTEGER);
+      xAllowed = xCount <= X_MAX_POSTS_PER_DAY;
+    }
+    const xPost = formatPostForX(c, decision.tier, ctx.line);
+
     const outcomes = await Promise.all([
-      xConfigured() ? publishToX(text) : Promise.resolve(null),
+      xConfigured()
+        ? xAllowed
+          ? publishToX(xPost.main, decision.tier === 'hero' ? xPost.linkReply : null)
+          : Promise.resolve({ channel: 'x' as const, ok: false, detail: `skipped: X daily budget (${X_MAX_POSTS_PER_DAY}) reached` })
+        : Promise.resolve(null),
       discordConfigured() ? publishToDiscord(text) : Promise.resolve(null),
     ]);
     const sent = outcomes.filter((o) => o !== null);

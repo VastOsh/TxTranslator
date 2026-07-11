@@ -30,10 +30,17 @@ export function xConfigured(): boolean {
   return xCredentials() !== null;
 }
 
-export async function publishToX(text: string): Promise<PublishResult> {
-  const creds = xCredentials();
-  if (!creds) return { channel: 'x', ok: false, detail: 'not configured' };
+interface TweetResult {
+  ok: boolean;
+  id?: string;
+  detail: string;
+}
 
+async function postTweet(
+  creds: NonNullable<ReturnType<typeof xCredentials>>,
+  text: string,
+  replyToId?: string,
+): Promise<TweetResult> {
   const url = 'https://api.x.com/2/tweets';
   const oauth: Record<string, string> = {
     oauth_consumer_key: creds.apiKey,
@@ -64,20 +71,46 @@ export async function publishToX(text: string): Promise<PublishResult> {
         Authorization: authHeader,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ text }),
+      body: JSON.stringify(
+        replyToId ? { text, reply: { in_reply_to_tweet_id: replyToId } } : { text },
+      ),
     });
     const body = await res.json().catch(() => null);
     if (res.ok && body?.data?.id) {
-      return { channel: 'x', ok: true, detail: `tweet ${body.data.id}` };
+      return { ok: true, id: body.data.id, detail: `tweet ${body.data.id}` };
     }
     return {
-      channel: 'x',
       ok: false,
       detail: `HTTP ${res.status}: ${JSON.stringify(body?.errors ?? body?.detail ?? body).slice(0, 300)}`,
     };
   } catch (err) {
-    return { channel: 'x', ok: false, detail: `request failed: ${(err as Error).message}` };
+    return { ok: false, detail: `request failed: ${(err as Error).message}` };
   }
+}
+
+/**
+ * Post the main tweet, then optionally the link as a reply. X deprioritizes
+ * link posts in the algorithm AND bills them at $0.20 vs $0.015 plain
+ * (pay-per-use, 2026) — so the main tweet never carries the URL and the
+ * reply is reserved for hero-tier events. A failed link reply doesn't fail
+ * the publish; the main tweet is the product.
+ */
+export async function publishToX(main: string, linkReply?: string | null): Promise<PublishResult> {
+  const creds = xCredentials();
+  if (!creds) return { channel: 'x', ok: false, detail: 'not configured' };
+
+  const first = await postTweet(creds, main);
+  if (!first.ok) return { channel: 'x', ok: false, detail: first.detail };
+  if (!linkReply) return { channel: 'x', ok: true, detail: first.detail };
+
+  const second = await postTweet(creds, linkReply, first.id);
+  return {
+    channel: 'x',
+    ok: true,
+    detail: second.ok
+      ? `${first.detail} + link reply ${second.id}`
+      : `${first.detail} (link reply failed: ${second.detail})`,
+  };
 }
 
 // ── Discord webhook ──
