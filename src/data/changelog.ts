@@ -11,10 +11,32 @@ export interface ChangelogVersion {
   entries: ChangelogEntry[];
 }
 
-export const CURRENT_VERSION = 'v1.5.0';
+export const CURRENT_VERSION = 'v1.6.0';
 
 // Entries within each version are ordered: critical → fix → improvement → feature
 export const CHANGELOG: ChangelogVersion[] = [
+  {
+    version: 'v1.6.0',
+    date: '2026-07-13',
+    entries: [
+      {
+        type: 'feature',
+        text: 'Whale feed is live — Tx·Translator now watches every Injective derivative market in real time and posts large perp opens, liquidations, and closed-position PnL to X (@TxTranslator) and Discord in plain English; hero-tier events (e.g. $150k+ opens) include a reply with the decoded transaction link',
+      },
+      {
+        type: 'feature',
+        text: 'Feed thresholds are self-calibrating — a rolling 24h p85 dynamic bar adapts the posting floor to market activity, with per-subaccount cooldowns so a single bot can\'t flood the feed, and lower floors for tokenized stock / FX / metals markets where whale-size notionals run smaller',
+      },
+      {
+        type: 'feature',
+        text: 'Each feed post carries an AI-generated context line (Groq · Llama 3.3 70B) — leverage risk framing, realized-PnL angles, and TradFi off-hours notes — with a hand-written template fallback so posts never block on the model',
+      },
+      {
+        type: 'fix',
+        text: 'Fixed RFQ / contract-routed orders (Helix accept_quote flow) being invisible to the feed — these trades carry an all-zero order hash and were merging into one global aggregate; they are now grouped per block, subaccount, market, and direction, and their transaction hash resolves via the trader\'s inj1… address',
+      },
+    ],
+  },
   {
     version: 'v1.5.0',
     date: '2026-07-01',

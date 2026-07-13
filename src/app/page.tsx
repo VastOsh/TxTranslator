@@ -284,6 +284,18 @@ export default function Home() {
         <span className="tx-footer">Made by S!G</span>
         <span className="tx-footer" style={{ opacity: 0.4 }}>·</span>
         <a
+          href="https://x.com/TxTranslator"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="tx-footer"
+          style={{ textDecoration: 'none', opacity: 0.7 }}
+          onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+          onMouseLeave={e => (e.currentTarget.style.opacity = '0.7')}
+        >
+          Whale feed @TxTranslator ↗
+        </a>
+        <span className="tx-footer" style={{ opacity: 0.4 }}>·</span>
+        <a
           href="https://x.com/SiGPRMR"
           target="_blank"
           rel="noopener noreferrer"
