@@ -11,10 +11,20 @@ export interface ChangelogVersion {
   entries: ChangelogEntry[];
 }
 
-export const CURRENT_VERSION = 'v1.6.0';
+export const CURRENT_VERSION = 'v1.6.1';
 
 // Entries within each version are ordered: critical → fix → improvement → feature
 export const CHANGELOG: ChangelogVersion[] = [
+  {
+    version: 'v1.6.1',
+    date: '2026-07-13',
+    entries: [
+      {
+        type: 'fix',
+        text: 'Fixed the whale feed double-posting RFQ trades — each RFQ fill also emits a synthetic mirror trade (the contract moving the position between its internal subaccounts) that carries the same size under a different subaccount and dedup key, so it slipped past every gate and posted as a second, opposite-direction whale; synthetic execution rows are now excluded, only the real taker order posts',
+      },
+    ],
+  },
   {
     version: 'v1.6.0',
     date: '2026-07-13',
