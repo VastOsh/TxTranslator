@@ -165,6 +165,12 @@ export async function pollCandidates(sinceMs: number): Promise<PollResult> {
     if (t.executedAt <= effectiveSince) continue;
     const interesting = t.isLiquidation || t.executionSide === 'taker';
     if (!interesting || !t.positionDelta || !t.orderHash) continue;
+    // 'synthetic' rows are internal position transfers (RFQ contract moving
+    // the fill between its subaccounts), not market orders — the real whale
+    // already appears as a taker/market row in the same block. Keeping them
+    // double-posts every RFQ trade: same size, opposite direction, different
+    // subaccount, so neither dedup nor the cooldown catches the mirror.
+    if (t.tradeExecutionType === 'synthetic' && !t.isLiquidation) continue;
     const key = ZERO_HASH_RE.test(t.orderHash)
       ? `${(t.tradeId ?? '').split('_')[0]}:${(t.subaccountId ?? '').toLowerCase()}:${(t.marketId ?? '').toLowerCase()}:${t.positionDelta.tradeDirection ?? ''}`
       : t.orderHash.toLowerCase();
