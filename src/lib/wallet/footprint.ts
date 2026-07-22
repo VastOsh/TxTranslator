@@ -113,9 +113,14 @@ export async function buildWalletFootprint(address: string): Promise<WalletFootp
   const usage = new Map<ProtocolName, UsageTally>();
 
   for (let page = 0; page < MAX_PAGES; page++) {
-    const result = await fetchJsonOverHttps(
-      `${INDEXER_BASE}/api/explorer/v1/accountTxs/${address}?limit=${TXS_PER_PAGE}&skip=${page * TXS_PER_PAGE}`,
-    );
+    // A transient timeout returns null; retry so one flaky page doesn't abort
+    // the whole scan (on page 0 that would wrongly look like an empty wallet).
+    let result = null;
+    for (let attempt = 0; attempt < 3 && !result; attempt++) {
+      result = await fetchJsonOverHttps(
+        `${INDEXER_BASE}/api/explorer/v1/accountTxs/${address}?limit=${TXS_PER_PAGE}&skip=${page * TXS_PER_PAGE}`,
+      );
+    }
     if (page === 0) totalTxsAllTime = result?.body?.paging?.total ?? 0;
 
     const rows: IndexerAccountTx[] = result?.body?.data ?? [];

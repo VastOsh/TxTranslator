@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import SearchForm from '@/components/SearchForm';
@@ -79,6 +79,11 @@ export default function Home() {
   const [pnlRange, setPnlRange] = useState<PnlRangeKey>('7d');
   const [pnlLoading, setPnlLoading] = useState(false);
   const [footprint, setFootprint] = useState<Footprint | null>(null);
+  const [footprintLoading, setFootprintLoading] = useState(false);
+  const [footprintError, setFootprintError] = useState(false);
+  // Tracks the wallet of the most recent scan so a slow in-flight footprint
+  // response for an earlier wallet can be discarded.
+  const walletAddressRef = useRef<string | null>(null);
   const { recent, addRecent, clearRecent } = useRecentTxs();
 
   function resetState(clearWallet = true) {
@@ -90,23 +95,38 @@ export default function Home() {
     setPnlReport(null);
     setPnlRange('7d');
     setFootprint(null);
+    setFootprintLoading(false);
+    setFootprintError(false);
+    walletAddressRef.current = null;
     window.history.replaceState(null, '', '/');
   }
 
   // Runs alongside the wallet scan rather than inside it — the tx list should
-  // render immediately instead of waiting on a ten-page fee scan.
+  // render immediately instead of waiting on the multi-page fee scan. The
+  // address is captured so a slow response for a previous wallet cannot land on
+  // the current one.
   async function loadFootprint(address: string) {
+    walletAddressRef.current = address;
+    setFootprint(null);
+    setFootprintError(false);
+    setFootprintLoading(true);
     try {
       const res = await fetch('/api/wallet/fees', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ address }),
       });
-      if (!res.ok) return;
+      if (walletAddressRef.current !== address) return; // a newer scan started
+      if (!res.ok) {
+        setFootprintError(true);
+        return;
+      }
       const data = await res.json();
       setFootprint(data.footprint as Footprint);
     } catch {
-      // Non-fatal: the wallet view is useful without the footprint card.
+      if (walletAddressRef.current === address) setFootprintError(true);
+    } finally {
+      if (walletAddressRef.current === address) setFootprintLoading(false);
     }
   }
 
@@ -340,6 +360,35 @@ export default function Home() {
 
           {walletTab === 'activity' && (
             <>
+              {footprintLoading && (
+                <div className="tx-pnl-card" style={{ width: '100%', maxWidth: 680, marginBottom: '0.85rem' }}>
+                  <div className="tx-pnl-head">
+                    <span className="tx-pnl-head-title">On-chain footprint</span>
+                    <span className="tx-pnl-row-meta">
+                      <span className="tx-spinner" style={{ display: 'inline-block', verticalAlign: 'middle' }} /> scanning…
+                    </span>
+                  </div>
+                  <div style={{ padding: '0.9rem 1.2rem', fontSize: '0.72rem', color: 'var(--tx-text-muted)' }}>
+                    Reading recent transactions to compute gas paid and dApps used — a few seconds.
+                  </div>
+                </div>
+              )}
+              {footprintError && !footprintLoading && (
+                <div className="tx-pnl-card" style={{ width: '100%', maxWidth: 680, marginBottom: '0.85rem' }}>
+                  <div className="tx-pnl-head">
+                    <span className="tx-pnl-head-title">On-chain footprint</span>
+                    <button
+                      className="tx-pnl-range"
+                      onClick={() => walletAddress && loadFootprint(walletAddress)}
+                    >
+                      Retry
+                    </button>
+                  </div>
+                  <div style={{ padding: '0.9rem 1.2rem', fontSize: '0.72rem', color: 'var(--tx-text-muted)' }}>
+                    Couldn&rsquo;t load the footprint — the indexer may be busy. Retry above.
+                  </div>
+                </div>
+              )}
               {footprint && <WalletFootprint footprint={footprint} />}
               <WalletTxList address={walletAddress} txs={walletTxs} />
             </>
