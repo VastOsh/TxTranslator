@@ -1,9 +1,22 @@
 'use client';
 
+import Link from 'next/link';
 import type { WalletFootprint as Footprint } from '@/lib/wallet/footprint';
 
 interface Props {
   footprint: Footprint;
+}
+
+function slugify(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+
+function usedAgo(ts: number): string {
+  if (!ts) return '';
+  const days = Math.floor((Date.now() - ts) / 86_400_000);
+  if (days === 0) return 'today';
+  if (days === 1) return '1d ago';
+  return `${days}d ago`;
 }
 
 /** INJ amounts stay in INJ — see the note in lib/wallet/footprint.ts. */
@@ -22,7 +35,8 @@ function shortDate(ts: number): string {
 export default function WalletFootprint({ footprint }: Props) {
   const {
     totalTxsAllTime, scanned, truncated, paidTxs, feesInj, avgFeeInj,
-    grantedTxs, failedTxs, failedFeesInj, windowFrom, windowTo,
+    grantedTxs, failedTxs, failedFeesInj, dappActivity, unknownContractCalls,
+    windowFrom, windowTo,
   } = footprint;
 
   if (scanned === 0) {
@@ -78,6 +92,41 @@ export default function WalletFootprint({ footprint }: Props) {
         {grantedTxs > 0 && ` ${grantedTxs.toLocaleString()} transaction${grantedTxs === 1 ? ' was' : 's were'} covered by a feegrant — someone else paid.`}
         {failedTxs > 0 && ` Failed transactions still cost gas: ${inj(failedFeesInj)} spent on them.`}
       </div>
+
+      {(dappActivity.length > 0 || unknownContractCalls > 0) && (
+        <div style={{ borderTop: '1px solid var(--tx-border)' }}>
+          <div className="tx-pnl-head" style={{ borderBottom: '1px solid var(--tx-border)' }}>
+            <span className="tx-pnl-head-title">dApps used · in scanned window</span>
+          </div>
+          {dappActivity.length > 0 ? (
+            <ul className="tx-pnl-list">
+              {dappActivity.map(d => (
+                <li key={d.name} className="tx-pnl-row">
+                  <div className="tx-pnl-row-left">
+                    <div className="tx-pnl-row-main">
+                      <Link href={`/dapps/${slugify(d.name)}`} className="tx-pnl-ticker" style={{ color: 'var(--tx-cyan)', textDecoration: 'none' }}>
+                        {d.name}
+                      </Link>
+                    </div>
+                    {d.lastUsedAt > 0 && <span className="tx-pnl-row-meta">last used {usedAgo(d.lastUsedAt)}</span>}
+                  </div>
+                  <div className="tx-pnl-row-right">
+                    {d.interactions.toLocaleString()}
+                    <span className="tx-pnl-row-right-sub">interaction{d.interactions === 1 ? '' : 's'}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="tx-pnl-empty">No recognised dApps in the scanned window.</div>
+          )}
+          {unknownContractCalls > 0 && (
+            <div style={{ padding: '0.5rem 1.2rem', fontSize: '0.68rem', color: 'var(--tx-text-dim)' }}>
+              + {unknownContractCalls.toLocaleString()} call{unknownContractCalls === 1 ? '' : 's'} to contracts not yet in the directory.
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
