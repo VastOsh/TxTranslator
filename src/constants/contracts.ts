@@ -61,16 +61,16 @@ export const MESSAGE_TYPE_PROTOCOLS: Record<string, ProtocolName> = {
 // These can be extended via the Firecrawl skill by scraping the Injective explorer.
 export const CONTRACT_PROTOCOLS: Record<string, ProtocolName> = {
   // Mito Finance vault contracts (MsgExecuteContract / MsgExecuteContractCompat paths)
-  'inj1jtw5c4ef2nlxnfnlrqas2z6q37emxn8n95tlkz': 'Mito Finance',
-  'inj1gkh79s63k9ql69qwx7w4wjlq3m43qfhulq3nt': 'Mito Finance',
-  'inj1qg5ega6dykkxc307y25pecuufrjkxkaggkkxh': 'Mito Finance',
+  'inj1vswsdqx5clnxv9vvlv4kuvjwtqty92mtyarw4t': 'Mito Finance', // Mito Staking Allocator v1
+  'inj1j5mr2hmv7y2z7trazganj75u8km8jvdfuxncsp': 'Mito Finance', // Mito Swap Contract
   // Mito Finance vault contracts (MsgPrivilegedExecuteContract path — contract_address field)
-  'inj1vcqkkvqs7prqu70dpddfj7kqeqfdz5gg662qs3': 'Mito Finance',
+  'inj1vcqkkvqs7prqu70dpddfj7kqeqfdz5gg662qs3': 'Mito Finance', // Mito Master 1
   // Mito Finance LP staking / incentive contracts
   'inj1gtze7qm07nky47n7mwgj4zatf2s77xqvh3k2n8': 'Mito Finance',
   // Hydro Protocol (hINJ liquid staking)
-  'inj1dxp690rd86nehmqj8r8fe3lj9ns9f5t04hnqe': 'Hydro Protocol',
-  'inj16mwjqkl0q57c2qpkgf5xjw8mqqd6ewdq3k3pk': 'Hydro Protocol',
+  'inj18luqttqyckgpddndh8hvaq25d5nfwjc78m56lc': 'Hydro Protocol', // Hydro hINJ
+  'inj1enyu3agzphq3k935lkxeynq6rq03d9ys0fehr9': 'Hydro Protocol', // Hydro price-manager
+  'inj1nuw6ala2ra7t457tg4g04k67r94v55mdyq9klr': 'Hydro Protocol', // Hydro lending-vault
   // Helix atomic swap router (MsgExecuteContractCompat path)
   'inj12yj3mtjarujkhcp6lg3klxjjfrx2v7v8yswgp9': 'Helix',
   // DojoSwap AMM DEX contracts (source: docs.dojo.trading/resources/contract-addresses)

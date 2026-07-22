@@ -6,6 +6,7 @@ import SearchForm from '@/components/SearchForm';
 import TranslationResult from '@/components/TranslationResult';
 import WalletTxList from '@/components/WalletTxList';
 import PnlDashboard, { type PnlRangeKey } from '@/components/PnlDashboard';
+import WalletFootprint from '@/components/WalletFootprint';
 import InjChart from '@/components/InjChart';
 import RecentHistory from '@/components/RecentHistory';
 import Changelog from '@/components/Changelog';
@@ -15,6 +16,7 @@ import { CURRENT_VERSION } from '@/data/changelog';
 import type { TranslationResponse } from '@/types';
 import type { WalletTx } from '@/components/WalletTxList';
 import type { PnlReport } from '@/lib/pnl/aggregate';
+import type { WalletFootprint as Footprint } from '@/lib/wallet/footprint';
 
 const HASH_RE = /^(0x)?[0-9a-fA-F]{64}$/;
 const ADDR_RE = /^inj1[a-z0-9]{38}$/;
@@ -75,6 +77,7 @@ export default function Home() {
   const [pnlReport, setPnlReport] = useState<PnlReport | null>(null);
   const [pnlRange, setPnlRange] = useState<PnlRangeKey>('7d');
   const [pnlLoading, setPnlLoading] = useState(false);
+  const [footprint, setFootprint] = useState<Footprint | null>(null);
   const { recent, addRecent, clearRecent } = useRecentTxs();
 
   function resetState(clearWallet = true) {
@@ -85,7 +88,25 @@ export default function Home() {
     setWalletTab('activity');
     setPnlReport(null);
     setPnlRange('7d');
+    setFootprint(null);
     window.history.replaceState(null, '', '/');
+  }
+
+  // Runs alongside the wallet scan rather than inside it — the tx list should
+  // render immediately instead of waiting on a ten-page fee scan.
+  async function loadFootprint(address: string) {
+    try {
+      const res = await fetch('/api/wallet/fees', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address }),
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      setFootprint(data.footprint as Footprint);
+    } catch {
+      // Non-fatal: the wallet view is useful without the footprint card.
+    }
   }
 
   async function loadPnl(address: string, range: PnlRangeKey) {
@@ -171,6 +192,7 @@ export default function Home() {
       }
       setWalletTxs(data.txs as WalletTx[]);
       setWalletAddress(address);
+      loadFootprint(address);
     } catch {
       setError('Network error — check your connection and try again.');
     } finally {
@@ -315,7 +337,12 @@ export default function Home() {
             </button>
           </div>
 
-          {walletTab === 'activity' && <WalletTxList address={walletAddress} txs={walletTxs} />}
+          {walletTab === 'activity' && (
+            <>
+              {footprint && <WalletFootprint footprint={footprint} />}
+              <WalletTxList address={walletAddress} txs={walletTxs} />
+            </>
+          )}
 
           {walletTab === 'pnl' && (
             pnlReport ? (

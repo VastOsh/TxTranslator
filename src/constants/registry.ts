@@ -202,11 +202,12 @@ export const VALIDATOR_NAMES: Record<string, string> = {
 };
 
 export const CONTRACT_NAMES: Record<string, string> = {
-  'inj1jtw5c4ef2nlxnfnlrqas2z6q37emxn8n95tlkz': 'Mito Finance Vault',
-  'inj1gkh79s63k9ql69qwx7w4wjlq3m43qfhulq3nt': 'Mito Finance Vault',
-  'inj1qg5ega6dykkxc307y25pecuufrjkxkaggkkxh': 'Mito Finance Vault',
-  'inj1dxp690rd86nehmqj8r8fe3lj9ns9f5t04hnqe': 'Hydro Protocol (hINJ)',
-  'inj16mwjqkl0q57c2qpkgf5xjw8mqqd6ewdq3k3pk': 'Hydro Protocol',
+  'inj1vswsdqx5clnxv9vvlv4kuvjwtqty92mtyarw4t': 'Mito Staking Allocator',
+  'inj1j5mr2hmv7y2z7trazganj75u8km8jvdfuxncsp': 'Mito Swap',
+  'inj1vcqkkvqs7prqu70dpddfj7kqeqfdz5gg662qs3': 'Mito Finance Vault',
+  'inj18luqttqyckgpddndh8hvaq25d5nfwjc78m56lc': 'Hydro Protocol (hINJ)',
+  'inj1enyu3agzphq3k935lkxeynq6rq03d9ys0fehr9': 'Hydro Price Manager',
+  'inj1nuw6ala2ra7t457tg4g04k67r94v55mdyq9klr': 'Hydro Lending Vault',
   // DojoSwap
   'inj1t6g03pmc0qcgr7z44qjzaen804f924xke6menl': 'DojoSwap Router',
   'inj1pc2vxcmnyzawnwkf03n2ggvt997avtuwagqngk': 'DojoSwap Factory',
