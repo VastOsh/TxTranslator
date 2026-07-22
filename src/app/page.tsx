@@ -5,6 +5,7 @@ import Image from 'next/image';
 import SearchForm from '@/components/SearchForm';
 import TranslationResult from '@/components/TranslationResult';
 import WalletTxList from '@/components/WalletTxList';
+import PnlDashboard, { type PnlRangeKey } from '@/components/PnlDashboard';
 import InjChart from '@/components/InjChart';
 import RecentHistory from '@/components/RecentHistory';
 import Changelog from '@/components/Changelog';
@@ -13,6 +14,7 @@ import { useRecentTxs } from '@/hooks/useRecentTxs';
 import { CURRENT_VERSION } from '@/data/changelog';
 import type { TranslationResponse } from '@/types';
 import type { WalletTx } from '@/components/WalletTxList';
+import type { PnlReport } from '@/lib/pnl/aggregate';
 
 const HASH_RE = /^(0x)?[0-9a-fA-F]{64}$/;
 const ADDR_RE = /^inj1[a-z0-9]{38}$/;
@@ -69,6 +71,10 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [loadingMode, setLoadingMode] = useState<'hash' | 'wallet' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [walletTab, setWalletTab] = useState<'activity' | 'pnl'>('activity');
+  const [pnlReport, setPnlReport] = useState<PnlReport | null>(null);
+  const [pnlRange, setPnlRange] = useState<PnlRangeKey>('7d');
+  const [pnlLoading, setPnlLoading] = useState(false);
   const { recent, addRecent, clearRecent } = useRecentTxs();
 
   function resetState(clearWallet = true) {
@@ -76,7 +82,32 @@ export default function Home() {
     setWalletTxs(null);
     if (clearWallet) setWalletAddress(null);
     setError(null);
+    setWalletTab('activity');
+    setPnlReport(null);
+    setPnlRange('7d');
     window.history.replaceState(null, '', '/');
+  }
+
+  async function loadPnl(address: string, range: PnlRangeKey) {
+    setPnlRange(range);
+    setPnlLoading(true);
+    try {
+      const res = await fetch('/api/pnl', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address, range }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? 'Could not build the PnL report.');
+        return;
+      }
+      setPnlReport(data.report as PnlReport);
+    } catch {
+      setError('Network error — check your connection and try again.');
+    } finally {
+      setPnlLoading(false);
+    }
   }
 
   async function handleSearch(input: string) {
@@ -265,7 +296,40 @@ export default function Home() {
       )}
 
       {walletTxs !== null && walletAddress && (
-        <WalletTxList address={walletAddress} txs={walletTxs} />
+        <>
+          <div className="tx-pnl-tabs">
+            <button
+              className={`tx-pnl-tab${walletTab === 'activity' ? ' tx-pnl-tab--on' : ''}`}
+              onClick={() => setWalletTab('activity')}
+            >
+              Activity
+            </button>
+            <button
+              className={`tx-pnl-tab${walletTab === 'pnl' ? ' tx-pnl-tab--on' : ''}`}
+              onClick={() => {
+                setWalletTab('pnl');
+                if (!pnlReport && !pnlLoading) loadPnl(walletAddress, pnlRange);
+              }}
+            >
+              Perp PnL
+            </button>
+          </div>
+
+          {walletTab === 'activity' && <WalletTxList address={walletAddress} txs={walletTxs} />}
+
+          {walletTab === 'pnl' && (
+            pnlReport ? (
+              <PnlDashboard
+                report={pnlReport}
+                range={pnlRange}
+                loading={pnlLoading}
+                onRangeChange={r => loadPnl(walletAddress, r)}
+              />
+            ) : (
+              <WalletSkeleton />
+            )
+          )}
+        </>
       )}
 
       {/* ── INJ Price Chart ── */}
