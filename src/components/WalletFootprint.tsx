@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import type { WalletFootprint as Footprint } from '@/lib/wallet/footprint';
 
@@ -9,6 +10,12 @@ interface Props {
 
 function slugify(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+
+/** "withdraw_collateral" → "Withdraw collateral" for display. */
+function humanizeAction(action: string): string {
+  const spaced = action.replace(/[_-]+/g, ' ').trim();
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }
 
 function usedAgo(ts: number): string {
@@ -38,6 +45,9 @@ export default function WalletFootprint({ footprint }: Props) {
     grantedTxs, failedTxs, failedFeesInj, dappActivity, unknownContractCalls,
     windowFrom, windowTo,
   } = footprint;
+
+  // Which dApp row is expanded to show its per-action breakdown (one at a time).
+  const [openDapp, setOpenDapp] = useState<string | null>(null);
 
   if (scanned === 0) {
     return (
@@ -100,22 +110,77 @@ export default function WalletFootprint({ footprint }: Props) {
           </div>
           {dappActivity.length > 0 ? (
             <ul className="tx-pnl-list">
-              {dappActivity.map(d => (
-                <li key={d.name} className="tx-pnl-row">
-                  <div className="tx-pnl-row-left">
-                    <div className="tx-pnl-row-main">
-                      <Link href={`/dapps/${slugify(d.name)}`} className="tx-pnl-ticker" style={{ color: 'var(--tx-cyan)', textDecoration: 'none' }}>
-                        {d.name}
-                      </Link>
+              {dappActivity.map(d => {
+                const open = openDapp === d.name;
+                const hasBreakdown = d.actions.length > 0;
+                return (
+                  <li key={d.name} className="tx-pnl-row" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+                    <div
+                      role={hasBreakdown ? 'button' : undefined}
+                      tabIndex={hasBreakdown ? 0 : undefined}
+                      onClick={() => hasBreakdown && setOpenDapp(open ? null : d.name)}
+                      onKeyDown={e => {
+                        if (hasBreakdown && (e.key === 'Enter' || e.key === ' ')) {
+                          e.preventDefault();
+                          setOpenDapp(open ? null : d.name);
+                        }
+                      }}
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        cursor: hasBreakdown ? 'pointer' : 'default',
+                      }}
+                    >
+                      <div className="tx-pnl-row-left">
+                        <div className="tx-pnl-row-main" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                          <span className="tx-pnl-ticker">{d.name}</span>
+                          {hasBreakdown && (
+                            <span
+                              aria-hidden
+                              style={{
+                                fontSize: '0.6rem', color: 'var(--tx-text-dim)',
+                                transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s',
+                              }}
+                            >
+                              ▶
+                            </span>
+                          )}
+                        </div>
+                        {d.lastUsedAt > 0 && <span className="tx-pnl-row-meta">last used {usedAgo(d.lastUsedAt)}</span>}
+                      </div>
+                      <div className="tx-pnl-row-right">
+                        {d.interactions.toLocaleString()}
+                        <span className="tx-pnl-row-right-sub">interaction{d.interactions === 1 ? '' : 's'}</span>
+                      </div>
                     </div>
-                    {d.lastUsedAt > 0 && <span className="tx-pnl-row-meta">last used {usedAgo(d.lastUsedAt)}</span>}
-                  </div>
-                  <div className="tx-pnl-row-right">
-                    {d.interactions.toLocaleString()}
-                    <span className="tx-pnl-row-right-sub">interaction{d.interactions === 1 ? '' : 's'}</span>
-                  </div>
-                </li>
-              ))}
+
+                    {open && hasBreakdown && (
+                      <div style={{ padding: '0.55rem 0 0.2rem', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                        {d.actions.map(a => (
+                          <div
+                            key={a.action}
+                            style={{
+                              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                              fontSize: '0.72rem', color: 'var(--tx-text-muted)',
+                              paddingLeft: '0.2rem',
+                            }}
+                          >
+                            <span>{humanizeAction(a.action)}</span>
+                            <span style={{ color: 'var(--tx-text-dim)', fontVariantNumeric: 'tabular-nums' }}>
+                              ×{a.count.toLocaleString()}
+                            </span>
+                          </div>
+                        ))}
+                        <Link
+                          href={`/dapps/${slugify(d.name)}`}
+                          style={{ fontSize: '0.68rem', color: 'var(--tx-cyan)', textDecoration: 'none', marginTop: '0.15rem', paddingLeft: '0.2rem' }}
+                        >
+                          View {d.name} in the dApp directory →
+                        </Link>
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           ) : (
             <div className="tx-pnl-empty">No recognised dApps in the scanned window.</div>

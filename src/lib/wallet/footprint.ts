@@ -47,6 +47,14 @@ export interface DappUsage {
   /** Messages this wallet sent that hit the protocol (a tx can carry several). */
   interactions: number;
   lastUsedAt: number;
+  /** What the wallet actually did — execute methods it called, most-used first. */
+  actions: DappAction[];
+}
+
+export interface DappAction {
+  /** The contract execute method, e.g. "withdraw_collateral", "swap_min_output". */
+  action: string;
+  count: number;
 }
 
 interface IndexerMessage {
@@ -55,6 +63,8 @@ interface IndexerMessage {
     sender?: string;
     contract?: string;
     contract_address?: string;
+    /** CosmWasm execute payload — a JSON string or object; its first key is the method. */
+    msg?: unknown;
   };
 }
 
@@ -72,6 +82,28 @@ interface IndexerAccountTx {
 interface UsageTally {
   interactions: number;
   lastUsedAt: number;
+  actions: Map<string, number>;
+}
+
+// The execute method a message called — the first key of its CosmWasm payload
+// (`{"deposit":{…}}` → "deposit"). Compat messages carry this as a JSON string.
+// Anything unparseable falls back to a generic label rather than being dropped,
+// so per-action counts always sum to the protocol's interaction count.
+function extractAction(msg: IndexerMessage): string {
+  const raw = msg.value?.msg;
+  let payload: unknown = raw;
+  if (typeof raw === 'string') {
+    try {
+      payload = JSON.parse(raw);
+    } catch {
+      return 'execute';
+    }
+  }
+  if (payload && typeof payload === 'object') {
+    const key = Object.keys(payload as Record<string, unknown>)[0];
+    if (key) return key;
+  }
+  return 'execute';
 }
 
 // Protocols that have a card in the /dapps directory — i.e. those with at least
@@ -141,9 +173,11 @@ export async function buildWalletFootprint(address: string): Promise<WalletFootp
         if (msg.value?.sender !== address) continue;
         const protocol = messageProtocol(msg);
         if (protocol) {
-          const tally = usage.get(protocol) ?? { interactions: 0, lastUsedAt: 0 };
+          const tally = usage.get(protocol) ?? { interactions: 0, lastUsedAt: 0, actions: new Map<string, number>() };
           tally.interactions++;
           if (ts > tally.lastUsedAt) tally.lastUsedAt = ts;
+          const action = extractAction(msg);
+          tally.actions.set(action, (tally.actions.get(action) ?? 0) + 1);
           usage.set(protocol, tally);
         } else if (msg.value?.contract || msg.value?.contract_address) {
           // Hit a contract we don't have in the registry — unlabelled dApp.
@@ -187,7 +221,14 @@ export async function buildWalletFootprint(address: string): Promise<WalletFootp
     failedTxs,
     failedFeesInj,
     dappActivity: [...usage.entries()]
-      .map(([name, t]) => ({ name, interactions: t.interactions, lastUsedAt: t.lastUsedAt }))
+      .map(([name, t]) => ({
+        name,
+        interactions: t.interactions,
+        lastUsedAt: t.lastUsedAt,
+        actions: [...t.actions.entries()]
+          .map(([action, count]) => ({ action, count }))
+          .sort((a, b) => b.count - a.count),
+      }))
       .sort((a, b) => b.interactions - a.interactions),
     unknownContractCalls,
     windowFrom: windowFrom === Infinity ? 0 : windowFrom,
