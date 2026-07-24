@@ -46,8 +46,10 @@ export default function WalletFootprint({ footprint }: Props) {
     windowFrom, windowTo,
   } = footprint;
 
-  // Which dApp row is expanded to show its per-action breakdown (one at a time).
+  // Which dApp row is expanded to show its per-action breakdown, and which
+  // action within it is expanded to show recent transactions (one each).
   const [openDapp, setOpenDapp] = useState<string | null>(null);
+  const [openAction, setOpenAction] = useState<string | null>(null);
 
   if (scanned === 0) {
     return (
@@ -154,25 +156,77 @@ export default function WalletFootprint({ footprint }: Props) {
                     </div>
 
                     {open && hasBreakdown && (
-                      <div style={{ padding: '0.55rem 0 0.2rem', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                        {d.actions.map(a => (
-                          <div
-                            key={a.action}
-                            style={{
-                              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                              fontSize: '0.72rem', color: 'var(--tx-text-muted)',
-                              paddingLeft: '0.2rem',
-                            }}
-                          >
-                            <span>{humanizeAction(a.action)}</span>
-                            <span style={{ color: 'var(--tx-text-dim)', fontVariantNumeric: 'tabular-nums' }}>
-                              ×{a.count.toLocaleString()}
-                            </span>
-                          </div>
-                        ))}
+                      <div style={{ padding: '0.55rem 0 0.2rem', display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+                        {d.actions.map(a => {
+                          const actKey = `${d.name}|${a.action}`;
+                          const actOpen = openAction === actKey;
+                          const hasTxs = a.recent.length > 0;
+                          return (
+                            <div key={a.action} style={{ display: 'flex', flexDirection: 'column' }}>
+                              <div
+                                role={hasTxs ? 'button' : undefined}
+                                tabIndex={hasTxs ? 0 : undefined}
+                                onClick={() => hasTxs && setOpenAction(actOpen ? null : actKey)}
+                                onKeyDown={e => {
+                                  if (hasTxs && (e.key === 'Enter' || e.key === ' ')) {
+                                    e.preventDefault();
+                                    setOpenAction(actOpen ? null : actKey);
+                                  }
+                                }}
+                                style={{
+                                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                  fontSize: '0.72rem', color: 'var(--tx-text-muted)',
+                                  padding: '0.2rem 0.2rem', cursor: hasTxs ? 'pointer' : 'default',
+                                }}
+                              >
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                  {humanizeAction(a.action)}
+                                  {hasTxs && (
+                                    <span
+                                      aria-hidden
+                                      style={{
+                                        fontSize: '0.55rem', color: 'var(--tx-text-dim)',
+                                        transform: actOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s',
+                                      }}
+                                    >
+                                      ▶
+                                    </span>
+                                  )}
+                                </span>
+                                <span style={{ color: 'var(--tx-text-dim)', fontVariantNumeric: 'tabular-nums' }}>
+                                  ×{a.count.toLocaleString()}
+                                </span>
+                              </div>
+
+                              {actOpen && hasTxs && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem', padding: '0.1rem 0 0.35rem 0.9rem' }}>
+                                  {a.recent.map(tx => (
+                                    <Link
+                                      key={tx.hash}
+                                      href={`/tx/${tx.hash}?wallet=${footprint.address}`}
+                                      style={{
+                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                        fontSize: '0.68rem', color: 'var(--tx-cyan)', textDecoration: 'none',
+                                        padding: '0.12rem 0',
+                                      }}
+                                    >
+                                      <span style={{ fontVariantNumeric: 'tabular-nums' }}>{tx.hash.slice(0, 10)}…{tx.hash.slice(-4)}</span>
+                                      <span style={{ color: 'var(--tx-text-dim)' }}>{shortDate(tx.at)} · decode →</span>
+                                    </Link>
+                                  ))}
+                                  {a.count > a.recent.length && (
+                                    <span style={{ fontSize: '0.64rem', color: 'var(--tx-text-dim)', paddingTop: '0.1rem' }}>
+                                      Showing the {a.recent.length} most recent of {a.count.toLocaleString()}.
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                         <Link
                           href={`/dapps/${slugify(d.name)}`}
-                          style={{ fontSize: '0.68rem', color: 'var(--tx-cyan)', textDecoration: 'none', marginTop: '0.15rem', paddingLeft: '0.2rem' }}
+                          style={{ fontSize: '0.68rem', color: 'var(--tx-cyan)', textDecoration: 'none', marginTop: '0.25rem', paddingLeft: '0.2rem' }}
                         >
                           View {d.name} in the dApp directory →
                         </Link>

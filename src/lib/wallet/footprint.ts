@@ -55,6 +55,16 @@ export interface DappAction {
   /** The contract execute method, e.g. "withdraw_collateral", "swap_min_output". */
   action: string;
   count: number;
+  /** Most-recent transactions that called this method, newest first, capped —
+   *  each links to the in-app decoder for the full plain-English detail. */
+  recent: DappInteraction[];
+}
+
+export interface DappInteraction {
+  /** Full transaction hash (0x-prefixed). */
+  hash: string;
+  /** Block time in ms. */
+  at: number;
 }
 
 interface IndexerMessage {
@@ -69,6 +79,7 @@ interface IndexerMessage {
 }
 
 interface IndexerAccountTx {
+  hash?: string;
   code?: number;
   block_unix_timestamp?: number;
   gas_fee?: {
@@ -79,11 +90,21 @@ interface IndexerAccountTx {
   messages?: IndexerMessage[];
 }
 
+interface ActionTally {
+  count: number;
+  recent: DappInteraction[];
+}
+
 interface UsageTally {
   interactions: number;
   lastUsedAt: number;
-  actions: Map<string, number>;
+  actions: Map<string, ActionTally>;
 }
+
+// How many recent transactions to keep per action for the drill-down. The scan
+// runs newest-first, so the first ones seen are the most recent; a handful is
+// enough to jump into and doesn't bloat the response for a 200-call method.
+const RECENT_PER_ACTION = 5;
 
 // The execute method a message called — the first key of its CosmWasm payload
 // (`{"deposit":{…}}` → "deposit"). Compat messages carry this as a JSON string.
@@ -173,11 +194,18 @@ export async function buildWalletFootprint(address: string): Promise<WalletFootp
         if (msg.value?.sender !== address) continue;
         const protocol = messageProtocol(msg);
         if (protocol) {
-          const tally = usage.get(protocol) ?? { interactions: 0, lastUsedAt: 0, actions: new Map<string, number>() };
+          const tally = usage.get(protocol) ?? { interactions: 0, lastUsedAt: 0, actions: new Map<string, ActionTally>() };
           tally.interactions++;
           if (ts > tally.lastUsedAt) tally.lastUsedAt = ts;
           const action = extractAction(msg);
-          tally.actions.set(action, (tally.actions.get(action) ?? 0) + 1);
+          const at = tally.actions.get(action) ?? { count: 0, recent: [] };
+          at.count++;
+          // Keep the newest few hashes; skip a duplicate when one tx carries
+          // several messages of the same method (a batch).
+          if (at.recent.length < RECENT_PER_ACTION && tx.hash && at.recent[at.recent.length - 1]?.hash !== tx.hash) {
+            at.recent.push({ hash: tx.hash, at: ts });
+          }
+          tally.actions.set(action, at);
           usage.set(protocol, tally);
         } else if (msg.value?.contract || msg.value?.contract_address) {
           // Hit a contract we don't have in the registry — unlabelled dApp.
@@ -226,7 +254,7 @@ export async function buildWalletFootprint(address: string): Promise<WalletFootp
         interactions: t.interactions,
         lastUsedAt: t.lastUsedAt,
         actions: [...t.actions.entries()]
-          .map(([action, count]) => ({ action, count }))
+          .map(([action, a]) => ({ action, count: a.count, recent: a.recent }))
           .sort((a, b) => b.count - a.count),
       }))
       .sort((a, b) => b.interactions - a.interactions),
