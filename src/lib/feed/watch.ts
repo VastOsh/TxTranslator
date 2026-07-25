@@ -33,7 +33,7 @@ const FIRST_RUN_LOOKBACK_MS = 10 * 60 * 1000;
 // ── Derivative market registry, loaded live from the indexer ──
 // 284+ active markets; resolved dynamically rather than hardcoded.
 
-interface DerivativeMarketInfo {
+export interface DerivativeMarketInfo {
   marketId: string;
   ticker: string;
   baseSymbol: string;
@@ -59,7 +59,7 @@ let marketCache: Map<string, DerivativeMarketInfo> | null = null;
 let marketCacheAt = 0;
 const MARKET_CACHE_TTL_MS = 60 * 60 * 1000;
 
-async function loadMarkets(): Promise<Map<string, DerivativeMarketInfo>> {
+export async function loadMarkets(): Promise<Map<string, DerivativeMarketInfo>> {
   if (marketCache && Date.now() - marketCacheAt < MARKET_CACHE_TTL_MS) {
     return marketCache;
   }

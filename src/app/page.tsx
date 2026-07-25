@@ -1,10 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import SearchForm from '@/components/SearchForm';
 import TranslationResult from '@/components/TranslationResult';
 import WalletTxList from '@/components/WalletTxList';
+import PnlDashboard, { type PnlRangeKey } from '@/components/PnlDashboard';
+import WalletFootprint from '@/components/WalletFootprint';
 import InjChart from '@/components/InjChart';
 import RecentHistory from '@/components/RecentHistory';
 import Changelog from '@/components/Changelog';
@@ -13,6 +16,8 @@ import { useRecentTxs } from '@/hooks/useRecentTxs';
 import { CURRENT_VERSION } from '@/data/changelog';
 import type { TranslationResponse } from '@/types';
 import type { WalletTx } from '@/components/WalletTxList';
+import type { PnlReport } from '@/lib/pnl/aggregate';
+import type { WalletFootprint as Footprint } from '@/lib/wallet/footprint';
 
 const HASH_RE = /^(0x)?[0-9a-fA-F]{64}$/;
 const ADDR_RE = /^inj1[a-z0-9]{38}$/;
@@ -69,6 +74,16 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [loadingMode, setLoadingMode] = useState<'hash' | 'wallet' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [walletTab, setWalletTab] = useState<'activity' | 'pnl'>('activity');
+  const [pnlReport, setPnlReport] = useState<PnlReport | null>(null);
+  const [pnlRange, setPnlRange] = useState<PnlRangeKey>('7d');
+  const [pnlLoading, setPnlLoading] = useState(false);
+  const [footprint, setFootprint] = useState<Footprint | null>(null);
+  const [footprintLoading, setFootprintLoading] = useState(false);
+  const [footprintError, setFootprintError] = useState(false);
+  // Tracks the wallet of the most recent scan so a slow in-flight footprint
+  // response for an earlier wallet can be discarded.
+  const walletAddressRef = useRef<string | null>(null);
   const { recent, addRecent, clearRecent } = useRecentTxs();
 
   function resetState(clearWallet = true) {
@@ -76,7 +91,65 @@ export default function Home() {
     setWalletTxs(null);
     if (clearWallet) setWalletAddress(null);
     setError(null);
+    setWalletTab('activity');
+    setPnlReport(null);
+    setPnlRange('7d');
+    setFootprint(null);
+    setFootprintLoading(false);
+    setFootprintError(false);
+    walletAddressRef.current = null;
     window.history.replaceState(null, '', '/');
+  }
+
+  // Runs alongside the wallet scan rather than inside it — the tx list should
+  // render immediately instead of waiting on the multi-page fee scan. The
+  // address is captured so a slow response for a previous wallet cannot land on
+  // the current one.
+  async function loadFootprint(address: string) {
+    walletAddressRef.current = address;
+    setFootprint(null);
+    setFootprintError(false);
+    setFootprintLoading(true);
+    try {
+      const res = await fetch('/api/wallet/fees', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address }),
+      });
+      if (walletAddressRef.current !== address) return; // a newer scan started
+      if (!res.ok) {
+        setFootprintError(true);
+        return;
+      }
+      const data = await res.json();
+      setFootprint(data.footprint as Footprint);
+    } catch {
+      if (walletAddressRef.current === address) setFootprintError(true);
+    } finally {
+      if (walletAddressRef.current === address) setFootprintLoading(false);
+    }
+  }
+
+  async function loadPnl(address: string, range: PnlRangeKey) {
+    setPnlRange(range);
+    setPnlLoading(true);
+    try {
+      const res = await fetch('/api/pnl', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address, range }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? 'Could not build the PnL report.');
+        return;
+      }
+      setPnlReport(data.report as PnlReport);
+    } catch {
+      setError('Network error — check your connection and try again.');
+    } finally {
+      setPnlLoading(false);
+    }
   }
 
   async function handleSearch(input: string) {
@@ -140,6 +213,7 @@ export default function Home() {
       }
       setWalletTxs(data.txs as WalletTx[]);
       setWalletAddress(address);
+      loadFootprint(address);
     } catch {
       setError('Network error — check your connection and try again.');
     } finally {
@@ -265,7 +339,74 @@ export default function Home() {
       )}
 
       {walletTxs !== null && walletAddress && (
-        <WalletTxList address={walletAddress} txs={walletTxs} />
+        <>
+          <div className="tx-pnl-tabs">
+            <button
+              className={`tx-pnl-tab${walletTab === 'activity' ? ' tx-pnl-tab--on' : ''}`}
+              onClick={() => setWalletTab('activity')}
+            >
+              Activity
+            </button>
+            <button
+              className={`tx-pnl-tab${walletTab === 'pnl' ? ' tx-pnl-tab--on' : ''}`}
+              onClick={() => {
+                setWalletTab('pnl');
+                if (!pnlReport && !pnlLoading) loadPnl(walletAddress, pnlRange);
+              }}
+            >
+              Perp PnL
+            </button>
+          </div>
+
+          {walletTab === 'activity' && (
+            <>
+              {footprintLoading && (
+                <div className="tx-pnl-card" style={{ width: '100%', maxWidth: 680, marginBottom: '0.85rem' }}>
+                  <div className="tx-pnl-head">
+                    <span className="tx-pnl-head-title">On-chain footprint</span>
+                    <span className="tx-pnl-row-meta">
+                      <span className="tx-spinner" style={{ display: 'inline-block', verticalAlign: 'middle' }} /> scanning…
+                    </span>
+                  </div>
+                  <div style={{ padding: '0.9rem 1.2rem', fontSize: '0.72rem', color: 'var(--tx-text-muted)' }}>
+                    Reading recent transactions to compute gas paid and dApps used — a few seconds.
+                  </div>
+                </div>
+              )}
+              {footprintError && !footprintLoading && (
+                <div className="tx-pnl-card" style={{ width: '100%', maxWidth: 680, marginBottom: '0.85rem' }}>
+                  <div className="tx-pnl-head">
+                    <span className="tx-pnl-head-title">On-chain footprint</span>
+                    <button
+                      className="tx-pnl-range"
+                      onClick={() => walletAddress && loadFootprint(walletAddress)}
+                    >
+                      Retry
+                    </button>
+                  </div>
+                  <div style={{ padding: '0.9rem 1.2rem', fontSize: '0.72rem', color: 'var(--tx-text-muted)' }}>
+                    Couldn&rsquo;t load the footprint — the indexer may be busy. Retry above.
+                  </div>
+                </div>
+              )}
+              {footprint && <WalletFootprint footprint={footprint} />}
+              <WalletTxList address={walletAddress} txs={walletTxs} />
+            </>
+          )}
+
+          {walletTab === 'pnl' && (
+            pnlReport ? (
+              <PnlDashboard
+                report={pnlReport}
+                range={pnlRange}
+                loading={pnlLoading}
+                onRangeChange={r => loadPnl(walletAddress, r)}
+              />
+            ) : (
+              <WalletSkeleton />
+            )
+          )}
+        </>
       )}
 
       {/* ── INJ Price Chart ── */}
@@ -282,6 +423,16 @@ export default function Home() {
         }}
       >
         <span className="tx-footer">Made by S!G</span>
+        <span className="tx-footer" style={{ opacity: 0.4 }}>·</span>
+        <Link
+          href="/dapps"
+          className="tx-footer"
+          style={{ textDecoration: 'none', opacity: 0.7 }}
+          onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+          onMouseLeave={e => (e.currentTarget.style.opacity = '0.7')}
+        >
+          dApp directory
+        </Link>
         <span className="tx-footer" style={{ opacity: 0.4 }}>·</span>
         <a
           href="https://x.com/TxTranslator"

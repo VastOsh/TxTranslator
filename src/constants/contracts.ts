@@ -8,6 +8,10 @@ export type ProtocolName =
   | 'Choice Exchange'
   | 'Paradyze'
   | 'Talis Protocol'
+  | 'SPACE ID'
+  | 'SGT'
+  | 'HyperNinja'
+  | 'Skip'
   | 'Injective Hub'
   | 'IBC Transfer'
   | 'Staking'
@@ -61,16 +65,29 @@ export const MESSAGE_TYPE_PROTOCOLS: Record<string, ProtocolName> = {
 // These can be extended via the Firecrawl skill by scraping the Injective explorer.
 export const CONTRACT_PROTOCOLS: Record<string, ProtocolName> = {
   // Mito Finance vault contracts (MsgExecuteContract / MsgExecuteContractCompat paths)
-  'inj1jtw5c4ef2nlxnfnlrqas2z6q37emxn8n95tlkz': 'Mito Finance',
-  'inj1gkh79s63k9ql69qwx7w4wjlq3m43qfhulq3nt': 'Mito Finance',
-  'inj1qg5ega6dykkxc307y25pecuufrjkxkaggkkxh': 'Mito Finance',
+  'inj1vswsdqx5clnxv9vvlv4kuvjwtqty92mtyarw4t': 'Mito Finance', // Mito Staking Allocator v1
+  'inj1j5mr2hmv7y2z7trazganj75u8km8jvdfuxncsp': 'Mito Finance', // Mito Swap Contract
   // Mito Finance vault contracts (MsgPrivilegedExecuteContract path — contract_address field)
-  'inj1vcqkkvqs7prqu70dpddfj7kqeqfdz5gg662qs3': 'Mito Finance',
+  'inj1vcqkkvqs7prqu70dpddfj7kqeqfdz5gg662qs3': 'Mito Finance', // Mito Master 1
   // Mito Finance LP staking / incentive contracts
   'inj1gtze7qm07nky47n7mwgj4zatf2s77xqvh3k2n8': 'Mito Finance',
   // Hydro Protocol (hINJ liquid staking)
-  'inj1dxp690rd86nehmqj8r8fe3lj9ns9f5t04hnqe': 'Hydro Protocol',
-  'inj16mwjqkl0q57c2qpkgf5xjw8mqqd6ewdq3k3pk': 'Hydro Protocol',
+  'inj18luqttqyckgpddndh8hvaq25d5nfwjc78m56lc': 'Hydro Protocol', // Hydro hINJ
+  'inj1enyu3agzphq3k935lkxeynq6rq03d9ys0fehr9': 'Hydro Protocol', // Hydro price-manager
+  'inj1nuw6ala2ra7t457tg4g04k67r94v55mdyq9klr': 'Hydro Protocol', // Hydro lending-vault
+  // Hydro Protocol — additional live contracts (on-chain wasm labels)
+  'inj1uq9spcnum8z2lz54tzrsx99e4hdywsqxvxwa4a': 'Hydro Protocol', // Hydro LSD reward
+  'inj1cq3rfmdf3y498fchl237wgjarqs99tjf433phw': 'Hydro Protocol', // Hydro LSD
+  'inj17w07xu2qqlsrjvupd8t6pwenuuvzrs8ymmqxqw': 'Hydro Protocol', // Hydro Farm
+  'inj1j3w4490vv6y7eshfj3mt3wekmns4rz2m0scgnt': 'Hydro Protocol', // Hydro dojo-pair swap proxy
+  'inj1a2klvlxa3ax0sh7ym9grv96ckmane89mkc4m37': 'Hydro Protocol', // Hydro lending-vault (core)
+  'inj1tqugp3fmsccqunquuyf9sqgx703m48an9g549l': 'Hydro Protocol', // Hydro liquidator
+  'inj1h9g2nf4sqdcnk3947w4tle6fmxwap5w70kzpj6': 'Hydro Protocol', // Hydro Governance
+  'inj1s6cm7x5lwusj9yrkkxtkv304qqku4vng5ccule': 'Hydro Protocol', // Hydro xINJ vault-share token (label "campaign"; init names Hydro)
+  'inj1yjmayxadndc90wfp3dr2qg5dm6zddsykkvjwc3': 'Hydro Protocol', // Hydro incentive
+  'inj1uezlz9qmyznzcqps8zht6tswuh9nq2lhje96l9': 'Hydro Protocol', // Hydro lsd-proxy
+  'inj1qc2tw477wwuvkad0h3g78xqgwx4k8knat6vz0h': 'Hydro Protocol', // xHDRO staking token
+  'inj1r8lc3dfxqxs65rkng70ngvgdr8myvu9y7q2pru': 'Hydro Protocol', // Hydro Swap (admin = HDRO token-factory deployer)
   // Helix atomic swap router (MsgExecuteContractCompat path)
   'inj12yj3mtjarujkhcp6lg3klxjjfrx2v7v8yswgp9': 'Helix',
   // DojoSwap AMM DEX contracts (source: docs.dojo.trading/resources/contract-addresses)
@@ -79,6 +96,8 @@ export const CONTRACT_PROTOCOLS: Record<string, ProtocolName> = {
   'inj19rutrad95wzcw93gfnuranetmc570cvtj8j8cg': 'DojoSwap', // DOJO-INJ LP Staking
   'inj1yqtcds4gpvhcdlpjh9u45xjx9lxwame7fa265x': 'DojoSwap', // SUSHI-DOJO LP Staking
   'inj1ycnddgnj49lntk3z5ky8pj0rpvhkvggmyjsmv7': 'DojoSwap', // DOJO-dINJ LP Staking
+  'inj1zdj9kqnknztl2xclm5ssv25yre09f8908d4923': 'DojoSwap', // Dojoswap Deployment (high-volume)
+  'inj1p0vntlcq7t3uksx56dny7wn334vrtpuwcj884z': 'DojoSwap', // Dojoswap Deployment
   // Neptune Finance money market contracts (source: docs.nept.finance/develop/contracts)
   'inj1nc7gjkf2mhp34a6gquhurg8qahnw5kxs5u3s4u': 'Neptune Finance', // Red Bank (lending/borrowing)
   'inj1ftech0pdjrjawltgejlmpx57cyhsz6frdx2dhq': 'Neptune Finance', // Interest Rate Model
@@ -92,15 +111,29 @@ export const CONTRACT_PROTOCOLS: Record<string, ProtocolName> = {
   'inj1cy9hes20vww2yr6crvs75gxy5hpycya2hmjg9s': 'Neptune Finance', // nUSDT
   'inj1kehk5nvreklhylx22p3x0yjydfsz9fv3fvg5xt': 'Neptune Finance', // nWETH
   'inj16jf4qkcarp3lan4wl2qkrelf4kduvvujwg0780': 'Neptune Finance', // nATOM
+  'inj1v3a4zznudwpukpr8y987pu5gnh4xuf7v36jhva': 'Neptune Finance', // neptune-token
   // Black Panther vault platform (source: defillama.com/protocol/black-panther)
   // Note: individual vault contracts are dynamically created; add here as discovered
   'inj16eckaf75gcu9uxdglyvmh63k9t0l7chd0qmu85': 'Black Panther', // BLACK governance token
+  'inj1ja2z7lhtpq7myj9vv936euwepzw9hppd2fd5t0': 'Black Panther', // Black Panther Staking
   // Choice Exchange AMM DEX & aggregator (source: github.com/choice-exchange/choice_exchange README)
   'inj1k9lcqtn3y92h4t3tdsu7z8qx292mhxhgsssmxg': 'Choice Exchange', // Factory
   'inj1ne2durmsx2jurvy4wgnhegv3xt6789up8xgum3': 'Choice Exchange', // Router
   'inj1a4qvqym6ajewepa7v8y2rtxuz9f92kyq2zsg26': 'Choice Exchange', // Aggregation contract (multi-path routing)
   'inj14ejqjyq8um4p3xfqj74yld5waqljf88f9eneuk': 'Choice Exchange', // CW20 adapter
   'inj1yr7srge0lku4h3gd473qdlpdfw63ejdjwkh4c0': 'Choice Exchange', // Burn manager
+  // Choice Exchange — additional live contracts (on-chain wasm labels)
+  'inj1520rsss9aykhkfmuf89nh5hp2jww770z4u3eu0': 'Choice Exchange', // Choice DEX Aggregator v2.0
+  'inj1eag2kjzs5ma5sflxvlhaacdxxpvdjg4ny7yg3g': 'Choice Exchange', // Choice CLMM Manager
+  'inj1aqnqtuzh75de4egd06ep83g0udt7njxljznevc': 'Choice Exchange', // Choice Farm #5
+  'inj1p8kx2gjatfvwkksx3afm7uapj4mja4vutuyj8m': 'Choice Exchange', // Choice Farm #3
+  'inj1g4hlcmp4s0k0tm4tj07j87ela9u2qefzahcsns': 'Choice Exchange', // Choice Farm #1
+  'inj16y888zlql6mdendn2qtzjdjg4wplycrjaqzcnr': 'Choice Exchange', // Choice Farm #6
+  // SPACE ID — .inj naming service (source: on-chain wasm labels + init registry_address link)
+  'inj1x9m0hceug9qylcyrrtwqtytslv2jrph433thgu': 'SPACE ID', // SPACEID Resolver
+  'inj1hm8vs8sr2h9nk0x66vctfs528wrp6k3gtgg275': 'SPACE ID', // SPACEID Registry
+  'inj1s65um0a0lt9u9w3xfqnqn3w9k97ykpacr3dd96': 'SPACE ID', // SPACEID Controller (register/renew)
+  'inj1svrv85wmeryc6523kgwnmzttz93vj6ua3g29t8': 'SPACE ID', // SPACEID Base registrar
   // Paradyze: AI-powered trading terminal on Injective using native exchange module
   // No CosmWasm contracts — add here if on-chain vault/prediction contracts are deployed
   // Talis Protocol — NFT Marketplace (source: on-chain contract labels via Injective LCD)
@@ -109,6 +142,18 @@ export const CONTRACT_PROTOCOLS: Record<string, ProtocolName> = {
   'inj1u2l88u94h056z7lz0vkksxgwkdwn35x23r5dg8': 'Talis Protocol', // P2P escrow (label: "Talis P2P escrow", code 1102)
   'inj1gwutptfmlxd7netk5jw58zcqux00jx2pas73p9': 'Talis Protocol', // Offers v1 (label: "Talis offers", code 79)
   'inj1u30yff9df5mu0rcp3jtr5wv5j8069asdl9ywl7': 'Talis Protocol', // Offers v2 (label: "Talis offers", code 79)
+  'inj1v77y5ttah96dc9qkcpc88ad7rce8n88e99t3m5': 'Talis Protocol', // Talis offers (primary, high-volume)
+  'inj1r6pvt7d3eqtc9e2h7mcv6l8smq3847jqd6sffn': 'Talis Protocol', // Talis revenue share
+  // SGT — on-chain spot market-making pools (source: shared deployer inj1w64pxul…, market_id in init)
+  'inj195l0hketpha2x2zahckfhlchlkrwckxd74030v': 'SGT', // SGT stINJ/INJ pool
+  'inj1dxvlc5snn5y02nn82xdhnvwj3y09t9pnh6msf5': 'SGT', // SGT hINJ/INJ pool
+  'inj1dx8kuevhq7m7g9a2e4es83ps62htr5g3y7azgr': 'SGT', // SGT SOL/USDC pool
+  'inj1t4l7q6y7uzjjufxgcyr6hdugslphdqzqqt8u9x': 'SGT', // SGT referrals (same deployer)
+  // HyperNinja — burn-based vault/facility product (source: distinct deployer inj1s9ns0mev…)
+  'inj1f8z8jyqqxm5fjqcx457afu8l4d4ekpw8c478ca': 'HyperNinja', // HyperNinja prod instance
+  'inj17xca7mrynk94akt7sfjwgaugs2g0rm4dhulapg': 'HyperNinja', // HyperNinja vault
+  // Skip — cross-chain swap router (source: init swap_venues astroport/hallswap/native)
+  'inj1l62elesw6lw9w5ctqpwv0apkeghppr5d2mdqwh': 'Skip', // Skip Swap Entry Point
   // Injective Hub — Community BuyBack program
   'inj10n78w79xhxmytnuhjcck633nj4e7hrqaglgnfz': 'Injective Hub',
 };
@@ -185,6 +230,30 @@ export const PROTOCOL_CONTEXTS: Record<ProtocolName, Protocol> = {
     description: 'NFT Marketplace on Injective',
     context:
       'Talis Protocol is the leading NFT marketplace on Injective — the first to launch on mainnet (June 2023). Users can buy, sell, mint, and trade NFTs using INJ and other Injective-native tokens. NFT collections use the CW721 standard. Key actions: fixed-price listings (via send_nft to marketplace), direct purchases, collection and individual offers, and randomized mints (CandyMachine). TALIS is the protocol\'s governance and fee-distribution token. Over 140,000 wallets registered and 200,000+ INJ transacted.',
+  },
+  'SPACE ID': {
+    name: 'SPACE ID',
+    description: 'Web3 naming service (.inj domains)',
+    context:
+      'SPACE ID is the naming service on Injective — it maps human-readable .inj domains to wallet addresses. The registry contract stores ownership records and the resolver contract answers name lookups. Interactions typically mean registering, renewing, or updating a domain, or setting a primary name.',
+  },
+  SGT: {
+    name: 'SGT',
+    description: 'On-chain spot market-making pools',
+    context:
+      'SGT runs a set of on-chain spot liquidity pools on Injective (stINJ/INJ, hINJ/INJ, SOL/USDC and others), each bound to a native exchange market and quoting both sides as an automated market-maker vault. Interactions are typically deposits into or withdrawals from a pool, and the protocol also runs a referrals contract. Identified from a shared deployer and market-bound init parameters rather than a public brand page, so treat the naming as the on-chain label.',
+  },
+  HyperNinja: {
+    name: 'HyperNinja',
+    description: 'Burn-based vault product',
+    context:
+      'HyperNinja is a vault/facility product on Injective whose instances carry a facility price, a burn percentage, and a linked vault contract. Interactions are deposits into and actions against those vaults. Identified from its on-chain contract labels and init parameters.',
+  },
+  Skip: {
+    name: 'Skip',
+    description: 'Cross-chain swap router',
+    context:
+      'Skip (the Skip Go / Skip API swap entry point) is a routing layer that executes swaps across multiple venues from a single call — its on-chain configuration lists Astroport, Hallswap and Injective-native as swap venues. Interactions mean routing a swap through one of those venues via the entry-point contract.',
   },
   'Injective Hub': {
     name: 'Injective Hub',

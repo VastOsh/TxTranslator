@@ -202,17 +202,32 @@ export const VALIDATOR_NAMES: Record<string, string> = {
 };
 
 export const CONTRACT_NAMES: Record<string, string> = {
-  'inj1jtw5c4ef2nlxnfnlrqas2z6q37emxn8n95tlkz': 'Mito Finance Vault',
-  'inj1gkh79s63k9ql69qwx7w4wjlq3m43qfhulq3nt': 'Mito Finance Vault',
-  'inj1qg5ega6dykkxc307y25pecuufrjkxkaggkkxh': 'Mito Finance Vault',
-  'inj1dxp690rd86nehmqj8r8fe3lj9ns9f5t04hnqe': 'Hydro Protocol (hINJ)',
-  'inj16mwjqkl0q57c2qpkgf5xjw8mqqd6ewdq3k3pk': 'Hydro Protocol',
+  'inj1vswsdqx5clnxv9vvlv4kuvjwtqty92mtyarw4t': 'Mito Staking Allocator',
+  'inj1j5mr2hmv7y2z7trazganj75u8km8jvdfuxncsp': 'Mito Swap',
+  'inj1vcqkkvqs7prqu70dpddfj7kqeqfdz5gg662qs3': 'Mito Finance Vault',
+  'inj18luqttqyckgpddndh8hvaq25d5nfwjc78m56lc': 'Hydro Protocol (hINJ)',
+  'inj1enyu3agzphq3k935lkxeynq6rq03d9ys0fehr9': 'Hydro Price Manager',
+  'inj1nuw6ala2ra7t457tg4g04k67r94v55mdyq9klr': 'Hydro Lending Vault',
+  'inj1uq9spcnum8z2lz54tzrsx99e4hdywsqxvxwa4a': 'Hydro LSD Reward',
+  'inj1cq3rfmdf3y498fchl237wgjarqs99tjf433phw': 'Hydro LSD',
+  'inj17w07xu2qqlsrjvupd8t6pwenuuvzrs8ymmqxqw': 'Hydro Farm',
+  'inj1j3w4490vv6y7eshfj3mt3wekmns4rz2m0scgnt': 'Hydro Swap Proxy',
+  'inj1a2klvlxa3ax0sh7ym9grv96ckmane89mkc4m37': 'Hydro Lending Vault (core)',
+  'inj1tqugp3fmsccqunquuyf9sqgx703m48an9g549l': 'Hydro Liquidator',
+  'inj1h9g2nf4sqdcnk3947w4tle6fmxwap5w70kzpj6': 'Hydro Governance',
+  'inj1s6cm7x5lwusj9yrkkxtkv304qqku4vng5ccule': 'Hydro xINJ Vault Share',
+  'inj1yjmayxadndc90wfp3dr2qg5dm6zddsykkvjwc3': 'Hydro Incentive',
+  'inj1uezlz9qmyznzcqps8zht6tswuh9nq2lhje96l9': 'Hydro LSD Proxy',
+  'inj1qc2tw477wwuvkad0h3g78xqgwx4k8knat6vz0h': 'xHDRO',
+  'inj1r8lc3dfxqxs65rkng70ngvgdr8myvu9y7q2pru': 'Hydro Swap',
   // DojoSwap
   'inj1t6g03pmc0qcgr7z44qjzaen804f924xke6menl': 'DojoSwap Router',
   'inj1pc2vxcmnyzawnwkf03n2ggvt997avtuwagqngk': 'DojoSwap Factory',
   'inj19rutrad95wzcw93gfnuranetmc570cvtj8j8cg': 'DojoSwap LP Staking',
   'inj1yqtcds4gpvhcdlpjh9u45xjx9lxwame7fa265x': 'DojoSwap LP Staking',
   'inj1ycnddgnj49lntk3z5ky8pj0rpvhkvggmyjsmv7': 'DojoSwap LP Staking',
+  'inj1zdj9kqnknztl2xclm5ssv25yre09f8908d4923': 'DojoSwap',
+  'inj1p0vntlcq7t3uksx56dny7wn334vrtpuwcj884z': 'DojoSwap',
   // Neptune Finance
   'inj1nc7gjkf2mhp34a6gquhurg8qahnw5kxs5u3s4u': 'Neptune Finance Red Bank',
   'inj1ftech0pdjrjawltgejlmpx57cyhsz6frdx2dhq': 'Neptune Finance Interest Model',
@@ -225,14 +240,40 @@ export const CONTRACT_NAMES: Record<string, string> = {
   'inj1cy9hes20vww2yr6crvs75gxy5hpycya2hmjg9s': 'Neptune Finance nUSDT',
   'inj1kehk5nvreklhylx22p3x0yjydfsz9fv3fvg5xt': 'Neptune Finance nWETH',
   'inj16jf4qkcarp3lan4wl2qkrelf4kduvvujwg0780': 'Neptune Finance nATOM',
+  'inj1v3a4zznudwpukpr8y987pu5gnh4xuf7v36jhva': 'Neptune Token',
   // Black Panther
   'inj16eckaf75gcu9uxdglyvmh63k9t0l7chd0qmu85': 'Black Panther (BLACK token)',
+  'inj1ja2z7lhtpq7myj9vv936euwepzw9hppd2fd5t0': 'Black Panther Staking',
   // Choice Exchange
   'inj1k9lcqtn3y92h4t3tdsu7z8qx292mhxhgsssmxg': 'Choice Exchange Factory',
   'inj1ne2durmsx2jurvy4wgnhegv3xt6789up8xgum3': 'Choice Exchange Router',
   'inj1a4qvqym6ajewepa7v8y2rtxuz9f92kyq2zsg26': 'Choice Exchange Aggregator',
   'inj14ejqjyq8um4p3xfqj74yld5waqljf88f9eneuk': 'Choice Exchange CW20 Adapter',
   'inj1yr7srge0lku4h3gd473qdlpdfw63ejdjwkh4c0': 'Choice Exchange Burn Manager',
+  'inj1520rsss9aykhkfmuf89nh5hp2jww770z4u3eu0': 'Choice DEX Aggregator v2',
+  'inj1eag2kjzs5ma5sflxvlhaacdxxpvdjg4ny7yg3g': 'Choice CLMM Manager',
+  'inj1aqnqtuzh75de4egd06ep83g0udt7njxljznevc': 'Choice Farm #5',
+  'inj1p8kx2gjatfvwkksx3afm7uapj4mja4vutuyj8m': 'Choice Farm #3',
+  'inj1g4hlcmp4s0k0tm4tj07j87ela9u2qefzahcsns': 'Choice Farm #1',
+  'inj16y888zlql6mdendn2qtzjdjg4wplycrjaqzcnr': 'Choice Farm #6',
+  // SPACE ID — .inj naming service
+  'inj1x9m0hceug9qylcyrrtwqtytslv2jrph433thgu': 'SPACE ID Resolver',
+  'inj1hm8vs8sr2h9nk0x66vctfs528wrp6k3gtgg275': 'SPACE ID Registry',
+  'inj1s65um0a0lt9u9w3xfqnqn3w9k97ykpacr3dd96': 'SPACE ID Controller',
+  'inj1svrv85wmeryc6523kgwnmzttz93vj6ua3g29t8': 'SPACE ID Base Registrar',
+  // Talis Protocol
+  'inj1v77y5ttah96dc9qkcpc88ad7rce8n88e99t3m5': 'Talis Offers',
+  'inj1r6pvt7d3eqtc9e2h7mcv6l8smq3847jqd6sffn': 'Talis Revenue Share',
+  // SGT — spot market-making pools
+  'inj195l0hketpha2x2zahckfhlchlkrwckxd74030v': 'SGT stINJ/INJ',
+  'inj1dxvlc5snn5y02nn82xdhnvwj3y09t9pnh6msf5': 'SGT hINJ/INJ',
+  'inj1dx8kuevhq7m7g9a2e4es83ps62htr5g3y7azgr': 'SGT SOL/USDC',
+  'inj1t4l7q6y7uzjjufxgcyr6hdugslphdqzqqt8u9x': 'SGT Referrals',
+  // HyperNinja — burn-based vault product
+  'inj1f8z8jyqqxm5fjqcx457afu8l4d4ekpw8c478ca': 'HyperNinja',
+  'inj17xca7mrynk94akt7sfjwgaugs2g0rm4dhulapg': 'HyperNinja Vault',
+  // Skip — cross-chain swap router
+  'inj1l62elesw6lw9w5ctqpwv0apkeghppr5d2mdqwh': 'Skip Swap',
   // Paradyze: AI trading terminal — service fee recipient (prepended MsgSend on every trade)
   'inj1wkxt4nfacs9a24vkxw0f6gjwqhq4cnlv6d8ugf': 'Paradyze',
 };

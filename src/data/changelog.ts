@@ -11,10 +11,48 @@ export interface ChangelogVersion {
   entries: ChangelogEntry[];
 }
 
-export const CURRENT_VERSION = 'v1.6.1';
+export const CURRENT_VERSION = 'v1.7.0';
 
 // Entries within each version are ordered: critical → fix → improvement → feature
 export const CHANGELOG: ChangelogVersion[] = [
+  {
+    version: 'v1.7.0',
+    date: '2026-07-25',
+    entries: [
+      {
+        type: 'feature',
+        text: 'Wallet on-chain footprint — the wallet scan now leads with a footprint card showing what an address actually spent to use the chain: real gas paid in INJ, the transactions it personally paid for, average fee, gas burned on failed transactions, and feegrant-covered txs where someone else footed the bill. Fees are attributed strictly to the fee payer, so a wallet that merely appears in other people\'s transactions is no longer credited with their gas',
+      },
+      {
+        type: 'feature',
+        text: 'See which dApps a wallet uses and what it did there — the footprint lists every recognised protocol the wallet interacted with, most-used first; click one to expand the exact on-chain actions it called (claim_reward, swap_min_output, withdraw_collateral, …) with per-method counts, then click an action to drill into its most-recent transactions, each linking straight into the decoder for the full plain-English breakdown',
+      },
+      {
+        type: 'feature',
+        text: 'New dApp directory at /dapps — browse the Injective protocols Tx·Translator recognises, each with a card showing lifetime on-chain executions, contract count, and first-seen / last-active dates pulled live from wasm chain state, alongside the context the decoder uses; linked from the footer',
+      },
+      {
+        type: 'feature',
+        text: 'New Perp PnL page at /pnl — a per-wallet derivatives track record built from the chain\'s own per-fill PnL and fee fields: realized PnL, fees, volume, win rate, average win/loss and hold time, plus live open positions and unrealized PnL, exact for the fetched window with no cost-basis guesswork',
+      },
+      {
+        type: 'improvement',
+        text: 'Named many more contracts — a series of on-chain sweeps across active wallets grew the protocol registry substantially (adding Hydro, Choice, SPACE ID, SGT, HyperNinja, Skip and more, each verified by its on-chain deployer/init before inclusion), so far fewer contract calls now show up as "unknown" in the footprint',
+      },
+      {
+        type: 'improvement',
+        text: 'Faster repeat wallet lookups — footprint scans are now cached briefly per address, so refreshing a wallet or revisiting it returns instantly instead of re-running a multi-page indexer scan',
+      },
+      {
+        type: 'fix',
+        text: 'Fixed the whale-feed cron intermittently reporting "failed (output too large)" — busy ticks returned an oversized diagnostic body that exceeded the cron runner\'s per-run storage cap despite a healthy 200 response; live ticks now return only counts and the events that actually posted',
+      },
+      {
+        type: 'fix',
+        text: 'Replaced five invalid (fabricated) contract addresses in the protocol registry — three Mito and two Hydro entries were not valid bech32 and could never match on chain, silently disabling Mito vault and some Hydro labelling; all now point to live, verified contracts',
+      },
+    ],
+  },
   {
     version: 'v1.6.1',
     date: '2026-07-13',

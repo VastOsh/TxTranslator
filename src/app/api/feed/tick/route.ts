@@ -224,6 +224,16 @@ export async function GET(req: NextRequest) {
 
   const xPostedToday = xConfigured() ? await state.getXPostCount().catch(() => -1) : 0;
 
+  // A live tick is read by an external cron service (cron-job.org) that caps
+  // how much response body it stores per run — a busy tick's full `results`
+  // (one entry per scanned candidate) blows past that cap and gets flagged
+  // "failed: output too large" even though the tick returned 200. So the live
+  // response carries only what's worth reading when a run does fail: the counts
+  // and the handful of non-skip entries. Dry runs keep the full dump for
+  // manual inspection.
+  const skipped = results.filter((r) => r.tier === 'skip').length;
+  const acted = results.filter((r) => r.tier !== 'skip');
+
   return NextResponse.json({
     dryRun: dry,
     persistentState: state.persistent,
@@ -234,6 +244,6 @@ export async function GET(req: NextRequest) {
     scanned,
     candidates: candidates.length,
     published,
-    results,
+    ...(dry ? { results } : { skipped, results: acted }),
   });
 }
