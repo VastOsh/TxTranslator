@@ -8,6 +8,7 @@ export type ProtocolName =
   | 'Choice Exchange'
   | 'Paradyze'
   | 'Talis Protocol'
+  | 'SPACE ID'
   | 'Injective Hub'
   | 'IBC Transfer'
   | 'Staking'
@@ -71,6 +72,15 @@ export const CONTRACT_PROTOCOLS: Record<string, ProtocolName> = {
   'inj18luqttqyckgpddndh8hvaq25d5nfwjc78m56lc': 'Hydro Protocol', // Hydro hINJ
   'inj1enyu3agzphq3k935lkxeynq6rq03d9ys0fehr9': 'Hydro Protocol', // Hydro price-manager
   'inj1nuw6ala2ra7t457tg4g04k67r94v55mdyq9klr': 'Hydro Protocol', // Hydro lending-vault
+  // Hydro Protocol — additional live contracts (on-chain wasm labels)
+  'inj1uq9spcnum8z2lz54tzrsx99e4hdywsqxvxwa4a': 'Hydro Protocol', // Hydro LSD reward
+  'inj1cq3rfmdf3y498fchl237wgjarqs99tjf433phw': 'Hydro Protocol', // Hydro LSD
+  'inj17w07xu2qqlsrjvupd8t6pwenuuvzrs8ymmqxqw': 'Hydro Protocol', // Hydro Farm
+  'inj1j3w4490vv6y7eshfj3mt3wekmns4rz2m0scgnt': 'Hydro Protocol', // Hydro dojo-pair swap proxy
+  'inj1a2klvlxa3ax0sh7ym9grv96ckmane89mkc4m37': 'Hydro Protocol', // Hydro lending-vault (core)
+  'inj1tqugp3fmsccqunquuyf9sqgx703m48an9g549l': 'Hydro Protocol', // Hydro liquidator
+  'inj1h9g2nf4sqdcnk3947w4tle6fmxwap5w70kzpj6': 'Hydro Protocol', // Hydro Governance
+  'inj1s6cm7x5lwusj9yrkkxtkv304qqku4vng5ccule': 'Hydro Protocol', // Hydro xINJ vault-share token (label "campaign"; init names Hydro)
   // Helix atomic swap router (MsgExecuteContractCompat path)
   'inj12yj3mtjarujkhcp6lg3klxjjfrx2v7v8yswgp9': 'Helix',
   // DojoSwap AMM DEX contracts (source: docs.dojo.trading/resources/contract-addresses)
@@ -101,6 +111,16 @@ export const CONTRACT_PROTOCOLS: Record<string, ProtocolName> = {
   'inj1a4qvqym6ajewepa7v8y2rtxuz9f92kyq2zsg26': 'Choice Exchange', // Aggregation contract (multi-path routing)
   'inj14ejqjyq8um4p3xfqj74yld5waqljf88f9eneuk': 'Choice Exchange', // CW20 adapter
   'inj1yr7srge0lku4h3gd473qdlpdfw63ejdjwkh4c0': 'Choice Exchange', // Burn manager
+  // Choice Exchange — additional live contracts (on-chain wasm labels)
+  'inj1520rsss9aykhkfmuf89nh5hp2jww770z4u3eu0': 'Choice Exchange', // Choice DEX Aggregator v2.0
+  'inj1eag2kjzs5ma5sflxvlhaacdxxpvdjg4ny7yg3g': 'Choice Exchange', // Choice CLMM Manager
+  'inj1aqnqtuzh75de4egd06ep83g0udt7njxljznevc': 'Choice Exchange', // Choice Farm #5
+  'inj1p8kx2gjatfvwkksx3afm7uapj4mja4vutuyj8m': 'Choice Exchange', // Choice Farm #3
+  'inj1g4hlcmp4s0k0tm4tj07j87ela9u2qefzahcsns': 'Choice Exchange', // Choice Farm #1
+  'inj16y888zlql6mdendn2qtzjdjg4wplycrjaqzcnr': 'Choice Exchange', // Choice Farm #6
+  // SPACE ID — .inj naming service (source: on-chain wasm labels + init registry_address link)
+  'inj1x9m0hceug9qylcyrrtwqtytslv2jrph433thgu': 'SPACE ID', // SPACEID Resolver
+  'inj1hm8vs8sr2h9nk0x66vctfs528wrp6k3gtgg275': 'SPACE ID', // SPACEID Registry
   // Paradyze: AI-powered trading terminal on Injective using native exchange module
   // No CosmWasm contracts — add here if on-chain vault/prediction contracts are deployed
   // Talis Protocol — NFT Marketplace (source: on-chain contract labels via Injective LCD)
@@ -185,6 +205,12 @@ export const PROTOCOL_CONTEXTS: Record<ProtocolName, Protocol> = {
     description: 'NFT Marketplace on Injective',
     context:
       'Talis Protocol is the leading NFT marketplace on Injective — the first to launch on mainnet (June 2023). Users can buy, sell, mint, and trade NFTs using INJ and other Injective-native tokens. NFT collections use the CW721 standard. Key actions: fixed-price listings (via send_nft to marketplace), direct purchases, collection and individual offers, and randomized mints (CandyMachine). TALIS is the protocol\'s governance and fee-distribution token. Over 140,000 wallets registered and 200,000+ INJ transacted.',
+  },
+  'SPACE ID': {
+    name: 'SPACE ID',
+    description: 'Web3 naming service (.inj domains)',
+    context:
+      'SPACE ID is the naming service on Injective — it maps human-readable .inj domains to wallet addresses. The registry contract stores ownership records and the resolver contract answers name lookups. Interactions typically mean registering, renewing, or updating a domain, or setting a primary name.',
   },
   'Injective Hub': {
     name: 'Injective Hub',

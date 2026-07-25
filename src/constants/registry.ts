@@ -208,6 +208,14 @@ export const CONTRACT_NAMES: Record<string, string> = {
   'inj18luqttqyckgpddndh8hvaq25d5nfwjc78m56lc': 'Hydro Protocol (hINJ)',
   'inj1enyu3agzphq3k935lkxeynq6rq03d9ys0fehr9': 'Hydro Price Manager',
   'inj1nuw6ala2ra7t457tg4g04k67r94v55mdyq9klr': 'Hydro Lending Vault',
+  'inj1uq9spcnum8z2lz54tzrsx99e4hdywsqxvxwa4a': 'Hydro LSD Reward',
+  'inj1cq3rfmdf3y498fchl237wgjarqs99tjf433phw': 'Hydro LSD',
+  'inj17w07xu2qqlsrjvupd8t6pwenuuvzrs8ymmqxqw': 'Hydro Farm',
+  'inj1j3w4490vv6y7eshfj3mt3wekmns4rz2m0scgnt': 'Hydro Swap Proxy',
+  'inj1a2klvlxa3ax0sh7ym9grv96ckmane89mkc4m37': 'Hydro Lending Vault (core)',
+  'inj1tqugp3fmsccqunquuyf9sqgx703m48an9g549l': 'Hydro Liquidator',
+  'inj1h9g2nf4sqdcnk3947w4tle6fmxwap5w70kzpj6': 'Hydro Governance',
+  'inj1s6cm7x5lwusj9yrkkxtkv304qqku4vng5ccule': 'Hydro xINJ Vault Share',
   // DojoSwap
   'inj1t6g03pmc0qcgr7z44qjzaen804f924xke6menl': 'DojoSwap Router',
   'inj1pc2vxcmnyzawnwkf03n2ggvt997avtuwagqngk': 'DojoSwap Factory',
@@ -234,6 +242,15 @@ export const CONTRACT_NAMES: Record<string, string> = {
   'inj1a4qvqym6ajewepa7v8y2rtxuz9f92kyq2zsg26': 'Choice Exchange Aggregator',
   'inj14ejqjyq8um4p3xfqj74yld5waqljf88f9eneuk': 'Choice Exchange CW20 Adapter',
   'inj1yr7srge0lku4h3gd473qdlpdfw63ejdjwkh4c0': 'Choice Exchange Burn Manager',
+  'inj1520rsss9aykhkfmuf89nh5hp2jww770z4u3eu0': 'Choice DEX Aggregator v2',
+  'inj1eag2kjzs5ma5sflxvlhaacdxxpvdjg4ny7yg3g': 'Choice CLMM Manager',
+  'inj1aqnqtuzh75de4egd06ep83g0udt7njxljznevc': 'Choice Farm #5',
+  'inj1p8kx2gjatfvwkksx3afm7uapj4mja4vutuyj8m': 'Choice Farm #3',
+  'inj1g4hlcmp4s0k0tm4tj07j87ela9u2qefzahcsns': 'Choice Farm #1',
+  'inj16y888zlql6mdendn2qtzjdjg4wplycrjaqzcnr': 'Choice Farm #6',
+  // SPACE ID — .inj naming service
+  'inj1x9m0hceug9qylcyrrtwqtytslv2jrph433thgu': 'SPACE ID Resolver',
+  'inj1hm8vs8sr2h9nk0x66vctfs528wrp6k3gtgg275': 'SPACE ID Registry',
   // Paradyze: AI trading terminal — service fee recipient (prepended MsgSend on every trade)
   'inj1wkxt4nfacs9a24vkxw0f6gjwqhq4cnlv6d8ugf': 'Paradyze',
 };
