@@ -34,7 +34,9 @@ function unwrapIfMsgExec(msgs: any[]): { effectiveMsgs: any[]; authzGrantee: str
 const PARADYZE_FEE_ADDRESS = 'inj1wkxt4nfacs9a24vkxw0f6gjwqhq4cnlv6d8ugf';
 
 export function formatAmount(amount: string, denom: string): string {
-  const decimals = TOKEN_DECIMALS[denom] ?? 6;
+  // Injective token-factory denoms are 18 decimals by convention; only the rare
+  // exception is pinned in TOKEN_DECIMALS. Non-factory unknowns stay at 6.
+  const decimals = TOKEN_DECIMALS[denom] ?? (denom.startsWith('factory/') ? 18 : 6);
   try {
     const raw = BigInt(amount);
     const divisor = BigInt(10 ** decimals);
