@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { BuybackProfile, RoundParticipation } from '@/lib/buyback/rounds';
+import type { BuybackProfile, RoundParticipation, EligibilitySignals } from '@/lib/buyback/rounds';
 
 interface Props {
   profile: BuybackProfile;
@@ -144,6 +144,90 @@ function RoundRow({ p }: { p: RoundParticipation }) {
   );
 }
 
+type SigTone = 'go' | 'ok' | 'warn' | 'idle';
+
+function num(n: number): string {
+  return n.toLocaleString(undefined, { maximumFractionDigits: n >= 100 ? 0 : 2 });
+}
+
+function SignalRow({ tone, label, value, note }: { tone: SigTone; label: string; value: string; note: string }) {
+  return (
+    <li className="tx-pnl-row">
+      <div className="tx-pnl-row-left">
+        <div className="tx-pnl-row-main">
+          <span className={`tx-bb-sig-dot tx-bb-sig-dot--${tone}`} />
+          <span className="tx-pnl-ticker">{label}</span>
+        </div>
+        <span className="tx-pnl-row-meta">{note}</span>
+      </div>
+      <div className="tx-pnl-row-right">{value}</div>
+    </li>
+  );
+}
+
+/** Honest "where do I stand" panel — real signals, no fabricated probability. */
+function SignalsCard({ s }: { s: EligibilitySignals }) {
+  const hasHistory = s.recentWindow > 0;
+  const rate = hasHistory ? Math.round((s.recentHits / s.recentWindow) * 100) : null;
+
+  const partTone: SigTone = !hasHistory ? 'idle' : s.recentHits >= 2 ? 'go' : 'warn';
+  const partValue = hasHistory ? `${s.recentHits} / ${s.recentWindow}` : 'New';
+  const partNote = hasHistory
+    ? `Whitelisted in ${s.recentHits} of the last ${s.recentWindow} rounds${s.whitelistedLastRound ? ' — including the most recent' : ''}`
+    : 'No prior whitelist on record yet';
+
+  const stakeTone: SigTone = s.stakedInj >= 1 ? 'go' : 'warn';
+  const actTone: SigTone = s.txCount >= 100 ? 'go' : s.txCount >= 20 ? 'ok' : 'idle';
+
+  return (
+    <div className="tx-pnl-card">
+      <div className="tx-pnl-head">
+        <span className="tx-pnl-head-title">Whitelist signals</span>
+        {rate !== null && <span className="tx-pnl-row-meta">{rate}% selection rate</span>}
+      </div>
+
+      {rate !== null && (
+        <div className="tx-bb-rate">
+          <span className="tx-bb-rate-value">{s.recentHits}<span className="tx-bb-rate-sep">/</span>{s.recentWindow}</span>
+          <span className="tx-bb-rate-label">
+            rounds whitelisted since you first joined — your measured selection rate ({rate}%)
+          </span>
+        </div>
+      )}
+
+      <ul className="tx-pnl-list">
+        <SignalRow
+          tone={partTone}
+          label="Repeat participant"
+          value={partValue}
+          note={partNote}
+        />
+        <SignalRow
+          tone={stakeTone}
+          label="Active staker"
+          value={s.stakedInj >= 1 ? `${num(s.stakedInj)} INJ` : 'None'}
+          note={s.stakedInj >= 1 ? 'Staked INJ — selection favours active stakers' : 'No active delegation detected'}
+        />
+        <SignalRow
+          tone={actTone}
+          label="On-chain activity"
+          value={`${s.txCount.toLocaleString()} txs`}
+          note={`${s.denomCount} token${s.denomCount === 1 ? '' : 's'} held · ${num(s.liquidInj)} INJ liquid`}
+        />
+      </ul>
+
+      <div className="tx-pnl-note">
+        <span>ℹ</span>
+        <span>
+          These are favourable signals, not a prediction. The whitelist is compiled off-chain by the team with
+          a randomized element, so no honest per-wallet percentage exists — your own track record above is the
+          best guide.
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export default function BuybackDashboard({ profile }: Props) {
   const [showAll, setShowAll] = useState(false);
   const {
@@ -158,6 +242,9 @@ export default function BuybackDashboard({ profile }: Props) {
   return (
     <div className="tx-pnl-wrap">
       <StatusBanner profile={profile} />
+
+      {/* ── Whitelist signals (honest "where do I stand") ── */}
+      <SignalsCard s={profile.signals} />
 
       {/* ── Lifetime summary ── */}
       <div className="tx-pnl-card">

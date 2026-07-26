@@ -21,7 +21,11 @@ export const CHANGELOG: ChangelogVersion[] = [
     entries: [
       {
         type: 'feature',
-        text: 'New Community BuyBack checker at /buyback — enter any wallet to see whether it is whitelisted for the current round (can still commit / already deposited / not whitelisted), plus its full history: rounds whitelisted vs committed, total INJ committed, reward baskets earned (valued where a price exists), and claim status. Read straight from the buyback contract on chain, so being "found" in a round is exactly its whitelist status. Reachable from a button on the landing page next to the dApp directory',
+        text: 'New Community BuyBack checker at /buyback — enter any wallet to see whether it is whitelisted for the current round (can still commit / already deposited / not whitelisted), plus its full history: rounds whitelisted vs committed, total INJ committed, reward baskets earned (valued where a price exists), and claim status. Read straight from the buyback contract on chain, so being "found" in a round is exactly its whitelist status. A round\'s whitelist lands on chain about a day before it opens, so the checker also flags an upcoming round before deposits start. Reachable from a button on the landing page next to the dApp directory',
+      },
+      {
+        type: 'feature',
+        text: 'BuyBack checker shows whitelist signals — before an official whitelist is published, it surfaces the honest factors that correlate with selection: your measured selection rate across past rounds, active staking, and on-chain activity. No fabricated percentage — the whitelist is chosen off-chain with a randomized element, so your own track record is shown as the best available guide',
       },
     ],
   },

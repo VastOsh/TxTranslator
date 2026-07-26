@@ -1,5 +1,5 @@
 import { Buffer } from 'node:buffer';
-import { LCD_ENDPOINTS, fetchJsonOverHttps } from '../injective';
+import { LCD_ENDPOINTS, INDEXER_BASE, fetchJsonOverHttps } from '../injective';
 import { formatAmount, getDisplayDenom } from '../normalizer';
 import { fetchTokenPrices, usdValue } from '../prices';
 
@@ -116,6 +116,50 @@ async function fetchUserRound(id: number, addr: string): Promise<UserRound> {
   };
 }
 
+async function lcdGet(path: string): Promise<any | null> {
+  for (const base of LCD_ENDPOINTS) {
+    const res = await fetchJsonOverHttps(`${base}${path}`);
+    if (res && res.status === 200 && res.body) return res.body;
+  }
+  return null;
+}
+
+async function fetchStakedInj(addr: string): Promise<number> {
+  const d = await lcdGet(`/cosmos/staking/v1beta1/delegations/${addr}`);
+  const arr: any[] = d?.delegation_responses ?? [];
+  let total = 0;
+  for (const x of arr) total += Number(x.balance?.amount ?? 0) / 1e18;
+  return total;
+}
+
+async function fetchTxCount(addr: string): Promise<number> {
+  const res = await fetchJsonOverHttps(`${INDEXER_BASE}/api/explorer/v1/accountTxs/${addr}?limit=1`);
+  return Number(res?.body?.paging?.total) || 0;
+}
+
+async function fetchHoldings(addr: string): Promise<{ liquidInj: number; denomCount: number }> {
+  const d = await lcdGet(`/cosmos/bank/v1beta1/balances/${addr}`);
+  const arr: any[] = d?.balances ?? [];
+  const inj = arr.find(b => b.denom === 'inj');
+  return { liquidInj: inj ? Number(inj.amount) / 1e18 : 0, denomCount: arr.length };
+}
+
+// Signals that plausibly correlate with whitelist selection. These are NOT a
+// probability: the whitelist is compiled off-chain by the team with a stated
+// randomized element, so no honest per-wallet percentage exists. What we can
+// show honestly is a wallet's own measured selection rate plus the on-chain
+// factors the program is said to favour (active staking, participation).
+export interface EligibilitySignals {
+  stakedInj: number;
+  liquidInj: number;
+  denomCount: number;
+  txCount: number;
+  firstRound: number | null;   // first round this wallet was whitelisted in
+  recentHits: number;          // rounds whitelisted since firstRound
+  recentWindow: number;        // completed rounds in that span
+  whitelistedLastRound: boolean; // on the most recent COMPLETED round's list
+}
+
 export interface BasketToken {
   symbol: string;
   amount: string;      // human-readable
@@ -165,6 +209,8 @@ export interface BuybackProfile {
   currentRoundFull: boolean;        // round cap already reached
   currentStatus: CurrentStatus;
 
+  signals: EligibilitySignals;
+
   partial: boolean;                 // at least one round query never resolved
 }
 
@@ -189,8 +235,13 @@ export async function buildBuybackProfile(address: string): Promise<BuybackProfi
   const roundNotStarted = !!currentRound && nowSec < currentRound.startDate;
   const currentRoundOpen = !!currentRound && !roundEnded && !roundNotStarted;
 
-  // Per-round wallet status.
-  const userRounds = await mapWithConcurrency(rounds, CONCURRENCY, r => fetchUserRound(r.id, address));
+  // Per-round wallet status, plus the eligibility-signal lookups in parallel.
+  const [userRounds, stakedInj, txCount, holdings] = await Promise.all([
+    mapWithConcurrency(rounds, CONCURRENCY, r => fetchUserRound(r.id, address)),
+    fetchStakedInj(address),
+    fetchTxCount(address),
+    fetchHoldings(address),
+  ]);
   const infoById = new Map(rounds.map(r => [r.id, r]));
 
   const participations: RoundParticipation[] = [];
@@ -267,6 +318,32 @@ export async function buildBuybackProfile(address: string): Promise<BuybackProfi
     catch { return false; }
   })();
 
+  // Measured selection rate: over completed rounds since this wallet first made
+  // a whitelist, how often it was re-selected. An upcoming (not-yet-ended) round
+  // is excluded — its outcome isn't decided yet.
+  const completedIds = rounds.filter(r => r.endDate < nowSec).map(r => r.id);
+  const latestCompletedId = completedIds.length ? Math.max(...completedIds) : null;
+  const endedParticipations = participations.filter(p => p.endDate < nowSec);
+  const firstRound = endedParticipations.length ? Math.min(...endedParticipations.map(p => p.roundId)) : null;
+  let recentHits = 0;
+  let recentWindow = 0;
+  if (firstRound !== null && latestCompletedId !== null && latestCompletedId >= firstRound) {
+    recentWindow = latestCompletedId - firstRound + 1;
+    recentHits = endedParticipations.filter(p => p.roundId >= firstRound && p.roundId <= latestCompletedId).length;
+  }
+  const whitelistedLastRound = latestCompletedId !== null && endedParticipations.some(p => p.roundId === latestCompletedId);
+
+  const signals: EligibilitySignals = {
+    stakedInj,
+    liquidInj: holdings.liquidInj,
+    denomCount: holdings.denomCount,
+    txCount,
+    firstRound,
+    recentHits,
+    recentWindow,
+    whitelistedLastRound,
+  };
+
   return {
     address,
     totalRounds: rounds.length,
@@ -285,6 +362,7 @@ export async function buildBuybackProfile(address: string): Promise<BuybackProfi
     currentRoundWalletCapInj: currentRound ? formatAmount(currentRound.walletCapRaw, 'inj') : null,
     currentRoundFull,
     currentStatus,
+    signals,
     partial,
   };
 }

@@ -278,6 +278,36 @@
 .tx-bb-tag--unclaimed { color: var(--tx-amber); background: rgba(243, 164, 0, 0.14); }
 .tx-bb-tag--skipped   { color: var(--tx-text-dim); background: rgba(255, 255, 255, 0.05); }
 
+/* ── BuyBack whitelist-signals panel ── */
+.tx-bb-rate {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  padding: 0.9rem 1.25rem 0.4rem;
+  flex-wrap: wrap;
+}
+.tx-bb-rate-value {
+  font-family: var(--font-rajdhani), sans-serif;
+  font-weight: 700;
+  font-size: 1.9rem;
+  line-height: 1;
+  color: var(--tx-green);
+}
+.tx-bb-rate-sep { color: var(--tx-text-dim); margin: 0 0.1rem; font-weight: 400; }
+.tx-bb-rate-label { font-size: 0.72rem; color: var(--tx-text-muted); line-height: 1.35; }
+
+.tx-bb-sig-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-block;
+}
+.tx-bb-sig-dot--go   { background: var(--tx-green); box-shadow: 0 0 6px rgba(14, 226, 155, 0.5); }
+.tx-bb-sig-dot--ok   { background: var(--tx-cyan); }
+.tx-bb-sig-dot--warn { background: var(--tx-amber); }
+.tx-bb-sig-dot--idle { background: var(--tx-text-dim); }
+
 /* ── Search form ── */
 .tx-search-wrap {
   width: 100%;
