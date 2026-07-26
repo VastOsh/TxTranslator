@@ -193,12 +193,18 @@
   margin-bottom: 2.5rem;
 }
 
-/* ── dApp directory call-to-action (idle landing) ── */
+/* ── Landing call-to-action pills (dApp directory · BuyBack checker) ── */
+.tx-cta-row {
+  margin-top: 1.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.6rem;
+}
 .tx-dapp-cta {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  margin-top: 1.75rem;
   font-family: var(--font-rajdhani), sans-serif;
   font-size: 0.82rem;
   font-weight: 600;
@@ -216,6 +222,91 @@
   border-color: var(--tx-cyan);
 }
 .tx-dapp-cta svg { flex-shrink: 0; }
+
+/* ── BuyBack checker: current-round status banner ── */
+.tx-bb-status {
+  width: 100%;
+  max-width: 680px;
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 1.05rem 1.25rem;
+  border-radius: 10px;
+  border: 1px solid var(--tx-border);
+  background: var(--tx-bg-card);
+  margin-bottom: 0.85rem;
+}
+.tx-bb-status-icon {
+  flex-shrink: 0;
+  width: 2.5rem;
+  height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 1.25rem;
+  line-height: 1;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--tx-text-dim);
+}
+.tx-bb-status-text { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
+.tx-bb-status-title {
+  font-family: var(--font-rajdhani), sans-serif;
+  font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: 0.01em;
+  color: #F4F1E9;
+}
+.tx-bb-status-sub { font-size: 0.76rem; color: var(--tx-text-muted); line-height: 1.4; }
+
+.tx-bb-status--go   { border-color: var(--tx-border-hi); background: rgba(75, 57, 248, 0.08); }
+.tx-bb-status--go   .tx-bb-status-icon { background: rgba(75, 57, 248, 0.18); color: var(--tx-cyan); }
+.tx-bb-status--ok   { border-color: rgba(14, 226, 155, 0.35); background: rgba(14, 226, 155, 0.06); }
+.tx-bb-status--ok   .tx-bb-status-icon { background: rgba(14, 226, 155, 0.18); color: var(--tx-green); }
+
+/* ── BuyBack round-history tags ── */
+.tx-bb-tag {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.tx-bb-tag--claimed   { color: var(--tx-green); background: rgba(14, 226, 155, 0.12); }
+.tx-bb-tag--unclaimed { color: var(--tx-amber); background: rgba(243, 164, 0, 0.14); }
+.tx-bb-tag--skipped   { color: var(--tx-text-dim); background: rgba(255, 255, 255, 0.05); }
+
+/* ── BuyBack whitelist-signals panel ── */
+.tx-bb-rate {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  padding: 0.9rem 1.25rem 0.4rem;
+  flex-wrap: wrap;
+}
+.tx-bb-rate-value {
+  font-family: var(--font-rajdhani), sans-serif;
+  font-weight: 700;
+  font-size: 1.9rem;
+  line-height: 1;
+  color: var(--tx-green);
+}
+.tx-bb-rate-sep { color: var(--tx-text-dim); margin: 0 0.1rem; font-weight: 400; }
+.tx-bb-rate-label { font-size: 0.72rem; color: var(--tx-text-muted); line-height: 1.35; }
+
+.tx-bb-sig-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-block;
+}
+.tx-bb-sig-dot--go   { background: var(--tx-green); box-shadow: 0 0 6px rgba(14, 226, 155, 0.5); }
+.tx-bb-sig-dot--ok   { background: var(--tx-cyan); }
+.tx-bb-sig-dot--warn { background: var(--tx-amber); }
+.tx-bb-sig-dot--idle { background: var(--tx-text-dim); }
 
 /* ── Search form ── */
 .tx-search-wrap {
@@ -1943,6 +2034,7 @@
   color: rgba(251, 146, 60, 0.85);
   letter-spacing: 0.02em;
 }
+.tx-pnl-note--center { justify-content: center; text-align: center; }
 
 .tx-pnl-more {
   width: 100%;
