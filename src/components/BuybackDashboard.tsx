@@ -216,7 +216,7 @@ function SignalsCard({ s }: { s: EligibilitySignals }) {
         />
       </ul>
 
-      <div className="tx-pnl-note">
+      <div className="tx-pnl-note tx-pnl-note--center">
         <span>ℹ</span>
         <span>
           These are favourable signals, not a prediction. The whitelist is compiled off-chain by the team with
@@ -309,7 +309,7 @@ export default function BuybackDashboard({ profile }: Props) {
 
       {/* ── Caveats ── */}
       {rewardsHaveUnpriced && everParticipated && (
-        <div className="tx-pnl-note">
+        <div className="tx-pnl-note tx-pnl-note--center">
           <span>⚠</span>
           <span>
             Reward baskets include ecosystem tokens with no market price feed — the USD figures cover only the
@@ -318,7 +318,7 @@ export default function BuybackDashboard({ profile }: Props) {
         </div>
       )}
       {partial && (
-        <div className="tx-pnl-note">
+        <div className="tx-pnl-note tx-pnl-note--center">
           <span>⚠</span>
           <span>
             One or more round lookups didn’t resolve, so this view may be incomplete. Refresh to retry.

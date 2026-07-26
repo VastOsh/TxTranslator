@@ -2034,6 +2034,7 @@
   color: rgba(251, 146, 60, 0.85);
   letter-spacing: 0.02em;
 }
+.tx-pnl-note--center { justify-content: center; text-align: center; }
 
 .tx-pnl-more {
   width: 100%;
