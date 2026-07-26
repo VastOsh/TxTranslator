@@ -193,6 +193,30 @@
   margin-bottom: 2.5rem;
 }
 
+/* ── dApp directory call-to-action (idle landing) ── */
+.tx-dapp-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 1.75rem;
+  font-family: var(--font-rajdhani), sans-serif;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--tx-cyan);
+  text-decoration: none;
+  padding: 0.5rem 1.05rem;
+  border: 1px solid var(--tx-border-hi);
+  border-radius: 999px;
+  background: rgba(75, 57, 248, 0.06);
+  transition: background 0.15s, border-color 0.15s;
+}
+.tx-dapp-cta:hover {
+  background: rgba(75, 57, 248, 0.14);
+  border-color: var(--tx-cyan);
+}
+.tx-dapp-cta svg { flex-shrink: 0; }
+
 /* ── Search form ── */
 .tx-search-wrap {
   width: 100%;

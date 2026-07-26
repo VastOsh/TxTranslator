@@ -11,10 +11,24 @@ export interface ChangelogVersion {
   entries: ChangelogEntry[];
 }
 
-export const CURRENT_VERSION = 'v1.7.1';
+export const CURRENT_VERSION = 'v1.7.2';
 
 // Entries within each version are ordered: critical → fix → improvement → feature
 export const CHANGELOG: ChangelogVersion[] = [
+  {
+    version: 'v1.7.2',
+    date: '2026-07-26',
+    entries: [
+      {
+        type: 'fix',
+        text: 'Fixed the footer overflowing on mobile — its links sat on one non-wrapping row that forced a sideways scroll on narrow screens; the footer now wraps and centres, and was trimmed to the essentials (Made by S!G, Whale feed, Contact)',
+      },
+      {
+        type: 'improvement',
+        text: 'Made the dApp directory easier to find — it is now a button on the landing page under the search box, in place of the old footer link',
+      },
+    ],
+  },
   {
     version: 'v1.7.1',
     date: '2026-07-26',

@@ -295,6 +295,19 @@ export default function Home() {
             {error}
           </div>
         )}
+
+        {!hasOutput && !loading && (
+          <Link href="/dapps" className="tx-dapp-cta">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="3" y="3" width="7" height="7" rx="1.5" />
+              <rect x="14" y="3" width="7" height="7" rx="1.5" />
+              <rect x="3" y="14" width="7" height="7" rx="1.5" />
+              <rect x="14" y="14" width="7" height="7" rx="1.5" />
+            </svg>
+            Explore the dApp directory
+            <span aria-hidden style={{ opacity: 0.7 }}>→</span>
+          </Link>
+        )}
       </section>
 
       {/* ── Recent history — idle state only ── */}
@@ -416,23 +429,16 @@ export default function Home() {
       <footer
         style={{
           marginTop: 'auto',
-          padding: '2rem 0 1.5rem',
+          padding: '2rem 0.75rem 1.5rem',
           display: 'flex',
           alignItems: 'center',
-          gap: '1rem',
+          justifyContent: 'center',
+          flexWrap: 'wrap',
+          gap: '0.55rem 1rem',
+          textAlign: 'center',
         }}
       >
         <span className="tx-footer">Made by S!G</span>
-        <span className="tx-footer" style={{ opacity: 0.4 }}>·</span>
-        <Link
-          href="/dapps"
-          className="tx-footer"
-          style={{ textDecoration: 'none', opacity: 0.7 }}
-          onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
-          onMouseLeave={e => (e.currentTarget.style.opacity = '0.7')}
-        >
-          dApp directory
-        </Link>
         <span className="tx-footer" style={{ opacity: 0.4 }}>·</span>
         <a
           href="https://x.com/TxTranslator"
@@ -457,20 +463,6 @@ export default function Home() {
         >
           Contact me ↗
         </a>
-        <span className="tx-footer" style={{ opacity: 0.4 }}>·</span>
-        <a
-          href="https://github.com/VastOsh/TxTranslator"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="tx-footer"
-          style={{ textDecoration: 'none', opacity: 0.7 }}
-          onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
-          onMouseLeave={e => (e.currentTarget.style.opacity = '0.7')}
-        >
-          GitHub ↗
-        </a>
-        <span className="tx-footer" style={{ opacity: 0.4 }}>·</span>
-        <span className="tx-footer">Injective</span>
       </footer>
     </main>
   );
