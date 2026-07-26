@@ -141,6 +141,8 @@ export type CurrentStatus =
   | 'not_whitelisted'
   | 'whitelisted_can_deposit'
   | 'deposited'
+  | 'not_whitelisted_upcoming'  // round created on chain but not yet started
+  | 'whitelisted_upcoming'      // on the whitelist for a round that hasn't opened
   | 'unknown';
 
 export interface BuybackProfile {
@@ -157,6 +159,7 @@ export interface BuybackProfile {
 
   currentRoundId: number | null;
   currentRoundOpen: boolean;
+  currentRoundStartDate: number | null;
   currentRoundEndDate: number | null;
   currentRoundWalletCapInj: string | null;
   currentRoundFull: boolean;        // round cap already reached
@@ -179,7 +182,12 @@ export async function buildBuybackProfile(address: string): Promise<BuybackProfi
 
   const nowSec = Math.floor(Date.now() / 1000);
   const currentRound = rounds.length ? rounds[rounds.length - 1] : null;
-  const currentRoundOpen = !!currentRound && currentRound.startDate <= nowSec && nowSec <= currentRound.endDate;
+  // The latest round is checkable until it ends. Distinguish "upcoming" (created
+  // on chain but not yet started — the whitelist is already queryable ~a day
+  // before open) from "open" (deposits live).
+  const roundEnded = !!currentRound && nowSec > currentRound.endDate;
+  const roundNotStarted = !!currentRound && nowSec < currentRound.startDate;
+  const currentRoundOpen = !!currentRound && !roundEnded && !roundNotStarted;
 
   // Per-round wallet status.
   const userRounds = await mapWithConcurrency(rounds, CONCURRENCY, r => fetchUserRound(r.id, address));
@@ -238,16 +246,19 @@ export async function buildBuybackProfile(address: string): Promise<BuybackProfi
   // Current-round status for this wallet.
   const currentUser = currentRound ? userRounds.find(u => u.roundId === currentRound.id) : undefined;
   let currentStatus: CurrentStatus;
-  if (!currentRound || !currentRoundOpen) {
+  if (!currentRound || roundEnded) {
+    // No round exists, or the latest one has already closed.
     currentStatus = 'no_open_round';
   } else if (!currentUser || currentUser.unknown) {
     currentStatus = 'unknown';
   } else if (!currentUser.registered) {
-    currentStatus = 'not_whitelisted';
+    // Round is upcoming or open; the whitelist is queryable either way.
+    currentStatus = roundNotStarted ? 'not_whitelisted_upcoming' : 'not_whitelisted';
   } else {
     let deposited = false;
     try { deposited = BigInt(currentUser.depositRaw) > BigInt(0); } catch { /* ignore */ }
-    currentStatus = deposited ? 'deposited' : 'whitelisted_can_deposit';
+    if (deposited) currentStatus = 'deposited';
+    else currentStatus = roundNotStarted ? 'whitelisted_upcoming' : 'whitelisted_can_deposit';
   }
 
   const currentRoundFull = (() => {
@@ -269,6 +280,7 @@ export async function buildBuybackProfile(address: string): Promise<BuybackProfi
     participations,
     currentRoundId: currentRound?.id ?? null,
     currentRoundOpen,
+    currentRoundStartDate: currentRound?.startDate ?? null,
     currentRoundEndDate: currentRound?.endDate ?? null,
     currentRoundWalletCapInj: currentRound ? formatAmount(currentRound.walletCapRaw, 'inj') : null,
     currentRoundFull,

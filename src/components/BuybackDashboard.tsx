@@ -45,9 +45,10 @@ function basketLabel(p: RoundParticipation): string {
 
 /** The headline current-round status banner. */
 function StatusBanner({ profile }: { profile: BuybackProfile }) {
-  const { currentStatus, currentRoundId, currentRoundEndDate, currentRoundWalletCapInj, currentRoundFull } = profile;
+  const { currentStatus, currentRoundId, currentRoundStartDate, currentRoundEndDate, currentRoundWalletCapInj, currentRoundFull } = profile;
   const rid = currentRoundId ?? '—';
   const ends = currentRoundEndDate ? closesIn(currentRoundEndDate) : '';
+  const starts = currentRoundStartDate ? shortDate(currentRoundStartDate) : '';
 
   const map: Record<typeof currentStatus, { tone: string; icon: string; title: string; sub: string }> = {
     deposited: {
@@ -63,6 +64,18 @@ function StatusBanner({ profile }: { profile: BuybackProfile }) {
       sub: currentRoundFull
         ? `You made the whitelist, but the round cap is already reached.`
         : `You can still commit${currentRoundWalletCapInj ? ` up to ${inj(currentRoundWalletCapInj)}` : ''}. ${ends ? `Round ${ends}.` : ''}`,
+    },
+    whitelisted_upcoming: {
+      tone: 'go',
+      icon: '★',
+      title: `Whitelisted for round ${rid}`,
+      sub: `You’re on the whitelist for the upcoming round${starts ? `, which opens ${starts}` : ''}${currentRoundWalletCapInj ? ` (cap ${inj(currentRoundWalletCapInj)})` : ''}. The list can still change until it opens.`,
+    },
+    not_whitelisted_upcoming: {
+      tone: 'idle',
+      icon: '○',
+      title: `Not whitelisted yet for round ${rid}`,
+      sub: `The upcoming round${starts ? ` opens ${starts}` : ''} and its whitelist is still being finalised on chain — check again closer to the start.`,
     },
     not_whitelisted: {
       tone: 'no',
