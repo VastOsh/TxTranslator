@@ -544,11 +544,18 @@ function buildMultiSendContext(rawMessages: any[]): MultiSendContext | null {
     .map(([denom, amt]) => `${formatAmount(amt.toString(), denom)} ${getDisplayDenom(denom)}`)
     .join(' + ');
 
-  const recipientLines = recipients.map((r, i) => {
+  // Cap the per-recipient listing: a large airdrop can have thousands of outputs,
+  // which would overflow the model context. The total outflow and recipient count
+  // (aggregated above) give the model everything it needs to describe the tx.
+  const MAX_RECIPIENT_LINES = 15;
+  const recipientLines = recipients.slice(0, MAX_RECIPIENT_LINES).map((r, i) => {
     const displayName = r.name ?? `${r.address.slice(0, 10)}…${r.address.slice(-6)}`;
     const amtsStr = r.amounts.map(a => `${a.amount} ${a.humanDenom}`).join(', ');
     return `  ${i + 1}. ${displayName}: ${amtsStr}`;
   });
+  if (recipients.length > MAX_RECIPIENT_LINES) {
+    recipientLines.push(`  …and ${recipients.length - MAX_RECIPIENT_LINES} more recipients`);
+  }
 
   const aiSummary = `Multi-Send breakdown (${recipients.length} recipients, total outflow: ${totalLine}):\n${recipientLines.join('\n')}`;
 
@@ -675,8 +682,21 @@ function buildUserPrompt(
     assetsLine = `+${myTotalReceived.toFixed(4).replace(/\.?0+$/, '')} INJ${usdStr}`;
   }
 
+  // Cap each message's raw content so an oversized tx (e.g. a 1,000-recipient
+  // MsgMultiSend airdrop, or a batch order with thousands of entries) can't blow
+  // past the model's context window. The structured summaries below (MultiSend
+  // breakdown, trade data, etc.) carry the detail the model actually needs, so
+  // truncating the verbose raw JSON here is safe.
+  const MAX_MSG_CONTENT_CHARS = 2500;
   const messagesBlock = tx.messages
-    .map((m, i) => `Message ${i + 1}:\n  type: ${m.type}\n  content: ${JSON.stringify(m.content)}`)
+    .map((m, i) => {
+      const json = JSON.stringify(m.content);
+      const content =
+        json.length > MAX_MSG_CONTENT_CHARS
+          ? `${json.slice(0, MAX_MSG_CONTENT_CHARS)}… [truncated — ${json.length} chars total; see structured breakdown below]`
+          : json;
+      return `Message ${i + 1}:\n  type: ${m.type}\n  content: ${content}`;
+    })
     .join('\n\n');
 
   let prompt = `Transaction:

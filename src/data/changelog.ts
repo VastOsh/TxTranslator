@@ -11,10 +11,28 @@ export interface ChangelogVersion {
   entries: ChangelogEntry[];
 }
 
-export const CURRENT_VERSION = 'v1.7.0';
+export const CURRENT_VERSION = 'v1.7.1';
 
 // Entries within each version are ordered: critical → fix → improvement → feature
 export const CHANGELOG: ChangelogVersion[] = [
+  {
+    version: 'v1.7.1',
+    date: '2026-07-26',
+    entries: [
+      {
+        type: 'fix',
+        text: 'Fixed token-factory amounts rendering as raw atomic numbers — an unknown token-factory denom fell back to 6 decimals, so a large SHROOM airdrop showed -2436555991094542150.677 instead of -2436555.991; factory/ denoms now default to 18 decimals (the Injective convention), with the rare exception still pinned explicitly',
+      },
+      {
+        type: 'fix',
+        text: 'Fixed large transactions failing to decode with a 400 "reduce the length" error — a 1,000-recipient MsgMultiSend airdrop overflowed the model context by stringifying its full raw content and re-listing every recipient; the prompt now caps raw message content and the recipient listing while keeping aggregated totals and counts exact',
+      },
+      {
+        type: 'improvement',
+        text: 'Polished the result card for extreme values — the hero amount is now width-capped so a very long token symbol can no longer squeeze and clip the transaction title next to it',
+      },
+    ],
+  },
   {
     version: 'v1.7.0',
     date: '2026-07-25',

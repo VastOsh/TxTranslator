@@ -469,6 +469,7 @@
 .tx-amount-hero {
   flex-shrink: 1;
   min-width: 0;
+  max-width: 62%;
   text-align: right;
 }
 
