@@ -297,16 +297,25 @@ export default function Home() {
         )}
 
         {!hasOutput && !loading && (
-          <Link href="/dapps" className="tx-dapp-cta">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="3" width="7" height="7" rx="1.5" />
-              <rect x="14" y="3" width="7" height="7" rx="1.5" />
-              <rect x="3" y="14" width="7" height="7" rx="1.5" />
-              <rect x="14" y="14" width="7" height="7" rx="1.5" />
-            </svg>
-            Explore the dApp directory
-            <span aria-hidden style={{ opacity: 0.7 }}>→</span>
-          </Link>
+          <div className="tx-cta-row">
+            <Link href="/dapps" className="tx-dapp-cta">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="3" width="7" height="7" rx="1.5" />
+                <rect x="14" y="3" width="7" height="7" rx="1.5" />
+                <rect x="3" y="14" width="7" height="7" rx="1.5" />
+                <rect x="14" y="14" width="7" height="7" rx="1.5" />
+              </svg>
+              dApp directory
+              <span aria-hidden style={{ opacity: 0.7 }}>→</span>
+            </Link>
+            <Link href="/buyback" className="tx-dapp-cta">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round">
+                <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
+              </svg>
+              BuyBack checker
+              <span aria-hidden style={{ opacity: 0.7 }}>→</span>
+            </Link>
+          </div>
         )}
       </section>
 

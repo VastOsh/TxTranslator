@@ -11,10 +11,20 @@ export interface ChangelogVersion {
   entries: ChangelogEntry[];
 }
 
-export const CURRENT_VERSION = 'v1.7.2';
+export const CURRENT_VERSION = 'v1.8.0';
 
 // Entries within each version are ordered: critical → fix → improvement → feature
 export const CHANGELOG: ChangelogVersion[] = [
+  {
+    version: 'v1.8.0',
+    date: '2026-07-26',
+    entries: [
+      {
+        type: 'feature',
+        text: 'New Community BuyBack checker at /buyback — enter any wallet to see whether it is whitelisted for the current round (can still commit / already deposited / not whitelisted), plus its full history: rounds whitelisted vs committed, total INJ committed, reward baskets earned (valued where a price exists), and claim status. Read straight from the buyback contract on chain, so being "found" in a round is exactly its whitelist status. Reachable from a button on the landing page next to the dApp directory',
+      },
+    ],
+  },
   {
     version: 'v1.7.2',
     date: '2026-07-26',
