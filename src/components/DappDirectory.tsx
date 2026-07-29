@@ -41,36 +41,53 @@ export default function DappDirectory({ dapps }: Props) {
         {dapps.map(d => {
           const days = daysSince(d.lastActiveAt);
           const live = liveLabel(days);
+          const host = d.website ? d.website.replace(/^https?:\/\//, '').replace(/\/$/, '') : null;
           return (
-            <Link key={d.slug} href={`/dapps/${d.slug}`} className="tx-dapp-card">
-              <div className="tx-dapp-card-head">
-                <span className="tx-dapp-name">{d.name}</span>
-                <span className="tx-dapp-live">
-                  <span className={`tx-dapp-live-dot${live.stale ? ' tx-dapp-live-dot--stale' : ''}`} />
-                  {live.text}
-                </span>
-              </div>
-
-              {d.description && <span className="tx-dapp-desc">{d.description}</span>}
-
-              <div className="tx-dapp-metrics">
-                <div className="tx-dapp-metric">
-                  <span className="tx-dapp-metric-value">{compactCount(d.totalExecutions)}</span>
-                  <span className="tx-dapp-metric-label">Executions</span>
-                </div>
-                <div className="tx-dapp-metric">
-                  <span className="tx-dapp-metric-value">
-                    {d.resolvedContracts}
-                    {d.resolvedContracts !== d.contractCount && (
-                      <span style={{ color: 'var(--tx-text-dim)' }}> / {d.contractCount}</span>
-                    )}
-                  </span>
-                  <span className="tx-dapp-metric-label">
-                    {d.unresolvedContracts > 0 ? `Contracts · ${d.unresolvedContracts} unreachable` : 'Contracts'}
+            <div key={d.slug} className="tx-dapp-card">
+              <Link href={`/dapps/${d.slug}`} className="tx-dapp-card-main">
+                <div className="tx-dapp-card-head">
+                  <span className="tx-dapp-name">{d.name}</span>
+                  <span className="tx-dapp-live">
+                    <span className={`tx-dapp-live-dot${live.stale ? ' tx-dapp-live-dot--stale' : ''}`} />
+                    {live.text}
                   </span>
                 </div>
-              </div>
-            </Link>
+
+                {d.description && <span className="tx-dapp-desc">{d.description}</span>}
+
+                <div className="tx-dapp-metrics">
+                  <div className="tx-dapp-metric">
+                    <span className="tx-dapp-metric-value">{compactCount(d.totalExecutions)}</span>
+                    <span className="tx-dapp-metric-label">Executions</span>
+                  </div>
+                  <div className="tx-dapp-metric">
+                    <span className="tx-dapp-metric-value">
+                      {d.resolvedContracts}
+                      {d.resolvedContracts !== d.contractCount && (
+                        <span style={{ color: 'var(--tx-text-dim)' }}> / {d.contractCount}</span>
+                      )}
+                    </span>
+                    <span className="tx-dapp-metric-label">
+                      {d.unresolvedContracts > 0 ? `Contracts · ${d.unresolvedContracts} unreachable` : 'Contracts'}
+                    </span>
+                  </div>
+                </div>
+              </Link>
+
+              {d.website && (
+                <a
+                  href={d.website}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="tx-dapp-visit"
+                >
+                  <span>{host}</span>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M7 17L17 7M17 7H8M17 7v9" />
+                  </svg>
+                </a>
+              )}
+            </div>
           );
         })}
       </div>

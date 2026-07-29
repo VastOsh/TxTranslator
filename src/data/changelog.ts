@@ -11,10 +11,24 @@ export interface ChangelogVersion {
   entries: ChangelogEntry[];
 }
 
-export const CURRENT_VERSION = 'v1.8.0';
+export const CURRENT_VERSION = 'v1.8.1';
 
 // Entries within each version are ordered: critical → fix → improvement → feature
 export const CHANGELOG: ChangelogVersion[] = [
+  {
+    version: 'v1.8.1',
+    date: '2026-07-29',
+    entries: [
+      {
+        type: 'improvement',
+        text: 'The dApp directory now links each protocol to its official site — a small link on every card (and on the detail page) opens the project\'s own app in a new tab. Only verified official domains are linked; protocols identified purely from their on-chain deployer with no public site (like SGT) are left unlinked rather than pointing somewhere unverified',
+      },
+      {
+        type: 'improvement',
+        text: 'Removed HyperNinja from the dApp directory — its contracts still decode with a readable name, but it no longer appears as a listed dApp',
+      },
+    ],
+  },
   {
     version: 'v1.8.0',
     date: '2026-07-26',
