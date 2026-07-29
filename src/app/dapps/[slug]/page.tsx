@@ -102,6 +102,20 @@ export default function DappDetailPage({ params }: { params: Promise<{ slug: str
             <div className="tx-pnl-hero">
               <span className="tx-pnl-hero-label">{detail.description}</span>
               <span className="tx-pnl-hero-value" style={{ fontSize: '1.7rem' }}>{detail.name}</span>
+              {detail.website && (
+                <a
+                  href={detail.website}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="tx-dapp-visit"
+                  style={{ marginTop: '0.6rem' }}
+                >
+                  <span>{detail.website.replace(/^https?:\/\//, '').replace(/\/$/, '')}</span>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M7 17L17 7M17 7H8M17 7v9" />
+                  </svg>
+                </a>
+              )}
             </div>
 
             <div className="tx-pnl-grid">

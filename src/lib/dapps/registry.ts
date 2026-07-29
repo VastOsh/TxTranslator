@@ -32,6 +32,8 @@ export interface DappSummary {
   slug: string;
   name: ProtocolName;
   description: string;
+  /** Official app/site URL, when the protocol has a public one. */
+  website?: string;
   contractCount: number;
   /** Contracts that actually resolved as wasm contracts on chain. */
   resolvedContracts: number;
@@ -141,6 +143,7 @@ function summarize(name: ProtocolName, contracts: DappContract[]): DappSummary {
     slug: slugify(name),
     name,
     description: PROTOCOL_CONTEXTS[name]?.description ?? '',
+    website: PROTOCOL_CONTEXTS[name]?.website,
     contractCount: contracts.length,
     resolvedContracts: resolved.length,
     unresolvedContracts: contracts.filter(c => c.unresolved).length,

@@ -22,6 +22,8 @@ export interface Protocol {
   name: ProtocolName;
   description: string;
   context: string;
+  /** Official app/site URL. Omitted for chain primitives and on-chain-only identified protocols. */
+  website?: string;
 }
 
 // Native exchange module message types → Helix DEX
@@ -179,60 +181,70 @@ export const TALIS_OFFERS_CONTRACTS = new Set<string>([
 export const PROTOCOL_CONTEXTS: Record<ProtocolName, Protocol> = {
   Helix: {
     name: 'Helix',
+    website: 'https://helixapp.com',
     description: 'On-chain DEX with native orderbook',
     context:
       'Helix is the premier on-chain orderbook DEX on Injective. When a user "swaps", they are technically placing a market order that is instantly matched on the native orderbook. Interactions also include limit orders, order cancellations, and perpetuals trading.',
   },
   'Mito Finance': {
     name: 'Mito Finance',
+    website: 'https://mito.fi',
     description: 'Automated yield vaults',
     context:
       'Mito Finance is an automated trading vault platform on Injective. When a user deposits, they are providing liquidity to an algorithmic strategy and receive LP tokens representing their share. These LP tokens earn real yield from trading fees.',
   },
   'Hydro Protocol': {
     name: 'Hydro Protocol',
+    website: 'https://hydroprotocol.finance',
     description: 'Liquid staking (hINJ)',
     context:
       'Hydro Protocol is the liquid staking protocol on Injective. Users stake INJ and receive hINJ (liquid staking tokens) at a 1:1 ratio. hINJ earns staking rewards while remaining usable as collateral in DeFi.',
   },
   'DojoSwap': {
     name: 'DojoSwap',
+    website: 'https://dojo.trading',
     description: 'AMM DEX on Injective',
     context:
       'DojoSwap is an automated market maker (AMM) DEX on Injective. Unlike Helix\'s native orderbook, DojoSwap uses constant-product liquidity pools where users swap tokens or provide liquidity to earn trading fees. DOJO is the protocol\'s governance and rewards token.',
   },
   'Neptune Finance': {
     name: 'Neptune Finance',
+    website: 'https://nept.finance',
     description: 'Lending & borrowing protocol',
     context:
       'Neptune Finance is a decentralized money market on Injective. Users lend assets to earn yield and receive nTokens (receipt tokens such as nINJ, nUSDT) representing their deposit plus accrued interest. Borrowers post collateral and pay variable interest rates that adjust automatically with pool utilization. The Red Bank contract is the core lending and liquidation engine.',
   },
   'Black Panther': {
     name: 'Black Panther',
+    website: 'https://blackpanther.fi',
     description: 'Algorithmic trading vaults',
     context:
       'Black Panther Finance offers automated trading vaults on Injective with strategies including grid trading, market-making, and trend-following — all executing on Helix\'s native orderbook. Users deposit assets into a vault and earn yield from the algorithmic strategy without managing orders manually. BLACK is the protocol\'s governance token.',
   },
   'Choice Exchange': {
     name: 'Choice Exchange',
+    website: 'https://choice.exchange',
     description: 'AMM DEX and swap aggregator',
     context:
       'Choice Exchange is an AMM DEX and aggregation layer on Injective, forked from Terraswap. It routes swaps across multiple liquidity sources using a DAG-based multi-path algorithm to minimize slippage. Users can also provide liquidity to earn trading fees, stake LP tokens on farms, and deposit into auto-compounding vaults. The aggregation contract splits orders across parallel paths for optimal execution.',
   },
   'Paradyze': {
     name: 'Paradyze',
+    website: 'https://paradyze.io',
     description: 'AI-powered trading terminal',
     context:
       'Paradyze is an AI-powered trading terminal on Injective — "Your On-Chain Wallstreet." Users execute spot and perpetuals trades through natural language commands ("Buy 10 INJ", "short BTC with 5x leverage"). The platform also features ranked head-to-head trading battles and autonomous AI agents for 24/7 strategy execution. Paradyze routes orders through Injective\'s native exchange module.',
   },
   'Talis Protocol': {
     name: 'Talis Protocol',
+    website: 'https://talis.art',
     description: 'NFT Marketplace on Injective',
     context:
       'Talis Protocol is the leading NFT marketplace on Injective — the first to launch on mainnet (June 2023). Users can buy, sell, mint, and trade NFTs using INJ and other Injective-native tokens. NFT collections use the CW721 standard. Key actions: fixed-price listings (via send_nft to marketplace), direct purchases, collection and individual offers, and randomized mints (CandyMachine). TALIS is the protocol\'s governance and fee-distribution token. Over 140,000 wallets registered and 200,000+ INJ transacted.',
   },
   'SPACE ID': {
     name: 'SPACE ID',
+    website: 'https://space.id',
     description: 'Web3 naming service (.inj domains)',
     context:
       'SPACE ID is the naming service on Injective — it maps human-readable .inj domains to wallet addresses. The registry contract stores ownership records and the resolver contract answers name lookups. Interactions typically mean registering, renewing, or updating a domain, or setting a primary name.',
@@ -257,6 +269,7 @@ export const PROTOCOL_CONTEXTS: Record<ProtocolName, Protocol> = {
   },
   'Injective Hub': {
     name: 'Injective Hub',
+    website: 'https://hub.injective.network',
     description: 'INJ Community BuyBack program',
     context:
       'Injective Hub hosts the INJ Community BuyBack — a monthly on-chain event where participants commit INJ tokens that are permanently burned (removed from circulating supply forever). In return, each participant receives a pro-rata share of Injective ecosystem revenue (trading fees, liquidations, oracle fees, etc.) proportional to their committed amount versus the total INJ committed in that round. Slot eligibility favors active stakers and on-chain participants and is randomized to prevent bots. Historically, completed rounds have distributed revenue equivalent to 20%+ APY on committed INJ. Rewards are distributed automatically on-chain after each round closes — no manual claiming required.',

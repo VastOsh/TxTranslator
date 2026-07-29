@@ -2142,6 +2142,44 @@
   transform: translateY(-1px);
 }
 
+/* The internal detail link — holds the head/desc/metrics stack. */
+.tx-dapp-card-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  text-decoration: none;
+  color: inherit;
+}
+
+/* Separate external "visit official site" link, sibling of the detail link
+   so the two anchors never nest. */
+.tx-dapp-visit {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  align-self: flex-start;
+  margin-top: 0.15rem;
+  padding: 0.28rem 0.5rem;
+  border: 1px solid var(--tx-border);
+  border-radius: 5px;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.01em;
+  color: var(--tx-text-muted);
+  text-decoration: none;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.tx-dapp-visit:hover {
+  color: var(--tx-cyan);
+  border-color: var(--tx-border-hi);
+  background: rgba(75, 57, 248, 0.08);
+}
+
+.tx-dapp-visit svg {
+  opacity: 0.85;
+}
+
 .tx-dapp-card-head {
   display: flex;
   align-items: flex-start;
