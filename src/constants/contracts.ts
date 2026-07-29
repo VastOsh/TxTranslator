@@ -253,6 +253,7 @@ export const PROTOCOL_CONTEXTS: Record<ProtocolName, Protocol> = {
   },
   Skip: {
     name: 'Skip',
+    website: 'https://skip.build',
     description: 'Cross-chain swap router',
     context:
       'Skip (the Skip Go / Skip API swap entry point) is a routing layer that executes swaps across multiple venues from a single call — its on-chain configuration lists Astroport, Hallswap and Injective-native as swap venues. Interactions mean routing a swap through one of those venues via the entry-point contract.',
