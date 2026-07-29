@@ -10,7 +10,6 @@ export type ProtocolName =
   | 'Talis Protocol'
   | 'SPACE ID'
   | 'SGT'
-  | 'HyperNinja'
   | 'Skip'
   | 'Injective Hub'
   | 'IBC Transfer'
@@ -151,9 +150,6 @@ export const CONTRACT_PROTOCOLS: Record<string, ProtocolName> = {
   'inj1dxvlc5snn5y02nn82xdhnvwj3y09t9pnh6msf5': 'SGT', // SGT hINJ/INJ pool
   'inj1dx8kuevhq7m7g9a2e4es83ps62htr5g3y7azgr': 'SGT', // SGT SOL/USDC pool
   'inj1t4l7q6y7uzjjufxgcyr6hdugslphdqzqqt8u9x': 'SGT', // SGT referrals (same deployer)
-  // HyperNinja — burn-based vault/facility product (source: distinct deployer inj1s9ns0mev…)
-  'inj1f8z8jyqqxm5fjqcx457afu8l4d4ekpw8c478ca': 'HyperNinja', // HyperNinja prod instance
-  'inj17xca7mrynk94akt7sfjwgaugs2g0rm4dhulapg': 'HyperNinja', // HyperNinja vault
   // Skip — cross-chain swap router (source: init swap_venues astroport/hallswap/native)
   'inj1l62elesw6lw9w5ctqpwv0apkeghppr5d2mdqwh': 'Skip', // Skip Swap Entry Point
   // Injective Hub — Community BuyBack program
@@ -254,12 +250,6 @@ export const PROTOCOL_CONTEXTS: Record<ProtocolName, Protocol> = {
     description: 'On-chain spot market-making pools',
     context:
       'SGT runs a set of on-chain spot liquidity pools on Injective (stINJ/INJ, hINJ/INJ, SOL/USDC and others), each bound to a native exchange market and quoting both sides as an automated market-maker vault. Interactions are typically deposits into or withdrawals from a pool, and the protocol also runs a referrals contract. Identified from a shared deployer and market-bound init parameters rather than a public brand page, so treat the naming as the on-chain label.',
-  },
-  HyperNinja: {
-    name: 'HyperNinja',
-    description: 'Burn-based vault product',
-    context:
-      'HyperNinja is a vault/facility product on Injective whose instances carry a facility price, a burn percentage, and a linked vault contract. Interactions are deposits into and actions against those vaults. Identified from its on-chain contract labels and init parameters.',
   },
   Skip: {
     name: 'Skip',
