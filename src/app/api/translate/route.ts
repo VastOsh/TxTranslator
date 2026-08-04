@@ -1,6 +1,7 @@
 import https from 'node:https';
 import { NextRequest, NextResponse } from 'next/server';
 import { unstable_cache } from 'next/cache';
+import { track } from '@vercel/analytics/server';
 import OpenAI from 'openai';
 import { fetchTransaction } from '@/lib/injective';
 import { normalizeTransaction, formatAmount, getDisplayDenom } from '@/lib/normalizer';
@@ -1141,6 +1142,16 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await getCachedTranslation(hash, viewerAddress);
+
+    // Count every decode served (cache hits included) as one usage event, tagged
+    // by transaction category and protocol so the Vercel Events tab can break
+    // down what people actually run through the tool. Fire-and-forget: an
+    // analytics hiccup must never break the decode response.
+    track('tx_decoded', {
+      category: result.txCategory ?? 'OTHER',
+      protocol: result.protocol ?? 'direct',
+    }).catch(() => {});
+
     return NextResponse.json(result);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'An unexpected error occurred.';
