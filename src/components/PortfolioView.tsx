@@ -105,7 +105,17 @@ export default function PortfolioView({ portfolio }: Props) {
             {shown > 0 ? (
               <div className="tx-nft-grid">
                 {h.items.map(item => (
-                  <div key={item.tokenId} className="tx-nft-card">
+                  // Talis addresses each NFT by /nft/<contract>/<on-chain token id>
+                  // and redirects to its internal page — confirmed against live
+                  // Talis. Token id (not the display "#" number) is the key.
+                  <a
+                    key={item.tokenId}
+                    href={`https://injective.talis.art/nft/${h.address}/${item.tokenId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="tx-nft-card"
+                    title={`${item.name ?? `#${item.tokenId}`} on Talis`}
+                  >
                     <div className="tx-nft-thumb">
                       {item.image ? (
                         // Arbitrary per-NFT IPFS images: a raw <img> lazy-loads them
@@ -123,7 +133,7 @@ export default function PortfolioView({ portfolio }: Props) {
                       )}
                     </div>
                     <span className="tx-nft-card-name">{item.name ?? `#${item.tokenId}`}</span>
-                  </div>
+                  </a>
                 ))}
                 {remaining > 0 && (
                   <div className="tx-nft-card tx-nft-card--more">

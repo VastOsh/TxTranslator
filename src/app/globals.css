@@ -2443,6 +2443,24 @@
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
+  text-decoration: none;
+  color: inherit;
+}
+
+a.tx-nft-card {
+  cursor: pointer;
+}
+
+.tx-nft-card:hover .tx-nft-thumb {
+  border-color: var(--tx-border-hi);
+}
+
+.tx-nft-card:hover .tx-nft-thumb img {
+  transform: scale(1.05);
+}
+
+.tx-nft-card:hover .tx-nft-card-name {
+  color: var(--tx-text);
 }
 
 .tx-nft-thumb {
@@ -2462,6 +2480,7 @@
   height: 100%;
   object-fit: cover;
   display: block;
+  transition: transform 0.2s ease;
 }
 
 .tx-nft-thumb--broken::after,
