@@ -315,6 +315,15 @@ export default function Home() {
               BuyBack checker
               <span aria-hidden style={{ opacity: 0.7 }}>→</span>
             </Link>
+            <Link href="/wallet" className="tx-dapp-cta">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round">
+                <rect x="3" y="5" width="18" height="14" rx="2" />
+                <path d="M3 10h18" />
+                <circle cx="8" cy="14.5" r="1.5" />
+              </svg>
+              NFT portfolio
+              <span aria-hidden style={{ opacity: 0.7 }}>→</span>
+            </Link>
           </div>
         )}
       </section>
