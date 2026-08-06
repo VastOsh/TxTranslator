@@ -76,13 +76,26 @@ export default function PortfolioView({ portfolio }: Props) {
                   {h.count} owned
                 </span>
                 <a
+                  href={`https://injective.talis.art/collection/${h.address}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="tx-nft-collection-out"
+                  aria-label={`${h.name} on Talis`}
+                >
+                  Talis
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M7 17L17 7M17 7H8M17 7v9" />
+                  </svg>
+                </a>
+                <a
                   href={`https://explorer.injective.network/account/${h.address}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="tx-nft-collection-link"
+                  className="tx-nft-collection-out"
                   aria-label={`${h.name} contract on the explorer`}
                 >
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  Explorer
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M7 17L17 7M17 7H8M17 7v9" />
                   </svg>
                 </a>

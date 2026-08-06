@@ -2407,22 +2407,30 @@
   white-space: nowrap;
 }
 
-.tx-nft-collection-link {
+.tx-nft-collection-out {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
+  gap: 0.25rem;
+  padding: 0.16rem 0.4rem;
   border: 1px solid var(--tx-border);
   border-radius: 5px;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.02em;
   color: var(--tx-text-muted);
+  text-decoration: none;
+  white-space: nowrap;
   transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
 
-.tx-nft-collection-link:hover {
+.tx-nft-collection-out:hover {
   color: var(--tx-cyan);
   border-color: var(--tx-border-hi);
   background: rgba(75, 57, 248, 0.08);
+}
+
+.tx-nft-collection-out svg {
+  opacity: 0.8;
 }
 
 .tx-nft-grid {
