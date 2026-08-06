@@ -11,10 +11,20 @@ export interface ChangelogVersion {
   entries: ChangelogEntry[];
 }
 
-export const CURRENT_VERSION = 'v1.8.1';
+export const CURRENT_VERSION = 'v1.9.0';
 
 // Entries within each version are ordered: critical → fix → improvement → feature
 export const CHANGELOG: ChangelogVersion[] = [
+  {
+    version: 'v1.9.0',
+    date: '2026-08-06',
+    entries: [
+      {
+        type: 'feature',
+        text: 'New wallet NFT portfolio at /wallet — enter any wallet to see the Talis NFTs it holds, grouped by collection with live thumbnails, names, owned counts, and a Blue Chip badge on the notable collections. There is no chain endpoint for "all NFTs owned by an address", so this is read honestly on-chain: every Talis CW721 collection (all four contract code versions, ~3,700 active collections ranked by activity) is asked directly whether the wallet holds a token, then per-token metadata is resolved over IPFS. The view says how many collections were scanned, so coverage is transparent rather than implied. Blue Chip collections (Injective Quants, The Ninjas / Premier Ninjas, Cult of Anons, MASKED, Pedro) are verified by their exact contract address — never by name — so the dozens of same-named impostor collections on-chain cannot masquerade as the real one. Click any NFT to open its exact page on Talis, and each collection links out to both Talis and the block explorer. Reachable from a button on the landing page alongside the dApp directory and BuyBack checker',
+      },
+    ],
+  },
   {
     version: 'v1.8.1',
     date: '2026-07-29',
