@@ -144,10 +144,14 @@ function lcdFor(i: number): string {
 
 function resolveIpfs(uri: string, gatewayIndex = 0): string {
   if (!uri) return uri;
+  let url = uri;
   if (uri.startsWith('ipfs://')) {
-    return IPFS_GATEWAYS[gatewayIndex % IPFS_GATEWAYS.length] + uri.slice('ipfs://'.length);
+    url = IPFS_GATEWAYS[gatewayIndex % IPFS_GATEWAYS.length] + uri.slice('ipfs://'.length);
   }
-  return uri;
+  // Some collections put a literal '#' or '?' in the filename (e.g. ".../#11.png").
+  // Left raw, the browser reads it as a URL fragment/query and loads the parent
+  // directory instead of the image — encode them so the file resolves.
+  return url.replace(/#/g, '%23').replace(/\?/g, '%3F');
 }
 
 async function mapWithConcurrency<T, R>(
