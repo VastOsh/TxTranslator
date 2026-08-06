@@ -67,6 +67,9 @@ export default function PortfolioView({ portfolio }: Props) {
                 <span className="tx-nft-collection-name">{h.name}</span>
                 {h.symbol && <span className="tx-nft-collection-symbol">{h.symbol}</span>}
                 {h.isBlueChip && <span className="tx-badge tx-badge-blue-chip">◆ Blue Chip</span>}
+                {h.verified && !h.isBlueChip && (
+                  <span className="tx-nft-verified" title="Address-verified collection">✓ Verified</span>
+                )}
               </div>
               <div className="tx-nft-collection-meta">
                 <span className="tx-nft-collection-count">

@@ -35,17 +35,22 @@ const HEADERS = {
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
 };
 
-// Enumeration (cached daily): how many collections we pull from the indexer.
+// Enumeration (cached daily). We enumerate by the Talis CW721 *code ids* rather
+// than by label: every instance of these codes is a Talis collection contract,
+// whereas the label varies ("Talis CW721", "Talis cw721 <Name>", "Instantiate
+// CW721", …) and label-filtering silently dropped real collections — including
+// the OG blue chips, which carry an off-pattern label. Codes confirmed on-chain:
+// 49 (the bulk / OG), 796, 1095, 789.
+const TALIS_CW721_CODES = [49, 796, 1095, 789];
 const ENUM_PAGE = 100;
-const MAX_ENUM_PAGES = 20; // up to ~2000 collections ranked by activity
+const MAX_ENUM_PAGES_PER_CODE = 60; // code 49 alone holds ~4k contracts
 
 // Per-wallet scan budget. A `tokens{owner}` query is ~120ms and we spread the
-// fan-out across LCD nodes, so the full ~1.5k-collection registry scans in well
-// under 10s — we query all of it rather than a subset, ranked so the busiest
-// collections resolve first if the time budget ever bites.
-const SCAN_LIMIT = 1500; // most-active collections queried per lookup
-const SCAN_CONCURRENCY = 20;
-const SCAN_TIME_BUDGET_MS = 40_000;
+// fan-out across LCD nodes; empty (zero-execution) collections are skipped, so
+// the live set is a few thousand and scans in well under the budget. Ranked by
+// activity so the busiest collections resolve first if the budget ever bites.
+const SCAN_CONCURRENCY = 24;
+const SCAN_TIME_BUDGET_MS = 60_000;
 
 // Metadata (only for collections that actually hold something).
 const MAX_NFTS = 60; // total NFTs we resolve images for
@@ -54,12 +59,30 @@ const METADATA_CONCURRENCY = 10;
 
 const IPFS_GATEWAYS = ['https://ipfs.io/ipfs/', 'https://dweb.link/ipfs/'];
 
-// Collections flagged as "blue chip" in the decoder — kept in sync by name.
-const BLUE_CHIP = new Set(
-  ['Premier Ninja', 'MASKED', 'Pedro', 'Cult of Anons', 'Injective Quants'].map(n =>
-    n.toLowerCase(),
-  ),
-);
+// ── Verified collections — pinned by CONTRACT ADDRESS, never by name ──
+//
+// The chain is full of impostor collections that copy a famous name verbatim
+// ("Injective Quants" has 40+ zero-activity clones, plus look-alikes like
+// "lnjective Quants"). So authenticity is tied to the exact contract address:
+// these are the ONLY collections eligible for the Blue Chip badge, they always
+// carry this canonical name (overriding whatever on-chain string they report),
+// and they are always scanned even when outside the enumerated Talis set — some
+// OG collections were deployed under their own contract, not the Talis launchpad
+// code, so enumeration alone never reaches them.
+interface Verified {
+  name: string;
+  blueChip: boolean;
+}
+// Each real address is the runaway activity outlier among dozens of same-named
+// clones (e.g. the real "The Ninjas" has 42k executions vs <70 for every copy),
+// which is exactly how it was identified on-chain.
+const VERIFIED: Record<string, Verified> = {
+  inj1vtd54v4jm50etkjepgtnd7lykr79yvvah8gdgw: { name: 'Injective Quants', blueChip: true },
+  inj19ly43dgrr2vce8h02a8nw0qujwhrzm9yv8d75c: { name: 'The Ninjas', blueChip: true }, // Premier Ninjas
+  inj1mp8r8jy4cefgw4l0wtw9ahdnu9yv7nl6mqqkju: { name: 'Cult of Anons', blueChip: true },
+  inj19lsr0vk0h42k0mspgym552hl432a9et0nhd4nj: { name: 'MASKED', blueChip: true },
+  inj1uq453kp4yda7ruc0axpmd9vzfm0fj62padhe0p: { name: 'Pedro', blueChip: true },
+};
 
 export interface NftItem {
   tokenId: string;
@@ -74,6 +97,9 @@ export interface CollectionHolding {
   symbol: string;
   count: number;
   isBlueChip: boolean;
+  /** True only for address-pinned known collections — distinguishes the real
+   *  ones from same-named impostors. */
+  verified: boolean;
   items: NftItem[];
 }
 
@@ -143,42 +169,64 @@ async function mapWithConcurrency<T, R>(
 
 // ── 1. Collection registry ──────────────────────────────────────────────────
 
-/**
- * Every Talis CW721 collection the indexer knows, ranked by lifetime executions.
- * Talis deploys collections under several code versions but labels them all
- * "Talis CW721", so a label search captures them regardless of code id.
- */
-async function enumerateCollections(): Promise<Collection[]> {
-  const out: Collection[] = [];
-  for (let page = 0; page < MAX_ENUM_PAGES; page++) {
-    const url = `${INDEXER_BASE}/api/explorer/v1/wasm/contracts?label=${encodeURIComponent(
-      'Talis CW721',
-    )}&limit=${ENUM_PAGE}&skip=${page * ENUM_PAGE}`;
+/** A collection's display name — from init_message, else the "…cw721 <Name>"
+ *  label form some versions use, else the address. */
+function collectionName(row: { label?: string; init_message?: string; address?: string }): string {
+  try {
+    const init = JSON.parse(row?.init_message ?? '{}');
+    if (typeof init?.name === 'string' && init.name.trim()) return init.name.trim();
+  } catch {
+    /* fall through */
+  }
+  const m = /cw721\s+(.+)$/i.exec(row?.label ?? '');
+  if (m) return m[1].trim();
+  return row?.address ?? '';
+}
+
+/** All contracts instantiated from one code id. */
+async function enumerateByCode(code: number, into: Collection[]): Promise<void> {
+  for (let page = 0; page < MAX_ENUM_PAGES_PER_CODE; page++) {
+    const url = `${INDEXER_BASE}/api/explorer/v1/wasm/contracts?code_id=${code}&limit=${ENUM_PAGE}&skip=${page * ENUM_PAGE}`;
     const body = await getJson(url);
     const rows = Array.isArray(body?.data) ? body.data : [];
     if (rows.length === 0) break;
 
     for (const row of rows) {
-      const label: string = row?.label ?? '';
-      // Guard against substring matches on non-collection Talis contracts.
-      if (!/talis\s*cw721/i.test(label)) continue;
-      let name = '';
+      const executes = Number(row?.executes) || 0;
+      const address: string = row?.address ?? '';
+      // Skip dead contracts (hold nothing, mostly test/impostor spam), but never
+      // drop a verified one.
+      if (executes === 0 && !VERIFIED[address]) continue;
       let symbol = '';
       try {
         const init = JSON.parse(row?.init_message ?? '{}');
-        name = typeof init?.name === 'string' ? init.name : '';
         symbol = typeof init?.symbol === 'string' ? init.symbol : '';
       } catch {
         /* keep empty */
       }
-      out.push({
-        address: row?.address ?? '',
-        name: name || row?.address || '',
-        symbol,
-        executes: Number(row?.executes) || 0,
-      });
+      into.push({ address, name: collectionName(row), symbol, executes });
     }
     if (rows.length < ENUM_PAGE) break;
+  }
+}
+
+/**
+ * Every Talis CW721 collection the indexer knows, ranked by lifetime executions
+ * so the busiest resolve first. Verified collections are always folded in.
+ */
+async function enumerateCollections(): Promise<Collection[]> {
+  const out: Collection[] = [];
+  for (const code of TALIS_CW721_CODES) {
+    await enumerateByCode(code, out);
+  }
+
+  // Fold in any verified collection enumeration did not surface, so an owner
+  // always sees it even if its code ever falls outside the set above.
+  const enumerated = new Set(out.map(c => c.address));
+  for (const [address, v] of Object.entries(VERIFIED)) {
+    if (!enumerated.has(address)) {
+      out.push({ address, name: v.name, symbol: '', executes: Number.MAX_SAFE_INTEGER });
+    }
   }
 
   // Dedupe by address, then busiest first — the collections a wallet is most
@@ -194,7 +242,7 @@ async function enumerateCollections(): Promise<Collection[]> {
 }
 
 const getCollections = () =>
-  unstable_cache(enumerateCollections, ['talis-cw721-collections-v1'], {
+  unstable_cache(enumerateCollections, ['talis-cw721-collections-v3'], {
     revalidate: 86_400, // collections are added rarely; refresh daily
   })();
 
@@ -213,7 +261,15 @@ async function ownedTokenIds(
       tokens: { owner, limit: 30 },
     };
     if (startAfter !== undefined) query.tokens.start_after = startAfter;
-    const body = await getJson(smartQueryUrl(lcdFor(lcdSeed + page), collection, query), 8_000);
+
+    // A null response is a request failure (timeout / rate-limit), which is NOT
+    // the same as an empty holding — retry on the next node before believing it,
+    // so a flaky node never silently erases a real collection from the portfolio.
+    let body = null;
+    for (let attempt = 0; attempt < LCD_NODES.length && body === null; attempt++) {
+      body = await getJson(smartQueryUrl(lcdFor(lcdSeed + page + attempt), collection, query), 8_000);
+    }
+
     const batch: string[] = Array.isArray(body?.data?.ids) ? body.data.ids.map(String) : [];
     ids.push(...batch);
     if (batch.length < 30) break;
@@ -288,41 +344,46 @@ async function fetchTokenMeta(
 
 export async function buildPortfolio(address: string): Promise<Portfolio> {
   const collections = await getCollections();
-  const scanSet = collections.slice(0, SCAN_LIMIT);
 
-  const { hits, scanned, partial } = await scanOwnership(address, scanSet);
+  const { hits, scanned, partial } = await scanOwnership(address, collections);
 
-  // Busiest collections first, then resolve metadata within the global cap.
-  hits.sort((a, b) => b.collection.executes - a.collection.executes);
+  // Verified collections first, then busiest — so authentic holdings lead and
+  // metadata budget favours them over the impostor long tail.
+  hits.sort((a, b) => {
+    const av = VERIFIED[a.collection.address] ? 1 : 0;
+    const bv = VERIFIED[b.collection.address] ? 1 : 0;
+    if (av !== bv) return bv - av;
+    return b.collection.executes - a.collection.executes;
+  });
+
+  // Build a holding, resolving metadata only while the global image budget lasts
+  // (the owned count is always exact regardless).
+  async function toHolding(hit: Hit, withItems: boolean): Promise<CollectionHolding> {
+    const v = VERIFIED[hit.collection.address];
+    const items = withItems
+      ? await mapWithConcurrency(
+          hit.tokenIds.slice(0, Math.min(hit.tokenIds.length, MAX_NFTS)),
+          METADATA_CONCURRENCY,
+          (id, idx) => fetchTokenMeta(hit.collection.address, id, idx),
+        )
+      : [];
+    return {
+      address: hit.collection.address,
+      name: v?.name ?? hit.collection.name, // verified name wins over on-chain string
+      symbol: hit.collection.symbol,
+      count: hit.tokenIds.length,
+      isBlueChip: v?.blueChip ?? false, // badge by verified address, never by name
+      verified: !!v,
+      items,
+    };
+  }
 
   const holdings: CollectionHolding[] = [];
   let budget = MAX_NFTS;
   for (const hit of hits) {
-    if (budget <= 0) {
-      // Still record the holding (count is real) even if we can't render images.
-      holdings.push({
-        address: hit.collection.address,
-        name: hit.collection.name,
-        symbol: hit.collection.symbol,
-        count: hit.tokenIds.length,
-        isBlueChip: BLUE_CHIP.has(hit.collection.name.toLowerCase()),
-        items: [],
-      });
-      continue;
-    }
-    const ids = hit.tokenIds.slice(0, Math.min(hit.tokenIds.length, budget));
-    const items = await mapWithConcurrency(ids, METADATA_CONCURRENCY, (id, idx) =>
-      fetchTokenMeta(hit.collection.address, id, idx),
-    );
-    budget -= ids.length;
-    holdings.push({
-      address: hit.collection.address,
-      name: hit.collection.name,
-      symbol: hit.collection.symbol,
-      count: hit.tokenIds.length,
-      isBlueChip: BLUE_CHIP.has(hit.collection.name.toLowerCase()),
-      items,
-    });
+    const holding = await toHolding(hit, budget > 0);
+    if (budget > 0) budget -= holding.items.length;
+    holdings.push(holding);
   }
 
   const totalNfts = holdings.reduce((sum, h) => sum + h.count, 0);
