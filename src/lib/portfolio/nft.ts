@@ -372,31 +372,26 @@ async function fetchTokenMeta(
 // ── Talis profile lookup ─────────────────────────────────────────────────────
 
 // Talis profile URLs key on a Mongo id, not the raw address (/profile/<address>
-// resolves to nothing). Their GraphQL API maps address → profile id, but it
-// enforces an Origin allowlist, so this must run server-side with the site's
-// own origin spoofed — a browser request from our domain would be rejected.
-const TALIS_GRAPHQL = 'https://injective.talis.art/api/graphql';
-
+// resolves to nothing). Talis's GraphQL maps address → profile id, but it sits
+// behind Cloudflare, which 403s datacenter IPs — so a direct call from Vercel
+// always fails. Instead we go through a small Cloudflare Worker (see
+// cloudflare/talis-profile-proxy) whose egress is on Cloudflare's own network
+// and passes Talis's bot protection. The Worker is gated by a shared secret.
+//
+// When the proxy env vars are unset the lookup is skipped and callers fall back
+// to the collection link, so the portfolio works with or without the Worker.
 async function resolveTalisProfileId(address: string): Promise<string | null> {
+  const proxyUrl = process.env.TALIS_PROXY_URL;
+  const proxySecret = process.env.TALIS_PROXY_SECRET;
+  if (!proxyUrl || !proxySecret) return null;
   try {
-    const res = await fetch(TALIS_GRAPHQL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Origin: 'https://injective.talis.art',
-        Referer: 'https://injective.talis.art/',
-        'User-Agent': HEADERS['User-Agent'],
-      },
-      body: JSON.stringify({
-        query: 'query($i:UserInput!){user(input:$i){id}}',
-        variables: { i: { filter: { walletAddress: address } } },
-      }),
+    const res = await fetch(`${proxyUrl}?address=${encodeURIComponent(address)}`, {
+      headers: { Authorization: `Bearer ${proxySecret}` },
       signal: AbortSignal.timeout(8_000),
     });
     if (!res.ok) return null;
     const body = await res.json();
-    const id = body?.data?.user?.id;
-    return typeof id === 'string' && id ? id : null;
+    return typeof body?.id === 'string' && body.id ? body.id : null;
   } catch {
     return null;
   }
