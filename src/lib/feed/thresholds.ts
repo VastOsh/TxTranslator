@@ -52,6 +52,11 @@ export const X_MAX_POSTS_PER_DAY = (() => {
   return Number.isFinite(v) && v > 0 ? v : 10;
 })();
 
+// When an X post fails (e.g. the X-portal monthly spend cap 403s every tweet),
+// alert Discord at most once per this window so a persistent outage doesn't
+// spam the channel every 5-minute tick.
+export const X_ERROR_ALERT_COOLDOWN_S = 3600;
+
 // ── Rolling dynamic bar ──
 // Every non-dust candidate notional enters a 24h window; notable-tier posts
 // must also clear its p85, so a busy day raises the bar and a quiet day

@@ -119,6 +119,26 @@ export function discordConfigured(): boolean {
   return Boolean(process.env.DISCORD_WEBHOOK_URL);
 }
 
+/**
+ * Ops alert — an X publish failed and the feed is (partly) down. Goes to a
+ * dedicated DISCORD_ALERT_WEBHOOK_URL when set, otherwise falls back to the
+ * main feed webhook so the alert is never lost. Never throws; best-effort.
+ */
+export async function sendDiscordAlert(text: string): Promise<boolean> {
+  const webhook = process.env.DISCORD_ALERT_WEBHOOK_URL || process.env.DISCORD_WEBHOOK_URL;
+  if (!webhook) return false;
+  try {
+    const res = await fetch(webhook, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: text, allowed_mentions: { parse: [] } }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 export async function publishToDiscord(text: string): Promise<PublishResult> {
   const webhook = process.env.DISCORD_WEBHOOK_URL;
   if (!webhook) return { channel: 'discord', ok: false, detail: 'not configured' };
