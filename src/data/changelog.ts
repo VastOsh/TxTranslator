@@ -11,10 +11,24 @@ export interface ChangelogVersion {
   entries: ChangelogEntry[];
 }
 
-export const CURRENT_VERSION = 'v1.9.1';
+export const CURRENT_VERSION = 'v1.9.2';
 
 // Entries within each version are ordered: critical → fix → improvement → feature
 export const CHANGELOG: ChangelogVersion[] = [
+  {
+    version: 'v1.9.2',
+    date: '2026-08-07',
+    entries: [
+      {
+        type: 'fix',
+        text: 'Explorer links now open the contract page instead of a wallet page. The Injective explorer moved to injscan, which separates contract pages from account pages — a collection (or dApp) contract linked to the account route resolved to an unrelated address. Collection "Explorer" links in the wallet NFT portfolio, and contract links in the dApp directory, now point to the proper contract page',
+      },
+      {
+        type: 'improvement',
+        text: 'In the wallet NFT portfolio, the "N owned" count on each collection is now clickable — it opens that collection on Talis, the same as the collection\'s Talis link',
+      },
+    ],
+  },
   {
     version: 'v1.9.1',
     date: '2026-08-07',

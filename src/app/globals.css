@@ -2405,6 +2405,15 @@
   font-size: 0.62rem;
   color: var(--tx-text-muted);
   white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+a.tx-nft-collection-count:hover {
+  color: var(--tx-text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .tx-nft-collection-out {
