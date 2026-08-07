@@ -2512,6 +2512,21 @@ a.tx-nft-card {
   border-radius: 6px;
   color: var(--tx-text-muted);
   font-family: var(--font-mono), monospace;
+  /* Now a <button> — strip the native chrome and match the tile. */
+  background: none;
+  cursor: pointer;
+  padding: 0;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.tx-nft-card--more:hover:not(:disabled) {
+  border-color: var(--tx-accent, var(--tx-border-hi));
+  color: var(--tx-text);
+}
+
+.tx-nft-card--more:disabled {
+  cursor: default;
+  opacity: 0.7;
 }
 
 .tx-nft-card--more span:first-child {
@@ -2523,6 +2538,31 @@ a.tx-nft-card {
   font-size: 0.7rem;
   color: var(--tx-text-muted);
   padding: 0.2rem 0.1rem;
+}
+
+.tx-nft-expand-note {
+  font-size: 0.68rem;
+  color: var(--tx-text-muted);
+  padding: 0.5rem 0.1rem 0.1rem;
+}
+
+.tx-nft-expand-note--error {
+  color: var(--tx-danger, #e0526b);
+}
+
+.tx-nft-linkbtn {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--tx-accent, var(--tx-text));
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.tx-nft-linkbtn:hover {
+  color: var(--tx-text);
 }
 
 .tx-nft-empty {

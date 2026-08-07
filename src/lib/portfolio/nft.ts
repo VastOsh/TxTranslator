@@ -58,6 +58,9 @@ const MAX_PER_COLLECTION = 24; // thumbnails rendered per collection — the own
 const OWNER_PAGE_LIMIT = 30; // tokens{owner} page size
 const MAX_OWNER_COUNT_PAGES = 100; // safety bound on full-count paging (~3k tokens/collection)
 const METADATA_CONCURRENCY = 10;
+// "Show all" expander: how many images one collection can resolve on demand.
+// Generous but bounded so a whale's collection can't spin forever.
+const MAX_EXPAND_ITEMS = 300;
 
 const IPFS_GATEWAYS = ['https://ipfs.io/ipfs/', 'https://dweb.link/ipfs/'];
 
@@ -256,14 +259,15 @@ const getCollections = () =>
 
 /**
  * What `owner` holds in `collection`: the EXACT owned count (paged in full) plus
- * a display-capped slice of token ids for thumbnails. A wallet holding 50 in a
- * collection must report "50 owned" even though we only render MAX_PER_COLLECTION
- * of them — so counting and the thumbnail list are decoupled here.
+ * the token ids, kept up to `idCap`. A wallet holding 50 in a collection must
+ * report "50 owned" even when we only render a slice — so counting and the id
+ * list are decoupled here, with `idCap` bounding how many ids we retain.
  */
-async function ownedTokenIds(
+async function pageOwnedTokenIds(
   collection: string,
   owner: string,
   lcdSeed: number,
+  idCap: number,
 ): Promise<{ count: number; ids: string[] }> {
   const ids: string[] = [];
   let startAfter: string | undefined;
@@ -285,12 +289,17 @@ async function ownedTokenIds(
     const batch: string[] = Array.isArray(body?.data?.ids) ? body.data.ids.map(String) : [];
     count += batch.length;
     for (const id of batch) {
-      if (ids.length < MAX_PER_COLLECTION) ids.push(id);
+      if (ids.length < idCap) ids.push(id);
     }
     if (batch.length < OWNER_PAGE_LIMIT) break; // short page ⇒ last page
     startAfter = batch[batch.length - 1];
   }
   return { count, ids };
+}
+
+/** Ownership scan default — keeps only the thumbnails the grid renders. */
+function ownedTokenIds(collection: string, owner: string, lcdSeed: number) {
+  return pageOwnedTokenIds(collection, owner, lcdSeed, MAX_PER_COLLECTION);
 }
 
 interface Hit {
@@ -413,4 +422,31 @@ export async function buildPortfolio(address: string): Promise<Portfolio> {
     partial,
     holdings,
   };
+}
+
+export interface CollectionItems {
+  address: string;
+  /** Exact number owned. */
+  count: number;
+  /** Metadata resolved for up to MAX_EXPAND_ITEMS of them. */
+  items: NftItem[];
+  /** True when the owner holds more than we resolve images for. */
+  truncated: boolean;
+}
+
+/**
+ * Every NFT `owner` holds in a single `collection`, with metadata — the "show
+ * all" expander. Unlike the portfolio scan this targets one contract, so it
+ * pages the full owned set (bounded by MAX_EXPAND_ITEMS) and resolves an image
+ * for each. Cheap enough to run on demand when a user expands a collection.
+ */
+export async function fetchCollectionItems(
+  owner: string,
+  collection: string,
+): Promise<CollectionItems> {
+  const { count, ids } = await pageOwnedTokenIds(collection, owner, 0, MAX_EXPAND_ITEMS);
+  const items = await mapWithConcurrency(ids, METADATA_CONCURRENCY, (id, idx) =>
+    fetchTokenMeta(collection, id, idx),
+  );
+  return { address: collection, count, items, truncated: count > ids.length };
 }
