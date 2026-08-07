@@ -121,7 +121,7 @@ function CollectionSection({ h, wallet }: { h: CollectionHolding; wallet: string
             </svg>
           </a>
           <a
-            href={`https://explorer.injective.network/account/${h.address}`}
+            href={`https://explorer.injective.network/contract/${h.address}`}
             target="_blank"
             rel="noopener noreferrer"
             className="tx-nft-collection-out"

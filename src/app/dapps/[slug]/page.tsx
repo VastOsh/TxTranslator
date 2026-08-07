@@ -157,7 +157,7 @@ export default function DappDetailPage({ params }: { params: Promise<{ slug: str
                     </div>
                     <a
                       className="tx-dapp-contract-addr"
-                      href={`https://explorer.injective.network/account/${c.address}`}
+                      href={`https://explorer.injective.network/${c.isContract ? 'contract' : 'account'}/${c.address}`}
                       target="_blank"
                       rel="noopener noreferrer"
                     >
