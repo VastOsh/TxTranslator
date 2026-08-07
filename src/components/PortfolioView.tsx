@@ -56,7 +56,16 @@ function NftCard({ item, collection }: { item: NftItem; collection: string }) {
 // A collection block. The portfolio scan resolves a capped set of thumbnails up
 // front for speed; the rest load on demand when the owner expands the block,
 // via /api/portfolio/collection.
-function CollectionSection({ h, wallet }: { h: CollectionHolding; wallet: string }) {
+function CollectionSection({
+  h,
+  wallet,
+  profileUrl,
+}: {
+  h: CollectionHolding;
+  wallet: string;
+  /** The holder's Talis profile URL, or null if they have no Talis profile. */
+  profileUrl: string | null;
+}) {
   const [items, setItems] = useState<NftItem[]>(h.items);
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -108,11 +117,11 @@ function CollectionSection({ h, wallet }: { h: CollectionHolding; wallet: string
         </div>
         <div className="tx-nft-collection-meta">
           <a
-            href={`https://injective.talis.art/profile/${wallet}`}
+            href={profileUrl ?? `https://injective.talis.art/collection/${h.address}`}
             target="_blank"
             rel="noopener noreferrer"
             className="tx-nft-collection-count"
-            title="This wallet's NFTs on Talis"
+            title={profileUrl ? "This wallet's NFTs on Talis" : `${h.name} on Talis`}
           >
             {h.count} owned
           </a>
@@ -188,7 +197,8 @@ function CollectionSection({ h, wallet }: { h: CollectionHolding; wallet: string
 }
 
 export default function PortfolioView({ portfolio }: Props) {
-  const { address, holdings, totalNfts, collectionsScanned, collectionsKnown, partial } = portfolio;
+  const { address, talisProfileId, holdings, totalNfts, collectionsScanned, collectionsKnown, partial } = portfolio;
+  const profileUrl = talisProfileId ? `https://injective.talis.art/profile/${talisProfileId}` : null;
 
   if (totalNfts === 0) {
     return (
@@ -226,7 +236,7 @@ export default function PortfolioView({ portfolio }: Props) {
       </div>
 
       {holdings.map(h => (
-        <CollectionSection key={h.address} h={h} wallet={address} />
+        <CollectionSection key={h.address} h={h} wallet={address} profileUrl={profileUrl} />
       ))}
     </div>
   );

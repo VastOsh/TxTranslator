@@ -110,6 +110,9 @@ export interface CollectionHolding {
 
 export interface Portfolio {
   address: string;
+  /** Talis profile id (Mongo id) for this wallet, or null if it has no Talis
+   *  profile. Talis profile URLs key on this id, not the raw address. */
+  talisProfileId: string | null;
   totalNfts: number;
   /** Collections actually queried this lookup. */
   collectionsScanned: number;
@@ -366,12 +369,49 @@ async function fetchTokenMeta(
   return { tokenId, name: null, image: null };
 }
 
+// ── Talis profile lookup ─────────────────────────────────────────────────────
+
+// Talis profile URLs key on a Mongo id, not the raw address (/profile/<address>
+// resolves to nothing). Their GraphQL API maps address → profile id, but it
+// enforces an Origin allowlist, so this must run server-side with the site's
+// own origin spoofed — a browser request from our domain would be rejected.
+const TALIS_GRAPHQL = 'https://injective.talis.art/api/graphql';
+
+async function resolveTalisProfileId(address: string): Promise<string | null> {
+  try {
+    const res = await fetch(TALIS_GRAPHQL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Origin: 'https://injective.talis.art',
+        Referer: 'https://injective.talis.art/',
+        'User-Agent': HEADERS['User-Agent'],
+      },
+      body: JSON.stringify({
+        query: 'query($i:UserInput!){user(input:$i){id}}',
+        variables: { i: { filter: { walletAddress: address } } },
+      }),
+      signal: AbortSignal.timeout(8_000),
+    });
+    if (!res.ok) return null;
+    const body = await res.json();
+    const id = body?.data?.user?.id;
+    return typeof id === 'string' && id ? id : null;
+  } catch {
+    return null;
+  }
+}
+
 // ── Public entry point ───────────────────────────────────────────────────────
 
 export async function buildPortfolio(address: string): Promise<Portfolio> {
   const collections = await getCollections();
 
-  const { hits, scanned, partial } = await scanOwnership(address, collections);
+  // Ownership scan and the profile-id lookup are independent — run them together.
+  const [{ hits, scanned, partial }, talisProfileId] = await Promise.all([
+    scanOwnership(address, collections),
+    resolveTalisProfileId(address),
+  ]);
 
   // Verified collections first, then busiest — so authentic holdings lead and
   // metadata budget favours them over the impostor long tail.
@@ -416,6 +456,7 @@ export async function buildPortfolio(address: string): Promise<Portfolio> {
 
   return {
     address,
+    talisProfileId,
     totalNfts,
     collectionsScanned: scanned,
     collectionsKnown: collections.length,
