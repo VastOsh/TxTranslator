@@ -11,10 +11,24 @@ export interface ChangelogVersion {
   entries: ChangelogEntry[];
 }
 
-export const CURRENT_VERSION = 'v1.9.0';
+export const CURRENT_VERSION = 'v1.9.1';
 
 // Entries within each version are ordered: critical → fix → improvement → feature
 export const CHANGELOG: ChangelogVersion[] = [
+  {
+    version: 'v1.9.1',
+    date: '2026-08-07',
+    entries: [
+      {
+        type: 'fix',
+        text: 'Wallet NFT portfolio now reports the exact number owned per collection. Previously a collection was capped at 24, so a wallet holding, say, 143 of a collection was shown as "24 owned" — the count is now paged in full on-chain and reads true, and the wallet\'s total NFT count adds up correctly',
+      },
+      {
+        type: 'improvement',
+        text: 'Portfolio collections with more NFTs than fit in the preview now have a "show all" control — click it to lazily load every remaining NFT in that collection with its image, and "show less" to collapse again. The initial page still loads a fast capped preview; the rest is fetched on demand only for the collection you expand',
+      },
+    ],
+  },
   {
     version: 'v1.9.0',
     date: '2026-08-06',
