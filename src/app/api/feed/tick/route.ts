@@ -9,9 +9,10 @@ import {
   DYNAMIC_MIN_SAMPLES,
   DYNAMIC_PERCENTILE,
   X_MAX_POSTS_PER_DAY,
+  X_ERROR_ALERT_COOLDOWN_S,
 } from '@/lib/feed/thresholds';
 import { formatPost, formatPostForX, generateContextLine } from '@/lib/feed/format';
-import { publishToX, publishToDiscord, xConfigured, discordConfigured } from '@/lib/feed/publish';
+import { publishToX, publishToDiscord, sendDiscordAlert, xConfigured, discordConfigured } from '@/lib/feed/publish';
 import { createState } from '@/lib/feed/state';
 
 // One tick: pull executed derivative trades from the indexer since the last
@@ -214,6 +215,23 @@ export async function GET(req: NextRequest) {
     const sent = outcomes.filter((o) => o !== null);
     entry.outcome = sent.map(o => `${o.channel}: ${o.ok ? 'ok' : o.detail}`).join(' · ');
     if (sent.some(o => o.ok)) published++;
+
+    // Surface a genuine X publish failure — a real attempt that failed (e.g.
+    // the X-portal monthly spend-cap 403), not the intentional daily-budget
+    // skip. Record it for observability and fire a throttled Discord alert so
+    // the feed can't go dark on X for days unnoticed. A later success clears it.
+    const xOutcome = outcomes[0];
+    if (xConfigured() && xAllowed && xOutcome && !xOutcome.ok) {
+      await state.recordXError(xOutcome.detail).catch(() => {});
+      if (await state.shouldAlertXError(X_ERROR_ALERT_COOLDOWN_S).catch(() => false)) {
+        await sendDiscordAlert(
+          `⚠️ Whale feed: X post failed — ${xOutcome.detail}. X posting is paused until this clears; Discord is unaffected.`,
+        );
+      }
+    } else if (xConfigured() && xAllowed && xOutcome?.ok) {
+      await state.clearXError().catch(() => {});
+    }
+
     results.push(entry);
   }
 
@@ -223,6 +241,7 @@ export async function GET(req: NextRequest) {
   }
 
   const xPostedToday = xConfigured() ? await state.getXPostCount().catch(() => -1) : 0;
+  const xLastError = xConfigured() ? await state.getXError().catch(() => null) : null;
 
   // A live tick is read by an external cron service (cron-job.org) that caps
   // how much response body it stores per run — a busy tick's full `results`
@@ -239,6 +258,7 @@ export async function GET(req: NextRequest) {
     persistentState: state.persistent,
     channels: { x: xConfigured(), discord: discordConfigured() },
     xPostedToday,
+    xLastError,
     checkpoint: { from: checkpoint, to: maxTimestamp },
     dynamicBar: dynamicBar != null ? Math.round(dynamicBar) : null,
     scanned,

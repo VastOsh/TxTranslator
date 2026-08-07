@@ -7,6 +7,8 @@ import { NOTIONALS_WINDOW_MS } from './thresholds';
 
 const CHECKPOINT_KEY = 'feed:checkpoint'; // newest executedAt (ms) processed
 const NOTIONALS_KEY = 'feed:notionals'; // 24h rolling window, score = executedAt
+const XERROR_KEY = 'feed:xlasterror'; // last X publish failure {detail, at}
+const XALERT_KEY = 'feed:xalert'; // NX throttle so alerts don't fire every tick
 const POSTED_TTL_S = 48 * 3600;
 
 export interface FeedState {
@@ -23,6 +25,14 @@ export interface FeedState {
   incrXPostCount(): Promise<number>;
   /** Reads today's X post count without incrementing — observability. */
   getXPostCount(): Promise<number>;
+  /** Record the most recent X publish failure (persists until cleared). */
+  recordXError(detail: string): Promise<void>;
+  /** Read the most recent X publish failure, or null if none outstanding. */
+  getXError(): Promise<XErrorRecord | null>;
+  /** Clear the recorded X failure — called after a successful X post. */
+  clearXError(): Promise<void>;
+  /** True at most once per ttl window — throttles X-failure alerts. */
+  shouldAlertXError(ttlS: number): Promise<boolean>;
   /**
    * Add entries to the 24h rolling notionals window, prune expired ones,
    * and return every notional still in the window, ascending.
@@ -34,6 +44,11 @@ export interface NotionalEntry {
   executedAt: number; // ms — the window is pruned on this
   orderHash: string;
   notionalUsd: number;
+}
+
+export interface XErrorRecord {
+  detail: string;
+  at: number; // ms epoch of the failure
 }
 
 function hourBucket(): string {
@@ -101,6 +116,32 @@ class UpstashState implements FeedState {
     return v ? parseInt(v, 10) : 0;
   }
 
+  async recordXError(detail: string): Promise<void> {
+    await this.cmd(['SET', XERROR_KEY, JSON.stringify({ detail, at: Date.now() })]);
+  }
+
+  async getXError(): Promise<XErrorRecord | null> {
+    const v = await this.cmd(['GET', XERROR_KEY]);
+    if (!v) return null;
+    try {
+      const p = JSON.parse(v);
+      return typeof p?.detail === 'string' ? { detail: p.detail, at: Number(p.at) || 0 } : null;
+    } catch {
+      return null;
+    }
+  }
+
+  async clearXError(): Promise<void> {
+    // Drop the outstanding error and the alert throttle so a later failure
+    // re-alerts immediately rather than waiting out a stale cooldown.
+    await this.cmd(['DEL', XERROR_KEY, XALERT_KEY]);
+  }
+
+  async shouldAlertXError(ttlS: number): Promise<boolean> {
+    const v = await this.cmd(['SET', XALERT_KEY, '1', 'NX', 'EX', ttlS]);
+    return v === 'OK';
+  }
+
   async recordNotionals(entries: NotionalEntry[]): Promise<number[]> {
     if (entries.length > 0) {
       const args: (string | number)[] = ['ZADD', NOTIONALS_KEY];
@@ -127,6 +168,8 @@ const memory = {
   subCooldown: new Map<string, number>(), // subaccountId → expiry ms
   rate: new Map<string, number>(),
   notionals: new Map<string, { executedAt: number; notionalUsd: number }>(),
+  xError: null as XErrorRecord | null,
+  xAlertUntil: 0, // ms — alert throttle expiry
 };
 
 class MemoryState implements FeedState {
@@ -169,6 +212,25 @@ class MemoryState implements FeedState {
 
   async getXPostCount(): Promise<number> {
     return memory.rate.get(dayBucket()) ?? 0;
+  }
+
+  async recordXError(detail: string): Promise<void> {
+    memory.xError = { detail, at: Date.now() };
+  }
+
+  async getXError(): Promise<XErrorRecord | null> {
+    return memory.xError;
+  }
+
+  async clearXError(): Promise<void> {
+    memory.xError = null;
+    memory.xAlertUntil = 0;
+  }
+
+  async shouldAlertXError(ttlS: number): Promise<boolean> {
+    if (memory.xAlertUntil > Date.now()) return false;
+    memory.xAlertUntil = Date.now() + ttlS * 1000;
+    return true;
   }
 
   async recordNotionals(entries: NotionalEntry[]): Promise<number[]> {
