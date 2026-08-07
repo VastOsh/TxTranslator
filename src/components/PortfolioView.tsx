@@ -108,11 +108,11 @@ function CollectionSection({ h, wallet }: { h: CollectionHolding; wallet: string
         </div>
         <div className="tx-nft-collection-meta">
           <a
-            href={`https://injective.talis.art/collection/${h.address}`}
+            href={`https://injective.talis.art/profile/${wallet}`}
             target="_blank"
             rel="noopener noreferrer"
             className="tx-nft-collection-count"
-            title={`${h.name} collection on Talis`}
+            title="This wallet's NFTs on Talis"
           >
             {h.count} owned
           </a>

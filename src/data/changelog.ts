@@ -25,7 +25,7 @@ export const CHANGELOG: ChangelogVersion[] = [
       },
       {
         type: 'improvement',
-        text: 'In the wallet NFT portfolio, the "N owned" count on each collection is now clickable — it opens that collection on Talis, the same as the collection\'s Talis link',
+        text: 'In the wallet NFT portfolio, the "N owned" count on each collection is now clickable — it opens that wallet\'s profile on Talis so you can browse the holder\'s own NFTs. The collection\'s own page is still one click away on the collection\'s Talis link',
       },
     ],
   },
