@@ -11,7 +11,10 @@ const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36';
 
 export async function GET(request: NextRequest) {
-  const address = request.nextUrl.searchParams.get('address') ?? '';
+  // Defaults to a known-good profile so the probe URL needs no long query
+  // string (which wraps and corrupts in some terminals).
+  const address =
+    request.nextUrl.searchParams.get('address') ?? 'inj1hgcvgnmlhxc92w4n579z6fcl68sewfvv2044qy';
   if (!ADDR_RE.test(address)) {
     return NextResponse.json({ error: 'Invalid Injective address.' }, { status: 400 });
   }
