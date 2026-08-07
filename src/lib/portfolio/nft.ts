@@ -54,7 +54,9 @@ const SCAN_TIME_BUDGET_MS = 60_000;
 
 // Metadata (only for collections that actually hold something).
 const MAX_NFTS = 60; // total NFTs we resolve images for
-const MAX_PER_COLLECTION = 24;
+const MAX_PER_COLLECTION = 24; // thumbnails rendered per collection — the owned count stays exact
+const OWNER_PAGE_LIMIT = 30; // tokens{owner} page size
+const MAX_OWNER_COUNT_PAGES = 100; // safety bound on full-count paging (~3k tokens/collection)
 const METADATA_CONCURRENCY = 10;
 
 const IPFS_GATEWAYS = ['https://ipfs.io/ipfs/', 'https://dweb.link/ipfs/'];
@@ -252,39 +254,50 @@ const getCollections = () =>
 
 // ── 2. Per-wallet ownership scan ─────────────────────────────────────────────
 
-/** Token ids `owner` holds in `collection`, paged up to MAX_PER_COLLECTION. */
+/**
+ * What `owner` holds in `collection`: the EXACT owned count (paged in full) plus
+ * a display-capped slice of token ids for thumbnails. A wallet holding 50 in a
+ * collection must report "50 owned" even though we only render MAX_PER_COLLECTION
+ * of them — so counting and the thumbnail list are decoupled here.
+ */
 async function ownedTokenIds(
   collection: string,
   owner: string,
   lcdSeed: number,
-): Promise<string[]> {
+): Promise<{ count: number; ids: string[] }> {
   const ids: string[] = [];
   let startAfter: string | undefined;
-  for (let page = 0; page < 3 && ids.length < MAX_PER_COLLECTION; page++) {
+  let count = 0;
+  for (let page = 0; page < MAX_OWNER_COUNT_PAGES; page++) {
     const query: { tokens: { owner: string; limit: number; start_after?: string } } = {
-      tokens: { owner, limit: 30 },
+      tokens: { owner, limit: OWNER_PAGE_LIMIT },
     };
     if (startAfter !== undefined) query.tokens.start_after = startAfter;
 
     // A null response is a request failure (timeout / rate-limit), which is NOT
     // the same as an empty holding — retry on the next node before believing it,
-    // so a flaky node never silently erases a real collection from the portfolio.
+    // so a flaky node never silently erases (or under-counts) a real collection.
     let body = null;
     for (let attempt = 0; attempt < LCD_NODES.length && body === null; attempt++) {
       body = await getJson(smartQueryUrl(lcdFor(lcdSeed + page + attempt), collection, query), 8_000);
     }
 
     const batch: string[] = Array.isArray(body?.data?.ids) ? body.data.ids.map(String) : [];
-    ids.push(...batch);
-    if (batch.length < 30) break;
+    count += batch.length;
+    for (const id of batch) {
+      if (ids.length < MAX_PER_COLLECTION) ids.push(id);
+    }
+    if (batch.length < OWNER_PAGE_LIMIT) break; // short page ⇒ last page
     startAfter = batch[batch.length - 1];
   }
-  return ids.slice(0, MAX_PER_COLLECTION);
+  return { count, ids };
 }
 
 interface Hit {
   collection: Collection;
   tokenIds: string[];
+  /** Exact number owned — may exceed tokenIds.length, which is display-capped. */
+  count: number;
 }
 
 /** Ask each collection whether `owner` holds anything, under a wall-clock budget. */
@@ -307,8 +320,8 @@ async function scanOwnership(
       const i = next++;
       if (i >= collections.length) return;
       scanned++;
-      const ids = await ownedTokenIds(collections[i].address, owner, slot);
-      if (ids.length > 0) hits.push({ collection: collections[i], tokenIds: ids });
+      const { count, ids } = await ownedTokenIds(collections[i].address, owner, slot);
+      if (count > 0) hits.push({ collection: collections[i], tokenIds: ids, count });
     }
   }
 
@@ -375,7 +388,7 @@ export async function buildPortfolio(address: string): Promise<Portfolio> {
       address: hit.collection.address,
       name: v?.name ?? hit.collection.name, // verified name wins over on-chain string
       symbol: hit.collection.symbol,
-      count: hit.tokenIds.length,
+      count: hit.count,
       isBlueChip: v?.blueChip ?? false, // badge by verified address, never by name
       verified: !!v,
       items,
