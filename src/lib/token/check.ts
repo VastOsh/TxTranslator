@@ -1,4 +1,5 @@
 import { getVerifiedTokens, KNOWN_PROJECTS, type VerifiedToken } from './reference';
+import { findSpotMarketByBase, helixSpotUrl, type SpotMarket } from './market';
 import { normalizeTight, normalizeLoose, normalizeLeet, usesConfusables, editDistance } from './normalize';
 
 export type SignalLevel = 'ok' | 'info' | 'warn' | 'danger';
@@ -19,6 +20,7 @@ export interface TokenCheck {
   onchainName: string | null;
   onchainSymbol: string | null;
   creator: string | null;
+  market: { ticker: string; marketId: string; status: string; url: string | null } | null;
   verdict: Verdict;
   headline: string;
   signals: Signal[];
@@ -114,6 +116,12 @@ export async function checkToken(rawQuery: string): Promise<TokenCheck> {
   const creator = creatorOf(denom);
   const signals: Signal[] = [];
 
+  // Has it graduated to a real spot market? (read once; used in every branch)
+  const spot = await findSpotMarketByBase(denom);
+  const market = spot
+    ? { ticker: spot.ticker, marketId: spot.marketId, status: spot.status, url: helixSpotUrl(spot.ticker) }
+    : null;
+
   // 1. Already in the verified registry → it IS the official token.
   const registered = tokens.find((t) => t.denom === denom);
   if (registered) {
@@ -123,10 +131,11 @@ export async function checkToken(rawQuery: string): Promise<TokenCheck> {
       detail: `This denom is ${registered.name} (${registered.symbol}) on Injective’s official verified token list. This is the real one.`,
     });
     signals.push(identitySignal(denom, registered.name, registered.symbol, creator));
+    signals.push(marketSignal(spot));
     signals.push(DISCLAIMER);
     return {
       query, mode: 'denom', denom, onchainName: registered.name, onchainSymbol: registered.symbol,
-      creator, verdict: 'verified', headline: `Verified: this is the official ${registered.symbol}.`, signals,
+      creator, market, verdict: 'verified', headline: `Verified: this is the official ${registered.symbol}.`, signals,
     };
   }
 
@@ -140,9 +149,10 @@ export async function checkToken(rawQuery: string): Promise<TokenCheck> {
         'This denom has no readable bank metadata, or it could not be reached. It is not on the verified token list either — its identity cannot be confirmed.',
     });
     signals.push(identitySignal(denom, null, null, creator));
+    signals.push(marketSignal(spot));
     signals.push(DISCLAIMER);
     return {
-      query, mode: 'denom', denom, onchainName: null, onchainSymbol: null, creator,
+      query, mode: 'denom', denom, onchainName: null, onchainSymbol: null, creator, market,
       verdict: 'unknown', headline: 'Not on the verified list and no readable metadata — unverified.', signals,
     };
   }
@@ -281,6 +291,7 @@ export async function checkToken(rawQuery: string): Promise<TokenCheck> {
   }
 
   signals.push(identitySignal(denom, name, symbol, creator));
+  signals.push(marketSignal(spot));
   signals.push(DISCLAIMER);
 
   const verdict: Verdict = danger ? 'impersonation' : warn ? 'lookalike' : 'unverified';
@@ -290,7 +301,34 @@ export async function checkToken(rawQuery: string): Promise<TokenCheck> {
       ? `Look-alike of the verified ${targetLabel ?? 'token'} — check carefully.`
       : `Unverified token — no impersonation detected, but identity is unconfirmed.`;
 
-  return { query, mode: 'denom', denom, onchainName: name, onchainSymbol: symbol, creator, verdict, headline, signals };
+  return { query, mode: 'denom', denom, onchainName: name, onchainSymbol: symbol, creator, market, verdict, headline, signals };
+}
+
+// Whether a token has graduated to a real Injective spot market (Choice/Helix
+// trade the same on-chain market). Presence + active status is a legitimacy
+// signal; absence is neutral (may simply not have bonded yet).
+function marketSignal(m: SpotMarket | null): Signal {
+  if (m && m.status === 'active') {
+    return {
+      level: 'ok',
+      title: `Live market: ${m.ticker}`,
+      detail: `This token has graduated to a real spot market on Injective’s exchange, trading as ${m.ticker} (market ${m.marketId}). Choice and Helix trade this same on-chain market.`,
+      link: helixSpotUrl(m.ticker) ? { label: `Trade ${m.ticker} on Helix`, url: helixSpotUrl(m.ticker)! } : undefined,
+    };
+  }
+  if (m) {
+    return {
+      level: 'info',
+      title: `Market ${m.ticker} is ${m.status || 'not active'}`,
+      detail: `A spot market for this token exists (${m.marketId}) but is currently ${m.status || 'inactive'} — trading may be paused.`,
+    };
+  }
+  return {
+    level: 'info',
+    title: 'No exchange market yet',
+    detail:
+      'No spot market for this token on Injective’s exchange. It has not graduated/bonded to a market (or trades only on the launchpad’s bonding curve) — expected for a brand-new token, but it also means there is no established market to compare against.',
+  };
 }
 
 function identitySignal(
@@ -353,6 +391,7 @@ function lookupMode(query: string, tokens: VerifiedToken[]): TokenCheck {
     onchainName: null,
     onchainSymbol: null,
     creator: null,
+    market: null,
     verdict: matchingTokens.length ? 'verified' : found ? 'unverified' : 'unknown',
     headline: found
       ? `Here is what “${query}” officially refers to on Injective.`
