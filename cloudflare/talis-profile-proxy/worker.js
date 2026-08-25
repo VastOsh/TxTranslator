@@ -136,6 +136,15 @@ async function handleIpfs(request, url, ctx) {
         // Immutable content — cache hard at the edge and in the browser.
         'Cache-Control': 'public, max-age=31536000, immutable',
         'Access-Control-Allow-Origin': '*',
+        // These bytes are untrusted third-party NFT media served on the Worker's
+        // own origin. An SVG can carry <script>; if someone opened the URL
+        // directly the browser would treat it as a document and could run it.
+        // Neutralise that: never sniff a different type, render inline only, and
+        // sandbox with no privileges so any embedded script/resource is inert.
+        // (These don't affect <img> rendering — thumbnails still display.)
+        'X-Content-Type-Options': 'nosniff',
+        'Content-Disposition': 'inline; filename="image"',
+        'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; sandbox",
         'X-Ipfs-Cache': 'MISS',
       },
     });
