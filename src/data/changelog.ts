@@ -11,10 +11,20 @@ export interface ChangelogVersion {
   entries: ChangelogEntry[];
 }
 
-export const CURRENT_VERSION = 'v1.9.2';
+export const CURRENT_VERSION = 'v1.9.3';
 
 // Entries within each version are ordered: critical → fix → improvement → feature
 export const CHANGELOG: ChangelogVersion[] = [
+  {
+    version: 'v1.9.3',
+    date: '2026-08-25',
+    entries: [
+      {
+        type: 'improvement',
+        text: 'In the wallet NFT portfolio, the "N owned" count on each collection now opens that wallet\'s own profile on Talis, so you can browse everything the holder owns — not just the one collection. Talis profiles are keyed by an internal id rather than the wallet address, and the service that maps address → profile sits behind Cloudflare and refuses cloud datacenter traffic, so the lookup runs through a small dedicated proxy; if it can\'t resolve a profile the count falls back to the collection page as before',
+      },
+    ],
+  },
   {
     version: 'v1.9.2',
     date: '2026-08-07',
@@ -25,7 +35,7 @@ export const CHANGELOG: ChangelogVersion[] = [
       },
       {
         type: 'improvement',
-        text: 'In the wallet NFT portfolio, the "N owned" count on each collection is now clickable — it opens that wallet\'s profile on Talis so you can browse the holder\'s own NFTs. The collection\'s own page is still one click away on the collection\'s Talis link',
+        text: 'In the wallet NFT portfolio, the "N owned" count on each collection is now clickable — it opens that collection on Talis, the same as the collection\'s Talis link',
       },
     ],
   },
