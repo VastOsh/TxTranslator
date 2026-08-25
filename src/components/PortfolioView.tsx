@@ -7,17 +7,29 @@ interface Props {
   portfolio: Portfolio;
 }
 
-// IPFS gateways can flake individually, so a thumbnail that fails on ipfs.io
-// retries once on dweb.link before giving up to a placeholder.
+// IPFS gateways flake individually, so a thumbnail that fails on one gateway
+// retries down this ordered list (kept in sync with IPFS_GATEWAYS server-side)
+// before giving up to a placeholder. The CID path is whatever follows "/ipfs/",
+// so this works whichever gateway the server picked for the initial src.
+const IMG_GATEWAYS = [
+  'https://ipfs.filebase.io/ipfs/',
+  'https://gateway.pinata.cloud/ipfs/',
+  'https://dweb.link/ipfs/',
+  'https://ipfs.io/ipfs/',
+];
+
 function handleImgError(e: React.SyntheticEvent<HTMLImageElement>) {
   const img = e.currentTarget;
-  if (img.dataset.fallback === 'done') {
+  const marker = '/ipfs/';
+  const at = img.src.indexOf(marker);
+  const next = Number(img.dataset.gw ?? '0') + 1;
+  if (at === -1 || next >= IMG_GATEWAYS.length) {
     img.style.display = 'none';
     img.parentElement?.classList.add('tx-nft-thumb--broken');
     return;
   }
-  img.dataset.fallback = 'done';
-  img.src = img.src.replace('https://ipfs.io/ipfs/', 'https://dweb.link/ipfs/');
+  img.dataset.gw = String(next);
+  img.src = IMG_GATEWAYS[next] + img.src.slice(at + marker.length);
 }
 
 // One NFT thumbnail → its exact Talis page. Talis addresses each NFT by

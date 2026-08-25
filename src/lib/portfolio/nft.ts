@@ -62,7 +62,16 @@ const METADATA_CONCURRENCY = 10;
 // Generous but bounded so a whale's collection can't spin forever.
 const MAX_EXPAND_ITEMS = 300;
 
-const IPFS_GATEWAYS = ['https://ipfs.io/ipfs/', 'https://dweb.link/ipfs/'];
+// Ordered by current reliability. The Protocol Labs gateways (ipfs.io, dweb.link)
+// have become slow/unresponsive, so a faster public gateway leads and they trail
+// as fallbacks. Metadata resolution and the initial <img> src both use [0] first;
+// the client retries down this same list on error (see PortfolioView handleImgError).
+const IPFS_GATEWAYS = [
+  'https://ipfs.filebase.io/ipfs/',
+  'https://gateway.pinata.cloud/ipfs/',
+  'https://dweb.link/ipfs/',
+  'https://ipfs.io/ipfs/',
+];
 
 // ── Verified collections — pinned by CONTRACT ADDRESS, never by name ──
 //
