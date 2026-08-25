@@ -20,6 +20,10 @@ export const CHANGELOG: ChangelogVersion[] = [
     date: '2026-08-25',
     entries: [
       {
+        type: 'fix',
+        text: 'Wallet NFT thumbnails load again. The public IPFS gateways the portfolio relied on became slow/unresponsive, so images (and the request that fetches them) could stall. Image resolution now leads with faster gateways, retries across several of them per thumbnail, and runs under a strict time budget so the portfolio always returns quickly with whatever resolved — the rest fill in on retry — instead of failing the whole page',
+      },
+      {
         type: 'improvement',
         text: 'In the wallet NFT portfolio, the "N owned" count on each collection now opens that wallet\'s own profile on Talis, so you can browse everything the holder owns — not just the one collection. Talis profiles are keyed by an internal id rather than the wallet address, and the service that maps address → profile sits behind Cloudflare and refuses cloud datacenter traffic, so the lookup runs through a small dedicated proxy; if it can\'t resolve a profile the count falls back to the collection page as before',
       },
