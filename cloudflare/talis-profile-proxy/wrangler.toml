@@ -1,0 +1,7 @@
+name = "talis-profile-proxy"
+main = "worker.js"
+compatibility_date = "2026-01-01"
+
+# PROXY_SECRET is a secret, not a plain var — set it with:
+#   wrangler secret put PROXY_SECRET
+# (do NOT put the secret value in this file)

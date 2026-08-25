@@ -58,11 +58,35 @@ const MAX_PER_COLLECTION = 24; // thumbnails rendered per collection — the own
 const OWNER_PAGE_LIMIT = 30; // tokens{owner} page size
 const MAX_OWNER_COUNT_PAGES = 100; // safety bound on full-count paging (~3k tokens/collection)
 const METADATA_CONCURRENCY = 10;
+// Absolute wall-clock budget for the whole /api/portfolio request (ownership
+// scan + metadata resolution), measured from the function start. When IPFS
+// gateways are slow, metadata resolution stops issuing new fetches past this
+// mark and the response returns with the thumbnails it has (the rest resolve
+// client-side / via the "load images" expander), so the function can never hit
+// its maxDuration and 504. Kept comfortably under the route's maxDuration (120s)
+// to leave room for in-flight requests to drain.
+const OVERALL_TIME_BUDGET_MS = 70_000;
 // "Show all" expander: how many images one collection can resolve on demand.
 // Generous but bounded so a whale's collection can't spin forever.
 const MAX_EXPAND_ITEMS = 300;
 
-const IPFS_GATEWAYS = ['https://ipfs.io/ipfs/', 'https://dweb.link/ipfs/'];
+// Ordered by current reliability. The Protocol Labs gateways (ipfs.io, dweb.link)
+// have become slow/unresponsive, so a faster public gateway leads and they trail
+// as fallbacks. Metadata resolution and the initial <img> src both use [0] first;
+// the client retries down this same list on error (see PortfolioView handleImgError).
+const IPFS_GATEWAYS = [
+  'https://ipfs.filebase.io/ipfs/',
+  'https://gateway.pinata.cloud/ipfs/',
+  'https://dweb.link/ipfs/',
+  'https://ipfs.io/ipfs/',
+];
+
+// Server-side metadata JSON resolution only tries the first N (fast) gateways
+// with a short timeout, so a slow/rate-limited gateway can't push the whole
+// /api/portfolio function past its maxDuration. The remaining gateways still
+// serve as client-side <img> fallbacks (which don't count against that budget).
+const METADATA_JSON_GATEWAYS = 2;
+const METADATA_JSON_TIMEOUT_MS = 5_000;
 
 // ── Verified collections — pinned by CONTRACT ADDRESS, never by name ──
 //
@@ -110,6 +134,9 @@ export interface CollectionHolding {
 
 export interface Portfolio {
   address: string;
+  /** Talis profile id (Mongo id) for this wallet, or null if it has no Talis
+   *  profile. Talis profile URLs key on this id, not the raw address. */
+  talisProfileId: string | null;
   totalNfts: number;
   /** Collections actually queried this lookup. */
   collectionsScanned: number;
@@ -346,7 +373,13 @@ async function fetchTokenMeta(
   collection: string,
   tokenId: string,
   lcdSeed: number,
+  deadline = Infinity,
 ): Promise<NftItem> {
+  // Past the wall-clock budget, don't start new network work — return a
+  // placeholder so the response can come back before the function times out.
+  // The client still renders the tile and can load the image on demand.
+  if (Date.now() > deadline) return { tokenId, name: null, image: null };
+
   // metadata_u_r_i → the token's IPFS metadata JSON URL.
   const uriBody = await getJson(
     smartQueryUrl(lcdFor(lcdSeed), collection, { metadata_u_r_i: { token_id: tokenId } }),
@@ -355,9 +388,11 @@ async function fetchTokenMeta(
   const uri: string | undefined = typeof uriBody?.data === 'string' ? uriBody.data : undefined;
   if (!uri) return { tokenId, name: null, image: null };
 
-  // Resolve the JSON, trying gateways in turn.
-  for (let g = 0; g < IPFS_GATEWAYS.length; g++) {
-    const meta = await getJson(resolveIpfs(uri, g), 8_000);
+  // Resolve the JSON, trying only the fast gateways in turn (bounded so this
+  // can't blow the function budget); the client retries images across all gateways.
+  const jsonGateways = Math.min(METADATA_JSON_GATEWAYS, IPFS_GATEWAYS.length);
+  for (let g = 0; g < jsonGateways; g++) {
+    const meta = await getJson(resolveIpfs(uri, g), METADATA_JSON_TIMEOUT_MS);
     if (!meta) continue;
     const name: string | null = meta.title ?? meta.name ?? null;
     const rawImage: string | undefined = meta.media ?? meta.image ?? meta.image_url;
@@ -366,12 +401,49 @@ async function fetchTokenMeta(
   return { tokenId, name: null, image: null };
 }
 
+// ── Talis profile lookup ─────────────────────────────────────────────────────
+
+// Talis profile URLs key on a Mongo id, not the raw address (/profile/<address>
+// resolves to nothing). Talis's GraphQL maps address → profile id, but it sits
+// behind Cloudflare, which 403s datacenter IPs — so a direct call from Vercel
+// always fails. Instead we go through a small Cloudflare Worker (see
+// cloudflare/talis-profile-proxy) whose egress is on Cloudflare's own network
+// and passes Talis's bot protection. The Worker is gated by a shared secret.
+//
+// When the proxy env vars are unset the lookup is skipped and callers fall back
+// to the collection link, so the portfolio works with or without the Worker.
+async function resolveTalisProfileId(address: string): Promise<string | null> {
+  const proxyUrl = process.env.TALIS_PROXY_URL;
+  const proxySecret = process.env.TALIS_PROXY_SECRET;
+  if (!proxyUrl || !proxySecret) return null;
+  try {
+    const res = await fetch(`${proxyUrl}?address=${encodeURIComponent(address)}`, {
+      headers: { Authorization: `Bearer ${proxySecret}` },
+      signal: AbortSignal.timeout(8_000),
+    });
+    if (!res.ok) return null;
+    const body = await res.json();
+    return typeof body?.id === 'string' && body.id ? body.id : null;
+  } catch {
+    return null;
+  }
+}
+
 // ── Public entry point ───────────────────────────────────────────────────────
 
 export async function buildPortfolio(address: string): Promise<Portfolio> {
+  const started = Date.now();
   const collections = await getCollections();
 
-  const { hits, scanned, partial } = await scanOwnership(address, collections);
+  // Ownership scan and the profile-id lookup are independent — run them together.
+  const [{ hits, scanned, partial }, talisProfileId] = await Promise.all([
+    scanOwnership(address, collections),
+    resolveTalisProfileId(address),
+  ]);
+
+  // Whatever the scan consumed, metadata resolution must stop by this mark so the
+  // whole request returns before the route's maxDuration (see OVERALL_TIME_BUDGET_MS).
+  const metaDeadline = started + OVERALL_TIME_BUDGET_MS;
 
   // Verified collections first, then busiest — so authentic holdings lead and
   // metadata budget favours them over the impostor long tail.
@@ -390,7 +462,7 @@ export async function buildPortfolio(address: string): Promise<Portfolio> {
       ? await mapWithConcurrency(
           hit.tokenIds.slice(0, Math.min(hit.tokenIds.length, MAX_NFTS)),
           METADATA_CONCURRENCY,
-          (id, idx) => fetchTokenMeta(hit.collection.address, id, idx),
+          (id, idx) => fetchTokenMeta(hit.collection.address, id, idx, metaDeadline),
         )
       : [];
     return {
@@ -416,6 +488,7 @@ export async function buildPortfolio(address: string): Promise<Portfolio> {
 
   return {
     address,
+    talisProfileId,
     totalNfts,
     collectionsScanned: scanned,
     collectionsKnown: collections.length,
@@ -444,9 +517,11 @@ export async function fetchCollectionItems(
   owner: string,
   collection: string,
 ): Promise<CollectionItems> {
+  const started = Date.now();
   const { count, ids } = await pageOwnedTokenIds(collection, owner, 0, MAX_EXPAND_ITEMS);
+  const deadline = started + OVERALL_TIME_BUDGET_MS;
   const items = await mapWithConcurrency(ids, METADATA_CONCURRENCY, (id, idx) =>
-    fetchTokenMeta(collection, id, idx),
+    fetchTokenMeta(collection, id, idx, deadline),
   );
   return { address: collection, count, items, truncated: count > ids.length };
 }

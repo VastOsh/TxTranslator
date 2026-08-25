@@ -7,17 +7,29 @@ interface Props {
   portfolio: Portfolio;
 }
 
-// IPFS gateways can flake individually, so a thumbnail that fails on ipfs.io
-// retries once on dweb.link before giving up to a placeholder.
+// IPFS gateways flake individually, so a thumbnail that fails on one gateway
+// retries down this ordered list (kept in sync with IPFS_GATEWAYS server-side)
+// before giving up to a placeholder. The CID path is whatever follows "/ipfs/",
+// so this works whichever gateway the server picked for the initial src.
+const IMG_GATEWAYS = [
+  'https://ipfs.filebase.io/ipfs/',
+  'https://gateway.pinata.cloud/ipfs/',
+  'https://dweb.link/ipfs/',
+  'https://ipfs.io/ipfs/',
+];
+
 function handleImgError(e: React.SyntheticEvent<HTMLImageElement>) {
   const img = e.currentTarget;
-  if (img.dataset.fallback === 'done') {
+  const marker = '/ipfs/';
+  const at = img.src.indexOf(marker);
+  const next = Number(img.dataset.gw ?? '0') + 1;
+  if (at === -1 || next >= IMG_GATEWAYS.length) {
     img.style.display = 'none';
     img.parentElement?.classList.add('tx-nft-thumb--broken');
     return;
   }
-  img.dataset.fallback = 'done';
-  img.src = img.src.replace('https://ipfs.io/ipfs/', 'https://dweb.link/ipfs/');
+  img.dataset.gw = String(next);
+  img.src = IMG_GATEWAYS[next] + img.src.slice(at + marker.length);
 }
 
 // One NFT thumbnail → its exact Talis page. Talis addresses each NFT by
@@ -56,7 +68,16 @@ function NftCard({ item, collection }: { item: NftItem; collection: string }) {
 // A collection block. The portfolio scan resolves a capped set of thumbnails up
 // front for speed; the rest load on demand when the owner expands the block,
 // via /api/portfolio/collection.
-function CollectionSection({ h, wallet }: { h: CollectionHolding; wallet: string }) {
+function CollectionSection({
+  h,
+  wallet,
+  profileUrl,
+}: {
+  h: CollectionHolding;
+  wallet: string;
+  /** The holder's Talis profile URL, or null if they have no Talis profile. */
+  profileUrl: string | null;
+}) {
   const [items, setItems] = useState<NftItem[]>(h.items);
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -108,11 +129,11 @@ function CollectionSection({ h, wallet }: { h: CollectionHolding; wallet: string
         </div>
         <div className="tx-nft-collection-meta">
           <a
-            href={`https://injective.talis.art/collection/${h.address}`}
+            href={profileUrl ?? `https://injective.talis.art/collection/${h.address}`}
             target="_blank"
             rel="noopener noreferrer"
             className="tx-nft-collection-count"
-            title={`${h.name} collection on Talis`}
+            title={profileUrl ? "This wallet's NFTs on Talis" : `${h.name} on Talis`}
           >
             {h.count} owned
           </a>
@@ -188,7 +209,8 @@ function CollectionSection({ h, wallet }: { h: CollectionHolding; wallet: string
 }
 
 export default function PortfolioView({ portfolio }: Props) {
-  const { address, holdings, totalNfts, collectionsScanned, collectionsKnown, partial } = portfolio;
+  const { address, talisProfileId, holdings, totalNfts, collectionsScanned, collectionsKnown, partial } = portfolio;
+  const profileUrl = talisProfileId ? `https://injective.talis.art/profile/${talisProfileId}` : null;
 
   if (totalNfts === 0) {
     return (
@@ -226,7 +248,7 @@ export default function PortfolioView({ portfolio }: Props) {
       </div>
 
       {holdings.map(h => (
-        <CollectionSection key={h.address} h={h} wallet={address} />
+        <CollectionSection key={h.address} h={h} wallet={address} profileUrl={profileUrl} />
       ))}
     </div>
   );
