@@ -186,6 +186,24 @@ function resolveIpfs(uri: string, gatewayIndex = 0): string {
   return url.replace(/#/g, '%23').replace(/\?/g, '%3F');
 }
 
+/**
+ * Public URL the browser should load a thumbnail from. When the Cloudflare
+ * Worker proxy is configured (TALIS_PROXY_URL), route images through its
+ * `/ipfs/<cid>` route: the Worker fetches each CID from an IPFS gateway once
+ * and caches it at Cloudflare's edge (NFT content is immutable), so repeat
+ * loads for any visitor are instant and immune to the public gateways' rate
+ * limits. Without the proxy, fall back to a direct gateway URL. Only ipfs://
+ * images are proxied; already-HTTP images are left as-is.
+ */
+function resolveImageUrl(uri: string): string {
+  const base = process.env.TALIS_PROXY_URL;
+  if (base && uri.startsWith('ipfs://')) {
+    const path = uri.slice('ipfs://'.length).replace(/#/g, '%23').replace(/\?/g, '%3F');
+    return `${base.replace(/\/+$/, '')}/ipfs/${path}`;
+  }
+  return resolveIpfs(uri);
+}
+
 async function mapWithConcurrency<T, R>(
   items: T[],
   limit: number,
@@ -396,7 +414,7 @@ async function fetchTokenMeta(
     if (!meta) continue;
     const name: string | null = meta.title ?? meta.name ?? null;
     const rawImage: string | undefined = meta.media ?? meta.image ?? meta.image_url;
-    return { tokenId, name, image: rawImage ? resolveIpfs(rawImage) : null };
+    return { tokenId, name, image: rawImage ? resolveImageUrl(rawImage) : null };
   }
   return { tokenId, name: null, image: null };
 }

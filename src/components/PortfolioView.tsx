@@ -7,10 +7,12 @@ interface Props {
   portfolio: Portfolio;
 }
 
-// IPFS gateways flake individually, so a thumbnail that fails on one gateway
-// retries down this ordered list (kept in sync with IPFS_GATEWAYS server-side)
-// before giving up to a placeholder. The CID path is whatever follows "/ipfs/",
-// so this works whichever gateway the server picked for the initial src.
+// The initial thumbnail src is normally the Cloudflare Worker's edge-cached
+// /ipfs/ route. If that fails (or the proxy is unset and a direct gateway was
+// used), retry down this ordered list of direct gateways before giving up to a
+// placeholder. The CID path is whatever follows "/ipfs/", so this works
+// whatever the initial src was. dataset.gw tracks the last index tried; on the
+// first error it's absent (-1) so we start at gateway 0.
 const IMG_GATEWAYS = [
   'https://ipfs.filebase.io/ipfs/',
   'https://gateway.pinata.cloud/ipfs/',
@@ -22,7 +24,7 @@ function handleImgError(e: React.SyntheticEvent<HTMLImageElement>) {
   const img = e.currentTarget;
   const marker = '/ipfs/';
   const at = img.src.indexOf(marker);
-  const next = Number(img.dataset.gw ?? '0') + 1;
+  const next = (img.dataset.gw === undefined ? -1 : Number(img.dataset.gw)) + 1;
   if (at === -1 || next >= IMG_GATEWAYS.length) {
     img.style.display = 'none';
     img.parentElement?.classList.add('tx-nft-thumb--broken');

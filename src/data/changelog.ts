@@ -11,10 +11,20 @@ export interface ChangelogVersion {
   entries: ChangelogEntry[];
 }
 
-export const CURRENT_VERSION = 'v1.9.3';
+export const CURRENT_VERSION = 'v1.9.4';
 
 // Entries within each version are ordered: critical → fix → improvement → feature
 export const CHANGELOG: ChangelogVersion[] = [
+  {
+    version: 'v1.9.4',
+    date: '2026-08-25',
+    entries: [
+      {
+        type: 'improvement',
+        text: 'Wallet NFT thumbnails load much faster. The public IPFS gateways that host NFT images are slow and rate-limited — a single small thumbnail could take many seconds or fail outright. Images now load through an edge cache: each one is fetched from IPFS once and then served from a global cache, so after the first view every thumbnail loads near-instantly for everyone. Only genuine images are cached (never scripts), so it stays safe',
+      },
+    ],
+  },
   {
     version: 'v1.9.3',
     date: '2026-08-25',
