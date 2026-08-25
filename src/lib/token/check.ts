@@ -40,6 +40,9 @@ function explorerAccount(addr: string) {
 function explorerContract(addr: string) {
   return `${EXPLORER}/contract/${addr}`;
 }
+function talisCollectionUrl(contract: string) {
+  return `https://injective.talis.art/collection/${contract}`;
+}
 
 /** Read a denom's on-chain bank metadata (name + symbol). null if unreadable. */
 async function fetchDenomMetadata(denom: string): Promise<{ name: string; symbol: string } | null> {
@@ -277,7 +280,9 @@ export async function checkToken(rawQuery: string): Promise<TokenCheck> {
         title: `Borrows the name of ${proj.name}`,
         detail: `This token advertises “${name || symbol}”, matching the well-known ${kind} ${proj.name}, which has no official token on Injective’s verified list. A token using its name is almost certainly not affiliated — verify directly with the project before buying.`,
         link: proj.contract
-          ? { label: `Real ${proj.name} (NFT) on explorer`, url: explorerContract(proj.contract) }
+          ? proj.kind === 'nft-collection'
+            ? { label: `View ${proj.name} on Talis`, url: talisCollectionUrl(proj.contract) }
+            : { label: `${proj.name} on explorer`, url: explorerContract(proj.contract) }
           : undefined,
       });
     }
@@ -383,7 +388,11 @@ function lookupMode(query: string, tokens: VerifiedToken[]): TokenCheck {
       detail: official
         ? `${proj.name}’s official token is ${official.symbol} (${official.denom}).`
         : `${proj.name} has no official token on the verified list. Any token using this name is unaffiliated unless the project says otherwise.`,
-      link: proj.contract ? { label: `${proj.name} on explorer`, url: explorerContract(proj.contract) } : undefined,
+      link: proj.contract
+        ? proj.kind === 'nft-collection'
+          ? { label: `View ${proj.name} on Talis`, url: talisCollectionUrl(proj.contract) }
+          : { label: `${proj.name} on explorer`, url: explorerContract(proj.contract) }
+        : undefined,
     });
   }
 
