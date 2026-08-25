@@ -1,12 +1,23 @@
-# Talis profile-id proxy (Cloudflare Worker)
+# Talis profile-id proxy + IPFS image cache (Cloudflare Worker)
 
-Resolves a wallet address → Talis profile id, used by the wallet NFT portfolio
-so the "N owned" count can link to the holder's Talis profile (`/profile/<id>`).
+Two routes, both used by the wallet NFT portfolio:
 
-Talis's GraphQL is behind Cloudflare and 403s Vercel's datacenter IPs, so the
-app cannot call it directly. This Worker runs on Cloudflare's network, passes
-that protection, sets the required `Origin`, and returns only `{ id }`. It is
-gated by a shared bearer secret so it is not an open proxy.
+- `GET /?address=inj1...` (Bearer `PROXY_SECRET`) → resolves a wallet address to
+  its Talis profile id, so the "N owned" count can link to the holder's Talis
+  profile (`/profile/<id>`). Talis's GraphQL is behind Cloudflare and 403s
+  Vercel's datacenter IPs, so the app can't call it directly; this Worker runs
+  on Cloudflare's network, passes that protection, sets the required `Origin`,
+  and returns only `{ id }`. Gated by a shared bearer secret so it isn't an open
+  proxy.
+
+- `GET /ipfs/<cid>/<path>` (public, images only) → fetches the CID from a public
+  IPFS gateway once and caches the bytes at Cloudflare's edge. NFT content is
+  immutable, so it's cached effectively forever: after the first fetch, every
+  thumbnail load — for any visitor, globally — is instant and immune to the
+  public gateways' rate limits and outages. Only image responses are served, so
+  it can't be used as a general-purpose open proxy. No auth (browsers load it as
+  an `<img>` src). The app points image URLs at this route automatically when
+  `TALIS_PROXY_URL` is set, and falls back to direct gateways if it ever fails.
 
 ## Deploy
 
@@ -52,3 +63,14 @@ curl -s -H "Authorization: Bearer <PROXY_SECRET>" \
 If `id` comes back non-null, the Worker's egress passes Talis's Cloudflare and
 the profile links will work. If it is null with an `upstreamStatus` of 403, even
 Cloudflare Worker egress is being blocked and we fall back to the collection link.
+
+Then verify the image cache route (no auth needed):
+
+```
+curl -s -D - -o /dev/null \
+  "https://talis-profile-proxy.<subdomain>.workers.dev/ipfs/QmaCdDbXfeKg7Nrz6oKVdRwLvgx4xThZYD5cAJ8PqbHhKT/3358.png"
+# => HTTP 200, content-type: image/png, x-ipfs-cache: MISS (then HIT on a 2nd call)
+```
+
+After `wrangler deploy`, no Vercel change is needed for images — the app already
+builds `/ipfs/` URLs from `TALIS_PROXY_URL`.
