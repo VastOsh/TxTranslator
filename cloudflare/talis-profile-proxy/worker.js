@@ -32,15 +32,6 @@ const IPFS_GATEWAYS = [
 ];
 // First path segment must look like an IPFS CID (v0 Qm..., or v1 baf...).
 const CID_RE = /^(Qm[1-9A-HJ-NP-Za-km-z]{44}|b[a-z2-7]{20,})$/;
-const IMG_EXT_TYPE = {
-  png: 'image/png',
-  jpg: 'image/jpeg',
-  jpeg: 'image/jpeg',
-  gif: 'image/gif',
-  webp: 'image/webp',
-  avif: 'image/avif',
-  svg: 'image/svg+xml',
-};
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024; // don't cache absurdly large files
 
 function json(obj, status = 200) {
@@ -106,9 +97,6 @@ async function handleIpfs(request, url, ctx) {
   const cached = await cache.match(cacheKey);
   if (cached) return cached;
 
-  const ext = (rest.split('.').pop() || '').toLowerCase();
-  const extType = IMG_EXT_TYPE[ext];
-
   for (const gw of IPFS_GATEWAYS) {
     let res;
     try {
@@ -118,9 +106,12 @@ async function handleIpfs(request, url, ctx) {
     }
     if (!res || !res.ok) continue;
 
-    const ct = (res.headers.get('content-type') || '').toLowerCase();
-    const isImage = ct.startsWith('image/') || !!extType;
-    if (!isImage) continue; // only ever serve images (skips gateway HTML/redirect pages)
+    // Require a genuine raster image content-type from upstream — don't trust the
+    // URL extension. Never serve SVG: it can carry <script> that would execute on
+    // this origin if the URL were opened directly. (SVG NFTs still show via the
+    // app's direct-gateway fallback, rendered in an <img> where script can't run.)
+    const ct = (res.headers.get('content-type') || '').toLowerCase().split(';')[0].trim();
+    if (!ct.startsWith('image/') || ct === 'image/svg+xml' || ct.includes('svg')) continue;
 
     const len = Number(res.headers.get('content-length') || '0');
     if (len && len > MAX_IMAGE_BYTES) continue;
@@ -128,23 +119,19 @@ async function handleIpfs(request, url, ctx) {
     const buf = await res.arrayBuffer();
     if (buf.byteLength > MAX_IMAGE_BYTES) continue;
 
-    const type = ct.startsWith('image/') ? ct : extType || 'application/octet-stream';
     const out = new Response(buf, {
       status: 200,
       headers: {
-        'Content-Type': type,
+        'Content-Type': ct,
         // Immutable content — cache hard at the edge and in the browser.
         'Cache-Control': 'public, max-age=31536000, immutable',
         'Access-Control-Allow-Origin': '*',
-        // These bytes are untrusted third-party NFT media served on the Worker's
-        // own origin. An SVG can carry <script>; if someone opened the URL
-        // directly the browser would treat it as a document and could run it.
-        // Neutralise that: never sniff a different type, render inline only, and
-        // sandbox with no privileges so any embedded script/resource is inert.
-        // (These don't affect <img> rendering — thumbnails still display.)
+        // Defence-in-depth for untrusted third-party media on our own origin:
+        // never sniff a different type, render inline only, and sandbox with no
+        // privileges. (Doesn't affect <img> rendering — thumbnails still display.)
         'X-Content-Type-Options': 'nosniff',
         'Content-Disposition': 'inline; filename="image"',
-        'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+        'Content-Security-Policy': "default-src 'none'; sandbox",
         'X-Ipfs-Cache': 'MISS',
       },
     });
