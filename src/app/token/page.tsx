@@ -7,52 +7,72 @@ import Changelog from '@/components/Changelog';
 import { CURRENT_VERSION } from '@/data/changelog';
 import type { TokenCheck, Signal, SignalLevel, Verdict } from '@/lib/token/check';
 
-const LEVEL_COLOR: Record<SignalLevel, string> = {
-  ok: 'var(--tx-green)',
-  danger: 'var(--tx-red)',
-  warn: 'var(--tx-amber)',
-  info: 'var(--tx-cyan)',
+const DETAIL_COLOR = 'rgba(244, 241, 233, 0.82)';
+
+const LEVEL_STYLE: Record<SignalLevel, { color: string; bg: string; icon: string }> = {
+  ok: { color: 'var(--tx-green)', bg: 'rgba(14, 226, 155, 0.08)', icon: '✓' },
+  danger: { color: 'var(--tx-red)', bg: 'rgba(246, 71, 114, 0.11)', icon: '!' },
+  warn: { color: 'var(--tx-amber)', bg: 'rgba(243, 164, 0, 0.11)', icon: '!' },
+  info: { color: 'var(--tx-purple)', bg: 'rgba(167, 139, 250, 0.06)', icon: 'i' },
 };
 
-const VERDICT_META: Record<Verdict, { color: string; label: string }> = {
-  verified: { color: 'var(--tx-green)', label: 'Verified' },
-  impersonation: { color: 'var(--tx-red)', label: 'Impersonation risk' },
-  lookalike: { color: 'var(--tx-amber)', label: 'Look-alike' },
-  unverified: { color: 'var(--tx-cyan)', label: 'Unverified' },
-  unknown: { color: 'var(--tx-text-muted)', label: 'Unknown' },
+const VERDICT_META: Record<Verdict, { color: string; bg: string; label: string }> = {
+  verified: { color: 'var(--tx-green)', bg: 'rgba(14, 226, 155, 0.11)', label: 'Verified' },
+  impersonation: { color: 'var(--tx-red)', bg: 'rgba(246, 71, 114, 0.13)', label: 'Impersonation risk' },
+  lookalike: { color: 'var(--tx-amber)', bg: 'rgba(243, 164, 0, 0.13)', label: 'Look-alike' },
+  unverified: { color: 'var(--tx-purple)', bg: 'rgba(167, 139, 250, 0.10)', label: 'Unverified' },
+  unknown: { color: 'var(--tx-text-muted)', bg: 'rgba(244, 241, 233, 0.05)', label: 'Unknown' },
 };
 
 function SignalCard({ s }: { s: Signal }) {
-  const color = LEVEL_COLOR[s.level];
+  const st = LEVEL_STYLE[s.level];
+  const titleColor = s.level === 'info' ? 'var(--tx-text)' : st.color;
   return (
     <div
       style={{
-        borderLeft: `3px solid ${color}`,
-        background: 'var(--tx-bg-card)',
+        display: 'flex',
+        gap: '0.7rem',
+        background: st.bg,
         border: '1px solid var(--tx-border)',
-        borderLeftWidth: 3,
-        borderLeftColor: color,
-        borderRadius: 8,
-        padding: '0.8rem 1rem',
+        borderLeft: `3px solid ${st.color}`,
+        borderRadius: 10,
+        padding: '0.85rem 1rem',
         marginBottom: '0.6rem',
       }}
     >
-      <div style={{ fontSize: '0.82rem', fontWeight: 600, color, marginBottom: '0.3rem' }}>
-        {s.title}
+      <span
+        aria-hidden
+        style={{
+          flex: '0 0 auto', width: 20, height: 20, marginTop: 1,
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          borderRadius: 999, background: st.color, color: 'var(--tx-bg)',
+          fontSize: '0.72rem', fontWeight: 800, lineHeight: 1,
+        }}
+      >
+        {st.icon}
+      </span>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: '0.85rem', fontWeight: 600, color: titleColor, marginBottom: '0.3rem' }}>
+          {s.title}
+        </div>
+        <div style={{ fontSize: '0.82rem', color: DETAIL_COLOR, lineHeight: 1.55, wordBreak: 'break-word' }}>
+          {s.detail}
+        </div>
+        {s.link && (
+          <a
+            href={s.link.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: '0.3rem', marginTop: '0.6rem',
+              fontSize: '0.76rem', fontWeight: 600, color: st.color, textDecoration: 'none',
+              border: `1px solid ${st.color}`, borderRadius: 7, padding: '0.3rem 0.65rem',
+            }}
+          >
+            {s.link.label} <span aria-hidden>↗</span>
+          </a>
+        )}
       </div>
-      <div style={{ fontSize: '0.78rem', color: 'var(--tx-text-muted)', lineHeight: 1.5, wordBreak: 'break-word' }}>
-        {s.detail}
-      </div>
-      {s.link && (
-        <a
-          href={s.link.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ display: 'inline-block', marginTop: '0.45rem', fontSize: '0.74rem', color: 'var(--tx-cyan)', textDecoration: 'none' }}
-        >
-          {s.link.label} ↗
-        </a>
-      )}
     </div>
   );
 }
@@ -170,24 +190,24 @@ export default function TokenPage() {
           <div
             style={{
               border: `1px solid ${vm.color}`,
-              background: 'var(--tx-bg-2)',
-              borderRadius: 10,
-              padding: '0.9rem 1.1rem',
-              marginBottom: '1rem',
+              background: vm.bg,
+              borderRadius: 12,
+              padding: '1rem 1.15rem',
+              marginBottom: '1.1rem',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.35rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
               <span
                 style={{
-                  fontSize: '0.66rem', fontWeight: 700, letterSpacing: '0.06em',
-                  textTransform: 'uppercase', color: vm.color,
-                  border: `1px solid ${vm.color}`, borderRadius: 999, padding: '0.15rem 0.55rem',
+                  fontSize: '0.64rem', fontWeight: 800, letterSpacing: '0.07em',
+                  textTransform: 'uppercase', color: 'var(--tx-bg)',
+                  background: vm.color, borderRadius: 999, padding: '0.22rem 0.62rem',
                 }}
               >
                 {vm.label}
               </span>
             </div>
-            <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--tx-text)', lineHeight: 1.45 }}>
+            <div style={{ fontSize: '0.98rem', fontWeight: 600, color: 'var(--tx-text)', lineHeight: 1.5 }}>
               {result.headline}
             </div>
           </div>

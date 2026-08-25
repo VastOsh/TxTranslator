@@ -1,5 +1,5 @@
 import { getVerifiedTokens, KNOWN_PROJECTS, type VerifiedToken } from './reference';
-import { findSpotMarketByBase, helixSpotUrl, type SpotMarket } from './market';
+import { findSpotMarketByBase, choiceTradeUrl, choiceTokenUrl, type SpotMarket } from './market';
 import { normalizeTight, normalizeLoose, normalizeLeet, usesConfusables, editDistance } from './normalize';
 
 export type SignalLevel = 'ok' | 'info' | 'warn' | 'danger';
@@ -119,7 +119,7 @@ export async function checkToken(rawQuery: string): Promise<TokenCheck> {
   // Has it graduated to a real spot market? (read once; used in every branch)
   const spot = await findSpotMarketByBase(denom);
   const market = spot
-    ? { ticker: spot.ticker, marketId: spot.marketId, status: spot.status, url: helixSpotUrl(spot.ticker) }
+    ? { ticker: spot.ticker, marketId: spot.marketId, status: spot.status, url: choiceTradeUrl(spot.marketId) }
     : null;
 
   // 1. Already in the verified registry → it IS the official token.
@@ -129,6 +129,7 @@ export async function checkToken(rawQuery: string): Promise<TokenCheck> {
       level: 'ok',
       title: `Verified token: ${registered.symbol}`,
       detail: `This denom is ${registered.name} (${registered.symbol}) on Injective’s official verified token list. This is the real one.`,
+      link: { label: `Open ${registered.symbol} on Choice`, url: choiceTokenUrl(denom) },
     });
     signals.push(identitySignal(denom, registered.name, registered.symbol, creator));
     signals.push(marketSignal(spot));
@@ -204,12 +205,14 @@ export async function checkToken(rawQuery: string): Promise<TokenCheck> {
   if (best) {
     const { t, exactSym, exactName, symNear, nameNear } = best;
     targetLabel = t.symbol;
+    const realLink = { label: `Open the real ${t.symbol} on Choice`, url: choiceTokenUrl(t.denom) };
     if (exactSym) {
       danger = true;
       signals.push({
         level: 'danger',
         title: `Impersonates the verified token ${t.symbol}`,
         detail: `This token advertises the symbol “${symbol}”, which belongs to the verified ${t.name} (${t.symbol}). This denom is not that token — the real ${t.symbol} is ${t.denom}.`,
+        link: realLink,
       });
     } else if (exactName) {
       danger = true;
@@ -217,6 +220,7 @@ export async function checkToken(rawQuery: string): Promise<TokenCheck> {
         level: 'danger',
         title: `Impersonates the verified token ${t.symbol}`,
         detail: `This token’s name “${name}” matches the verified ${t.name} (${t.symbol}) at a different denom. The real one is ${t.denom}.`,
+        link: realLink,
       });
     } else if (symNear && nameNear) {
       danger = true;
@@ -225,6 +229,7 @@ export async function checkToken(rawQuery: string): Promise<TokenCheck> {
         level: 'danger',
         title: `Near-identical to verified token ${t.symbol}`,
         detail: `Both the symbol “${symbol}” and name “${name}” are one character away from the verified ${t.name} (${t.symbol})${homoglyph ? ' and use look-alike characters' : ''} — a classic impersonation pattern. The real ${t.symbol} is ${t.denom}.`,
+        link: realLink,
       });
     } else {
       warn = true;
@@ -236,6 +241,7 @@ export async function checkToken(rawQuery: string): Promise<TokenCheck> {
         level: 'warn',
         title: `Look-alike of verified token ${t.symbol}`,
         detail: `Its ${field} closely resembles the verified ${t.name} (${t.symbol}) — it ${trick}. The real ${t.symbol} is ${t.denom}.`,
+        link: realLink,
       });
     }
   }
@@ -261,9 +267,7 @@ export async function checkToken(rawQuery: string): Promise<TokenCheck> {
         level: 'danger',
         title: `Impersonates ${proj.name}`,
         detail: `This token uses the identity of ${proj.name}, whose official token is ${official.symbol} (${official.denom}). This denom is not it.`,
-        link: proj.contract
-          ? { label: `${proj.name} on explorer`, url: explorerContract(proj.contract) }
-          : undefined,
+        link: { label: `Open the real ${official.symbol} on Choice`, url: choiceTokenUrl(official.denom) },
       });
     } else {
       danger = true;
@@ -309,11 +313,12 @@ export async function checkToken(rawQuery: string): Promise<TokenCheck> {
 // signal; absence is neutral (may simply not have bonded yet).
 function marketSignal(m: SpotMarket | null): Signal {
   if (m && m.status === 'active') {
+    const url = choiceTradeUrl(m.marketId);
     return {
       level: 'ok',
       title: `Live market: ${m.ticker}`,
-      detail: `This token has graduated to a real spot market on Injective’s exchange, trading as ${m.ticker} (market ${m.marketId}). Choice and Helix trade this same on-chain market.`,
-      link: helixSpotUrl(m.ticker) ? { label: `Trade ${m.ticker} on Helix`, url: helixSpotUrl(m.ticker)! } : undefined,
+      detail: `This token has graduated to a real spot market on Injective’s exchange, trading as ${m.ticker}. Choice and Helix trade this same on-chain market.`,
+      link: url ? { label: `Trade ${m.ticker} on Choice`, url } : undefined,
     };
   }
   if (m) {
@@ -363,6 +368,7 @@ function lookupMode(query: string, tokens: VerifiedToken[]): TokenCheck {
       level: 'ok',
       title: `Verified token ${t.symbol}`,
       detail: `The official ${t.name} (${t.symbol}) is ${t.denom}. Any other token using this symbol is not it.`,
+      link: { label: `Open ${t.symbol} on Choice`, url: choiceTokenUrl(t.denom) },
     });
   }
 

@@ -63,3 +63,13 @@ export function helixSpotUrl(ticker: string): string | null {
   const slug = ticker.trim().toLowerCase().replace(/\s+/g, '').replace('/', '-');
   return slug ? `https://helixapp.com/spot/${slug}` : null;
 }
+
+/** Choice trade page for a market (Choice route: /trade?market=<marketId>). */
+export function choiceTradeUrl(marketId: string): string | null {
+  return marketId ? `https://choice.exchange/trade?market=${encodeURIComponent(marketId)}` : null;
+}
+
+/** Choice token page for a denom (Choice route: /explore/token?address=<denom>). */
+export function choiceTokenUrl(denom: string): string {
+  return `https://choice.exchange/explore/token?address=${encodeURIComponent(denom)}`;
+}
