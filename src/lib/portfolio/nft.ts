@@ -73,6 +73,13 @@ const IPFS_GATEWAYS = [
   'https://ipfs.io/ipfs/',
 ];
 
+// Server-side metadata JSON resolution only tries the first N (fast) gateways
+// with a short timeout, so a slow/rate-limited gateway can't push the whole
+// /api/portfolio function past its maxDuration. The remaining gateways still
+// serve as client-side <img> fallbacks (which don't count against that budget).
+const METADATA_JSON_GATEWAYS = 2;
+const METADATA_JSON_TIMEOUT_MS = 5_000;
+
 // ── Verified collections — pinned by CONTRACT ADDRESS, never by name ──
 //
 // The chain is full of impostor collections that copy a famous name verbatim
@@ -367,9 +374,11 @@ async function fetchTokenMeta(
   const uri: string | undefined = typeof uriBody?.data === 'string' ? uriBody.data : undefined;
   if (!uri) return { tokenId, name: null, image: null };
 
-  // Resolve the JSON, trying gateways in turn.
-  for (let g = 0; g < IPFS_GATEWAYS.length; g++) {
-    const meta = await getJson(resolveIpfs(uri, g), 8_000);
+  // Resolve the JSON, trying only the fast gateways in turn (bounded so this
+  // can't blow the function budget); the client retries images across all gateways.
+  const jsonGateways = Math.min(METADATA_JSON_GATEWAYS, IPFS_GATEWAYS.length);
+  for (let g = 0; g < jsonGateways; g++) {
+    const meta = await getJson(resolveIpfs(uri, g), METADATA_JSON_TIMEOUT_MS);
     if (!meta) continue;
     const name: string | null = meta.title ?? meta.name ?? null;
     const rawImage: string | undefined = meta.media ?? meta.image ?? meta.image_url;
