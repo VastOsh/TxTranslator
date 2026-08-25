@@ -154,37 +154,78 @@ export async function checkToken(rawQuery: string): Promise<TokenCheck> {
 
   let danger = false;
   let warn = false;
+  let targetLabel: string | null = null; // the trusted thing being impersonated, for the headline
 
-  // 3a. Impersonating a verified TOKEN (symbol collision at a different denom).
-  const symbolClash = symbol
-    ? tokens.find((t) => normalizeTight(t.symbol) === symTight && t.denom !== denom)
-    : undefined;
-  if (symbolClash) {
-    danger = true;
-    signals.push({
-      level: 'danger',
-      title: `Impersonates the verified token ${symbolClash.symbol}`,
-      detail: `This token advertises the symbol “${symbol}”, which belongs to the verified ${symbolClash.name} (${symbolClash.symbol}). This denom is not that token — the real ${symbolClash.symbol} is ${symbolClash.denom}.`,
-    });
+  // ── 3a/3b. Compare against the verified TOKEN registry ──────────────────────
+  // For each verified token, measure how the candidate relates to it: an exact
+  // symbol/name collision at a different denom (claiming to BE it), or a
+  // near-miss by look-alike characters / digit swaps / one dropped-or-changed
+  // character (XII vs XIII, 1NJ vs INJ, CULT vs CVLT). Matching a verified token
+  // on BOTH symbol and name by a near-miss is strong evidence of deliberate
+  // impersonation, so it escalates from a look-alike warning to a danger.
+  const symLeet = symbol ? normalizeLeet(symbol) : '';
+  let best:
+    | { t: VerifiedToken; exactSym: boolean; exactName: boolean; symNear: boolean; nameNear: boolean; score: number }
+    | null = null;
+
+  for (const t of tokens) {
+    if (t.denom === denom) continue;
+    const tSym = normalizeTight(t.symbol);
+    const tName = normalizeTight(t.name);
+
+    const exactSym = !!symTight && symTight === tSym;
+    const exactName = !exactSym && !!nameTight && nameTight === tName && tName.length >= 4;
+    // Near-miss on symbol: same after digit/look-alike folding, or one edit apart
+    // (gated on the longer of the two being ≥4 so 2–3 char tickers don't collide).
+    const symNear =
+      !exactSym && !!symbol &&
+      (normalizeLeet(t.symbol) === symLeet ||
+        (Math.max(symTight.length, tSym.length) >= 4 && editDistance(symTight, tSym) === 1));
+    // Near-miss on name: one edit apart on names of real length (≥5) — a strong,
+    // low-coincidence signal.
+    const nameNear = !exactName && !!nameTight && tName.length >= 5 && editDistance(nameTight, tName) === 1;
+
+    if (!exactSym && !exactName && !symNear && !nameNear) continue;
+
+    const score = (exactSym ? 8 : 0) + (exactName ? 6 : 0) + (symNear ? 3 : 0) + (nameNear ? 3 : 0);
+    if (!best || score > best.score) best = { t, exactSym, exactName, symNear, nameNear, score };
   }
 
-  // 3b. Look-alike of a verified token (homoglyph / digit-swap / one-char off).
-  if (!symbolClash && symbol) {
-    const leet = normalizeLeet(symbol);
-    const look = tokens.find((t) => {
-      const ts = normalizeTight(t.symbol);
-      if (ts === symTight) return false;
-      return normalizeLeet(t.symbol) === leet || (symTight.length >= 4 && editDistance(ts, symTight) <= 1);
-    });
-    if (look) {
+  if (best) {
+    const { t, exactSym, exactName, symNear, nameNear } = best;
+    targetLabel = t.symbol;
+    if (exactSym) {
+      danger = true;
+      signals.push({
+        level: 'danger',
+        title: `Impersonates the verified token ${t.symbol}`,
+        detail: `This token advertises the symbol “${symbol}”, which belongs to the verified ${t.name} (${t.symbol}). This denom is not that token — the real ${t.symbol} is ${t.denom}.`,
+      });
+    } else if (exactName) {
+      danger = true;
+      signals.push({
+        level: 'danger',
+        title: `Impersonates the verified token ${t.symbol}`,
+        detail: `This token’s name “${name}” matches the verified ${t.name} (${t.symbol}) at a different denom. The real one is ${t.denom}.`,
+      });
+    } else if (symNear && nameNear) {
+      danger = true;
+      const homoglyph = usesConfusables(symbol) || usesConfusables(name);
+      signals.push({
+        level: 'danger',
+        title: `Near-identical to verified token ${t.symbol}`,
+        detail: `Both the symbol “${symbol}” and name “${name}” are one character away from the verified ${t.name} (${t.symbol})${homoglyph ? ' and use look-alike characters' : ''} — a classic impersonation pattern. The real ${t.symbol} is ${t.denom}.`,
+      });
+    } else {
       warn = true;
-      const trick = usesConfusables(symbol)
-        ? 'using look-alike characters'
-        : 'using a near-identical spelling';
+      const field = symNear ? `symbol “${symbol}”` : `name “${name}”`;
+      const trick = usesConfusables(symbol) || usesConfusables(name)
+        ? 'uses look-alike characters'
+        : 'is a near-identical spelling';
       signals.push({
         level: 'warn',
-        title: `Look-alike of verified token ${look.symbol}`,
-        detail: `The symbol “${symbol}” closely resembles the verified ${look.name} (${look.symbol}) ${trick}. The real ${look.symbol} is ${look.denom}.`,
+        title: `Look-alike of verified token ${t.symbol}`,
+        detail: `Its ${field} closely resembles the verified ${t.name} (${t.symbol}) — it ${trick}. The real ${t.symbol} is ${t.denom}.`,
       });
     }
   }
@@ -203,6 +244,7 @@ export async function checkToken(rawQuery: string): Promise<TokenCheck> {
     const official = officialTokenForAliases(aliasTights, tokens);
     if (official && official.denom === denom) break; // it is the official token (handled above)
 
+    targetLabel = proj.name;
     if (official) {
       danger = true;
       signals.push({
@@ -243,9 +285,9 @@ export async function checkToken(rawQuery: string): Promise<TokenCheck> {
 
   const verdict: Verdict = danger ? 'impersonation' : warn ? 'lookalike' : 'unverified';
   const headline = danger
-    ? `Likely impersonation — this is not the real ${symbol || name}.`
+    ? `Likely impersonation${targetLabel ? ` of ${targetLabel}` : ''} — this is not the real ${targetLabel ?? symbol ?? name}.`
     : warn
-      ? `Look-alike of a verified token — check carefully.`
+      ? `Look-alike of the verified ${targetLabel ?? 'token'} — check carefully.`
       : `Unverified token — no impersonation detected, but identity is unconfirmed.`;
 
   return { query, mode: 'denom', denom, onchainName: name, onchainSymbol: symbol, creator, verdict, headline, signals };
