@@ -58,6 +58,14 @@ const MAX_PER_COLLECTION = 24; // thumbnails rendered per collection — the own
 const OWNER_PAGE_LIMIT = 30; // tokens{owner} page size
 const MAX_OWNER_COUNT_PAGES = 100; // safety bound on full-count paging (~3k tokens/collection)
 const METADATA_CONCURRENCY = 10;
+// Absolute wall-clock budget for the whole /api/portfolio request (ownership
+// scan + metadata resolution), measured from the function start. When IPFS
+// gateways are slow, metadata resolution stops issuing new fetches past this
+// mark and the response returns with the thumbnails it has (the rest resolve
+// client-side / via the "load images" expander), so the function can never hit
+// its maxDuration and 504. Kept comfortably under the route's maxDuration (120s)
+// to leave room for in-flight requests to drain.
+const OVERALL_TIME_BUDGET_MS = 70_000;
 // "Show all" expander: how many images one collection can resolve on demand.
 // Generous but bounded so a whale's collection can't spin forever.
 const MAX_EXPAND_ITEMS = 300;
@@ -365,7 +373,13 @@ async function fetchTokenMeta(
   collection: string,
   tokenId: string,
   lcdSeed: number,
+  deadline = Infinity,
 ): Promise<NftItem> {
+  // Past the wall-clock budget, don't start new network work — return a
+  // placeholder so the response can come back before the function times out.
+  // The client still renders the tile and can load the image on demand.
+  if (Date.now() > deadline) return { tokenId, name: null, image: null };
+
   // metadata_u_r_i → the token's IPFS metadata JSON URL.
   const uriBody = await getJson(
     smartQueryUrl(lcdFor(lcdSeed), collection, { metadata_u_r_i: { token_id: tokenId } }),
@@ -418,6 +432,7 @@ async function resolveTalisProfileId(address: string): Promise<string | null> {
 // ── Public entry point ───────────────────────────────────────────────────────
 
 export async function buildPortfolio(address: string): Promise<Portfolio> {
+  const started = Date.now();
   const collections = await getCollections();
 
   // Ownership scan and the profile-id lookup are independent — run them together.
@@ -425,6 +440,10 @@ export async function buildPortfolio(address: string): Promise<Portfolio> {
     scanOwnership(address, collections),
     resolveTalisProfileId(address),
   ]);
+
+  // Whatever the scan consumed, metadata resolution must stop by this mark so the
+  // whole request returns before the route's maxDuration (see OVERALL_TIME_BUDGET_MS).
+  const metaDeadline = started + OVERALL_TIME_BUDGET_MS;
 
   // Verified collections first, then busiest — so authentic holdings lead and
   // metadata budget favours them over the impostor long tail.
@@ -443,7 +462,7 @@ export async function buildPortfolio(address: string): Promise<Portfolio> {
       ? await mapWithConcurrency(
           hit.tokenIds.slice(0, Math.min(hit.tokenIds.length, MAX_NFTS)),
           METADATA_CONCURRENCY,
-          (id, idx) => fetchTokenMeta(hit.collection.address, id, idx),
+          (id, idx) => fetchTokenMeta(hit.collection.address, id, idx, metaDeadline),
         )
       : [];
     return {
@@ -498,9 +517,11 @@ export async function fetchCollectionItems(
   owner: string,
   collection: string,
 ): Promise<CollectionItems> {
+  const started = Date.now();
   const { count, ids } = await pageOwnedTokenIds(collection, owner, 0, MAX_EXPAND_ITEMS);
+  const deadline = started + OVERALL_TIME_BUDGET_MS;
   const items = await mapWithConcurrency(ids, METADATA_CONCURRENCY, (id, idx) =>
-    fetchTokenMeta(collection, id, idx),
+    fetchTokenMeta(collection, id, idx, deadline),
   );
   return { address: collection, count, items, truncated: count > ids.length };
 }
