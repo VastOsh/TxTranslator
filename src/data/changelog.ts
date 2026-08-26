@@ -11,10 +11,20 @@ export interface ChangelogVersion {
   entries: ChangelogEntry[];
 }
 
-export const CURRENT_VERSION = 'v1.9.4';
+export const CURRENT_VERSION = 'v1.10.0';
 
 // Entries within each version are ordered: critical → fix → improvement → feature
 export const CHANGELOG: ChangelogVersion[] = [
+  {
+    version: 'v1.10.0',
+    date: '2026-08-25',
+    entries: [
+      {
+        type: 'feature',
+        text: 'New Token Safety check at /token — paste a token’s denom (or a symbol) and see whether it’s the real one or an impostor. Meme-launchpad tokens routinely copy a trusted ticker or a famous project’s name to mislead buyers, so identity is checked the honest way: against Injective’s official verified-token registry (identity is the on-chain denom, never the copyable symbol) and a pinned list of blue-chip NFT collections / projects. It flags exact impersonation (a token claiming a verified symbol at a different denom), look-alikes (Cyrillic homoglyphs, digit swaps like 1NJ, one-character-off names), and tokens borrowing a famous collection’s name that has no official token — e.g. a “Cult of Anon / COA” token unaffiliated with the Cult of Anons collection. It also shows whether the token has graduated to a real spot market on Injective’s exchange (the shared market Choice and Helix trade against) — a live market is a legitimacy signal with a direct trade link, while an impostor typically has none. Every signal is sourced and links to the explorer; it never shows a fake safety score and states plainly that no red flags is not a guarantee of safety',
+      },
+    ],
+  },
   {
     version: 'v1.9.4',
     date: '2026-08-25',

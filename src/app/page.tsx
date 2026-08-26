@@ -324,6 +324,14 @@ export default function Home() {
               NFT portfolio
               <span aria-hidden style={{ opacity: 0.7 }}>→</span>
             </Link>
+            <Link href="/token" className="tx-dapp-cta">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round">
+                <path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z" />
+                <path d="M9.5 12l2 2 3.5-4" />
+              </svg>
+              Token safety
+              <span aria-hidden style={{ opacity: 0.7 }}>→</span>
+            </Link>
           </div>
         )}
       </section>
