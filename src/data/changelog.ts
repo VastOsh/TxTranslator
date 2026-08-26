@@ -11,10 +11,20 @@ export interface ChangelogVersion {
   entries: ChangelogEntry[];
 }
 
-export const CURRENT_VERSION = 'v1.10.1';
+export const CURRENT_VERSION = 'v1.11.0';
 
 // Entries within each version are ordered: critical → fix → improvement → feature
 export const CHANGELOG: ChangelogVersion[] = [
+  {
+    version: 'v1.11.0',
+    date: '2026-08-26',
+    entries: [
+      {
+        type: 'feature',
+        text: 'The /token check now adds rug-risk signals and a holder breakdown for tokens minted on the Trippy launchpad (pump.trippyinj). It shows the real holder distribution — total holders, how many are actual wallets vs the bonding-curve escrow and liquidity pools (which are labeled and excluded so a curve reserve is never mistaken for a whale), how concentrated supply is among real holders (top holder and top-10 share), and a bubble map of the real holders sized by their share so a dominant whale stands out at a glance. It also flags whether mint authority has been renounced or more supply can still be minted, and the token’s stage and age (still on the bonding curve vs delivered vs graduated to a live market). Injective disables on-chain holder enumeration, so the holder list is sourced from the launchpad’s own data; concentration is measured only over real holders, never the escrow. Every signal is plainly worded — never a safety score',
+      },
+    ],
+  },
   {
     version: 'v1.10.1',
     date: '2026-08-26',

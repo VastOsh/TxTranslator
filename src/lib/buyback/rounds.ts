@@ -58,7 +58,7 @@ async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T)
   return results;
 }
 
-interface RoundInfo {
+export interface RoundInfo {
   id: number;
   slots: number;
   usedSlots: number;
@@ -214,10 +214,8 @@ export interface BuybackProfile {
   partial: boolean;                 // at least one round query never resolved
 }
 
-export async function buildBuybackProfile(address: string): Promise<BuybackProfile> {
-  const prices = await fetchTokenPrices();
-
-  // Discover existing rounds (probe concurrently, keep the contiguous run from 1).
+/** Discover existing rounds (probe concurrently, keep the contiguous run from 1). */
+export async function discoverRounds(): Promise<RoundInfo[]> {
   const ids = Array.from({ length: MAX_ROUND_PROBE }, (_, i) => i + 1);
   const infos = await mapWithConcurrency(ids, CONCURRENCY, fetchRoundInfo);
   const rounds: RoundInfo[] = [];
@@ -225,6 +223,57 @@ export async function buildBuybackProfile(address: string): Promise<BuybackProfi
     if (!info) break; // first gap = no more rounds
     rounds.push(info);
   }
+  return rounds;
+}
+
+/**
+ * Whitelisted-but-didn't-deposit addresses for a round ("shut out"). The
+ * contract paginates via start_after; we walk up to `cap` then report whether
+ * the true total is larger. Returns a small sample for display — the full list
+ * runs to thousands and only the count and membership check are meaningful.
+ */
+export async function getUnusedWhitelist(
+  roundId: number,
+  cap = 8000,
+): Promise<{ count: number; capped: boolean; sample: string[] }> {
+  const all: string[] = [];
+  let startAfter: string | undefined;
+  while (all.length < cap) {
+    const query = startAfter
+      ? { get_unused_whitelisted_addresses: { round_id: roundId, start_after: startAfter, limit: 500 } }
+      : { get_unused_whitelisted_addresses: { round_id: roundId, limit: 500 } };
+    const r = await smartQuery(query);
+    if (!r || !r.ok || !Array.isArray(r.data) || !r.data.length) break;
+    all.push(...(r.data as string[]));
+    if (r.data.length < 500) break;
+    startAfter = r.data[r.data.length - 1] as string;
+  }
+  return { count: all.length, capped: all.length >= cap, sample: all.slice(0, 250) };
+}
+
+export type WalletRoundStatus = 'in' | 'shut_out' | 'not_whitelisted' | 'unknown';
+
+/** Classify a wallet against a round: got in, whitelisted-but-shut-out, or not whitelisted. */
+export async function getUserRoundStatus(
+  addr: string,
+  roundId: number,
+): Promise<{ status: WalletRoundStatus; depositInj: string | null }> {
+  const r = await smartQuery({ get_user_round_info: { user_addr: addr, round_id: roundId } });
+  if (!r) return { status: 'unknown', depositInj: null };
+  if (!r.ok) {
+    if (/not found|not in round/i.test(r.message)) return { status: 'not_whitelisted', depositInj: null };
+    return { status: 'unknown', depositInj: null };
+  }
+  const depRaw = String(r.data.deposit ?? '0');
+  let committed = false;
+  try { committed = BigInt(depRaw) > BigInt(0); } catch { /* ignore */ }
+  return { status: committed ? 'in' : 'shut_out', depositInj: formatAmount(depRaw, 'inj') };
+}
+
+export async function buildBuybackProfile(address: string): Promise<BuybackProfile> {
+  const prices = await fetchTokenPrices();
+
+  const rounds = await discoverRounds();
 
   const nowSec = Math.floor(Date.now() / 1000);
   const currentRound = rounds.length ? rounds[rounds.length - 1] : null;

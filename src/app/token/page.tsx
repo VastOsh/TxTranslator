@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import Changelog from '@/components/Changelog';
@@ -72,6 +72,129 @@ function SignalCard({ s }: { s: Signal }) {
             {s.link.label} <span aria-hidden>↗</span>
           </a>
         )}
+      </div>
+    </div>
+  );
+}
+
+type Holders = NonNullable<TokenCheck['holders']>;
+
+function shortHolder(a: string): string {
+  return a.length > 14 ? `${a.slice(0, 8)}…${a.slice(-6)}` : a;
+}
+function pctLabel(n: number): string {
+  return (n >= 1 ? n.toFixed(1) : n.toFixed(2)).replace(/\.?0+$/, '') + '%';
+}
+
+interface Packed { address: string; pct: number; x: number; y: number; r: number; }
+
+function packBubbles(items: Array<{ address: string; pct: number }>): { placed: Packed[]; vb: string } | null {
+  if (!items.length) return null;
+  const maxPct = items[0].pct || items.reduce((m, i) => Math.max(m, i.pct), 0) || 1;
+  const MAXR = 54, MINR = 8;
+  const placed: Packed[] = [];
+  for (const it of items) {
+    const r = Math.max(MINR, MAXR * Math.sqrt(Math.max(it.pct, 0.0001) / maxPct));
+    if (!placed.length) { placed.push({ ...it, r, x: 0, y: 0 }); continue; }
+    let done = false;
+    for (let t = 1; t < 5000 && !done; t++) {
+      const ang = t * 0.5, rad = t * 0.55;
+      const x = Math.cos(ang) * rad, y = Math.sin(ang) * rad;
+      if (placed.every((p) => Math.hypot(p.x - x, p.y - y) >= p.r + r + 3)) {
+        placed.push({ ...it, r, x, y }); done = true;
+      }
+    }
+    if (!done) placed.push({ ...it, r, x: 0, y: 0 });
+  }
+  const pad = 6;
+  const minX = Math.min(...placed.map((p) => p.x - p.r)) - pad;
+  const minY = Math.min(...placed.map((p) => p.y - p.r)) - pad;
+  const w = Math.max(...placed.map((p) => p.x + p.r)) + pad - minX;
+  const hgt = Math.max(...placed.map((p) => p.y + p.r)) + pad - minY;
+  return { placed, vb: `${minX} ${minY} ${w} ${hgt}` };
+}
+
+function BubbleMap({ items }: { items: Array<{ address: string; pct: number }> }) {
+  const pack = useMemo(() => packBubbles(items), [items]);
+  if (!pack) return null;
+  return (
+    <div style={{ marginBottom: '0.85rem' }}>
+      <svg viewBox={pack.vb} style={{ width: '100%', height: 'auto', maxHeight: 320, display: 'block' }} role="img" aria-label="Holder distribution bubble map">
+        {pack.placed.map((p) => {
+          const hot = p.pct >= 20;
+          const fill = hot ? 'rgba(246, 71, 114, 0.9)' : 'var(--tx-purple)';
+          const op = 0.45 + Math.min(0.5, p.r / 54 * 0.5);
+          return (
+            <g key={p.address}>
+              <circle cx={p.x} cy={p.y} r={p.r} fill={fill} fillOpacity={op} stroke={hot ? 'var(--tx-red)' : 'var(--tx-purple)'} strokeOpacity={0.5} strokeWidth={0.7}>
+                <title>{`${p.address}\n${(p.pct >= 1 ? p.pct.toFixed(1) : p.pct.toFixed(2)).replace(/\.?0+$/, '')}% of supply`}</title>
+              </circle>
+              {p.r >= 17 && (
+                <text x={p.x} y={p.y} textAnchor="middle" dominantBaseline="central" fontSize={Math.min(p.r * 0.5, 13)} fill="var(--tx-bg)" fontWeight={700} style={{ pointerEvents: 'none' }}>
+                  {(p.pct >= 1 ? p.pct.toFixed(0) : p.pct.toFixed(1)).replace(/\.?0+$/, '')}%
+                </text>
+              )}
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
+function HoldersCard({ h }: { h: Holders }) {
+  const max = Math.max(...h.rows.map(r => r.pct), 0.0001);
+  const muted = 'rgba(244, 241, 233, 0.55)';
+  return (
+    <div
+      style={{
+        background: 'rgba(244, 241, 233, 0.03)', border: '1px solid var(--tx-border)',
+        borderRadius: 10, padding: '0.9rem 1rem', marginBottom: '0.6rem',
+      }}
+    >
+      <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--tx-text)', marginBottom: '0.2rem' }}>
+        Holders
+      </div>
+      <div style={{ fontSize: '0.78rem', color: DETAIL_COLOR, marginBottom: '0.75rem', lineHeight: 1.5 }}>
+        {h.totalHolders.toLocaleString()} addresses · {h.userHolders.toLocaleString()} real wallets ·
+        top real holder {pctLabel(h.topRealPct)}, top 10 {pctLabel(h.top10RealPct)} (escrow &amp; pools excluded)
+      </div>
+      {h.bubble.length >= 2 && (
+        <>
+          <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: muted, marginBottom: '0.5rem' }}>
+            Real-holder map · {h.bubble.length} wallet{h.bubble.length === 1 ? '' : 's'} (escrow &amp; pools excluded)
+          </div>
+          <BubbleMap items={h.bubble} />
+        </>
+      )}
+      {h.rows.map((r) => (
+        <div key={r.address} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.3rem' }}>
+          <span
+            style={{
+              flex: '0 0 auto', width: 118, fontFamily: 'var(--font-mono, monospace)', fontSize: '0.72rem',
+              color: r.isProtocol ? muted : 'var(--tx-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}
+          >
+            {shortHolder(r.address)}
+          </span>
+          <div style={{ flex: 1, background: 'rgba(244, 241, 233, 0.05)', borderRadius: 4, height: 14, overflow: 'hidden' }}>
+            <div
+              style={{
+                width: `${Math.max(2, (r.pct / max) * 100)}%`, height: '100%', borderRadius: 4,
+                background: r.isProtocol ? 'rgba(167, 139, 250, 0.35)' : 'var(--tx-purple)',
+              }}
+            />
+          </div>
+          {r.isProtocol && r.label && (
+            <span style={{ flex: '0 0 auto', fontSize: '0.62rem', color: muted, fontWeight: 600 }}>{r.label}</span>
+          )}
+          <span style={{ flex: '0 0 auto', width: 52, textAlign: 'right', fontSize: '0.72rem', color: DETAIL_COLOR, fontVariantNumeric: 'tabular-nums' }}>
+            {pctLabel(r.pct)}
+          </span>
+        </div>
+      ))}
+      <div style={{ fontSize: '0.68rem', color: muted, marginTop: '0.6rem', lineHeight: 1.5 }}>
+        Holder data from the launchpad. Escrow and pool addresses are labeled and left out of the concentration figures above.
       </div>
     </div>
   );
@@ -213,6 +336,7 @@ export default function TokenPage() {
           </div>
 
           {result.signals.map((s, i) => <SignalCard key={i} s={s} />)}
+          {result.holders && <HoldersCard h={result.holders} />}
         </section>
       )}
 

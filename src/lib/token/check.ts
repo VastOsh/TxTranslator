@@ -1,6 +1,9 @@
 import { getVerifiedTokens, KNOWN_PROJECTS, type VerifiedToken } from './reference';
 import { findSpotMarketByBase, choiceTradeUrl, choiceTokenUrl, type SpotMarket } from './market';
 import { normalizeTight, normalizeLoose, normalizeLeet, usesConfusables, editDistance } from './normalize';
+import {
+  isLaunchpadDenom, fetchLaunchInfo, fetchLaunchpadHolders, type LaunchpadHolders,
+} from './launchpad';
 
 export type SignalLevel = 'ok' | 'info' | 'warn' | 'danger';
 
@@ -24,6 +27,7 @@ export interface TokenCheck {
   verdict: Verdict;
   headline: string;
   signals: Signal[];
+  holders: LaunchpadHolders | null;
 }
 
 const LCDS = [
@@ -125,6 +129,10 @@ export async function checkToken(rawQuery: string): Promise<TokenCheck> {
     ? { ticker: spot.ticker, marketId: spot.marketId, status: spot.status, url: choiceTradeUrl(spot.marketId) }
     : null;
 
+  // Launchpad rug-risk signals (empty + no network call for non-launchpad denoms).
+  const launchpad = await buildLaunchpadSignals(denom, creator);
+  const launchpadSignals = launchpad.signals;
+
   // 1. Already in the verified registry → it IS the official token.
   const registered = tokens.find((t) => t.denom === denom);
   if (registered) {
@@ -140,6 +148,7 @@ export async function checkToken(rawQuery: string): Promise<TokenCheck> {
     return {
       query, mode: 'denom', denom, onchainName: registered.name, onchainSymbol: registered.symbol,
       creator, market, verdict: 'verified', headline: `Verified: this is the official ${registered.symbol}.`, signals,
+      holders: launchpad.holders,
     };
   }
 
@@ -153,11 +162,13 @@ export async function checkToken(rawQuery: string): Promise<TokenCheck> {
         'This denom has no readable bank metadata, or it could not be reached. It is not on the verified token list either — its identity cannot be confirmed.',
     });
     signals.push(identitySignal(denom, null, null, creator));
+    signals.push(...launchpadSignals);
     signals.push(marketSignal(spot));
     signals.push(DISCLAIMER);
     return {
       query, mode: 'denom', denom, onchainName: null, onchainSymbol: null, creator, market,
       verdict: 'unknown', headline: 'Not on the verified list and no readable metadata — unverified.', signals,
+      holders: launchpad.holders,
     };
   }
 
@@ -300,6 +311,7 @@ export async function checkToken(rawQuery: string): Promise<TokenCheck> {
   }
 
   signals.push(identitySignal(denom, name, symbol, creator));
+  signals.push(...launchpadSignals);
   signals.push(marketSignal(spot));
   signals.push(DISCLAIMER);
 
@@ -310,7 +322,7 @@ export async function checkToken(rawQuery: string): Promise<TokenCheck> {
       ? `Look-alike of the verified ${targetLabel ?? 'token'} — check carefully.`
       : `Unverified token — no impersonation detected, but identity is unconfirmed.`;
 
-  return { query, mode: 'denom', denom, onchainName: name, onchainSymbol: symbol, creator, market, verdict, headline, signals };
+  return { query, mode: 'denom', denom, onchainName: name, onchainSymbol: symbol, creator, market, verdict, headline, signals, holders: launchpad.holders };
 }
 
 // Whether a token has graduated to a real Injective spot market (Choice/Helix
@@ -357,6 +369,87 @@ function identitySignal(
     detail: bits.join(' '),
     link: creator ? { label: 'Creator on explorer', url: explorerAccount(creator) } : undefined,
   };
+}
+
+// ── Trippy launchpad rug-risk signals ─────────────────────────────────────
+// For tokens minted by the launchpad, surface what its own contract exposes:
+// how concentrated supply is in the launch wallet, whether more can still be
+// minted, the dev's track record, and the token's stage/age. Honest signals,
+// not a verdict — a launchpad token is not inherently a scam.
+function ageLabel(registeredAt: number): string {
+  if (!registeredAt) return 'recently';
+  const s = Math.floor(Date.now() / 1000) - registeredAt;
+  if (s < 3600) return `${Math.max(1, Math.round(s / 60))} min ago`;
+  if (s < 86400) return `${Math.round(s / 3600)}h ago`;
+  const d = Math.round(s / 86400);
+  return d <= 1 ? 'about a day ago' : `${d} days ago`;
+}
+
+function pctText(n: number): string {
+  return (n >= 1 ? n.toFixed(1) : n.toFixed(2)).replace(/\.?0+$/, '');
+}
+
+async function buildLaunchpadSignals(
+  denom: string,
+  creator: string | null,
+): Promise<{ signals: Signal[]; holders: LaunchpadHolders | null }> {
+  if (!isLaunchpadDenom(creator)) return { signals: [], holders: null };
+  const info = await fetchLaunchInfo(denom);
+  if (!info) return { signals: [], holders: null };
+  const holders = await fetchLaunchpadHolders(denom, info.totalSupplyRaw);
+
+  const out: Signal[] = [];
+  const onCurve = !info.graduated && info.status !== 'delivered';
+  const stageWord = info.graduated ? 'graduated' : info.status === 'delivered' ? 'delivered' : 'on the curve';
+  const stageDetail = info.graduated
+    ? 'graduated to a live market'
+    : info.status === 'delivered'
+      ? 'completed its bonding curve (delivered), but is not on a live exchange market'
+      : 'still on the bonding curve — not yet graduated';
+
+  // Stage + age
+  out.push({
+    level: onCurve ? 'warn' : 'info',
+    title: `Launchpad token — ${stageWord}`,
+    detail: `Minted on the Trippy launchpad and ${stageDetail}. Launched ${ageLabel(info.registeredAt)}.${onCurve ? ' Early tokens sit on a bonding curve until they graduate to a real market.' : ''}`,
+  });
+
+  // Holders + concentration — real holders only (escrow/pools labeled & excluded).
+  // Source is the launchpad's own backend (chain-level holder enumeration is off),
+  // which labels protocol addresses so a curve escrow isn't mistaken for a whale.
+  if (holders) {
+    const p = holders.topRealPct;
+    const lowTraction = holders.userHolders < 15;
+    const level: SignalLevel = p >= 20 ? 'danger' : p >= 10 || lowTraction ? 'warn' : 'info';
+    out.push({
+      level,
+      title: `${holders.userHolders} real holder${holders.userHolders === 1 ? '' : 's'}${p >= 10 ? ` · top holds ${pctText(p)}%` : ''}`,
+      detail:
+        `${holders.totalHolders} addresses hold this token; ${holders.userHolders} are real wallets (the rest are the bonding-curve escrow and pools). ` +
+        (p >= 10
+          ? `The largest real holder controls ${pctText(p)}% of supply and the top 10 hold ${pctText(holders.top10RealPct)}% — enough to move the price sharply on a sell. `
+          : `The largest real holder controls ${pctText(p)}% — no single wallet dominates the float. `) +
+        (onCurve ? `${pctText(holders.escrowPct)}% of supply is still unsold in the curve escrow${lowTraction ? ', and very few wallets hold it — little traction so far' : ''}.` : ''),
+    });
+  }
+
+  // Mint authority
+  out.push(
+    info.adminRenounced
+      ? {
+          level: 'ok',
+          title: 'Mint authority renounced',
+          detail: 'The launch admin has been renounced — total supply is fixed and no more can be minted.',
+        }
+      : {
+          level: 'warn',
+          title: 'Mint authority not renounced',
+          detail:
+            'The launch contract can still mint additional supply, which would dilute existing holders. Supply is not fixed.',
+        },
+  );
+
+  return { signals: out, holders };
 }
 
 // ── Lookup mode: bare symbol/name → surface the real token(s)/project(s) ───────
@@ -408,6 +501,7 @@ function lookupMode(query: string, tokens: VerifiedToken[]): TokenCheck {
     creator: null,
     market: null,
     verdict: matchingTokens.length ? 'verified' : found ? 'unverified' : 'unknown',
+    holders: null,
     headline: found
       ? `Here is what “${query}” officially refers to on Injective.`
       : `No verified token or known project matches “${query}”. Paste the token’s denom to check a specific one.`,
