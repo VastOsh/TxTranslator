@@ -77,6 +77,65 @@ function SignalCard({ s }: { s: Signal }) {
   );
 }
 
+type Holders = NonNullable<TokenCheck['holders']>;
+
+function shortHolder(a: string): string {
+  return a.length > 14 ? `${a.slice(0, 8)}…${a.slice(-6)}` : a;
+}
+function pctLabel(n: number): string {
+  return (n >= 1 ? n.toFixed(1) : n.toFixed(2)).replace(/\.?0+$/, '') + '%';
+}
+
+function HoldersCard({ h }: { h: Holders }) {
+  const max = Math.max(...h.rows.map(r => r.pct), 0.0001);
+  const muted = 'rgba(244, 241, 233, 0.55)';
+  return (
+    <div
+      style={{
+        background: 'rgba(244, 241, 233, 0.03)', border: '1px solid var(--tx-border)',
+        borderRadius: 10, padding: '0.9rem 1rem', marginBottom: '0.6rem',
+      }}
+    >
+      <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--tx-text)', marginBottom: '0.2rem' }}>
+        Holders
+      </div>
+      <div style={{ fontSize: '0.78rem', color: DETAIL_COLOR, marginBottom: '0.75rem', lineHeight: 1.5 }}>
+        {h.totalHolders.toLocaleString()} addresses · {h.userHolders.toLocaleString()} real wallets ·
+        top real holder {pctLabel(h.topRealPct)}, top 10 {pctLabel(h.top10RealPct)} (escrow &amp; pools excluded)
+      </div>
+      {h.rows.map((r) => (
+        <div key={r.address} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.3rem' }}>
+          <span
+            style={{
+              flex: '0 0 auto', width: 118, fontFamily: 'var(--font-mono, monospace)', fontSize: '0.72rem',
+              color: r.isProtocol ? muted : 'var(--tx-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}
+          >
+            {shortHolder(r.address)}
+          </span>
+          <div style={{ flex: 1, background: 'rgba(244, 241, 233, 0.05)', borderRadius: 4, height: 14, overflow: 'hidden' }}>
+            <div
+              style={{
+                width: `${Math.max(2, (r.pct / max) * 100)}%`, height: '100%', borderRadius: 4,
+                background: r.isProtocol ? 'rgba(167, 139, 250, 0.35)' : 'var(--tx-purple)',
+              }}
+            />
+          </div>
+          {r.isProtocol && r.label && (
+            <span style={{ flex: '0 0 auto', fontSize: '0.62rem', color: muted, fontWeight: 600 }}>{r.label}</span>
+          )}
+          <span style={{ flex: '0 0 auto', width: 52, textAlign: 'right', fontSize: '0.72rem', color: DETAIL_COLOR, fontVariantNumeric: 'tabular-nums' }}>
+            {pctLabel(r.pct)}
+          </span>
+        </div>
+      ))}
+      <div style={{ fontSize: '0.68rem', color: muted, marginTop: '0.6rem', lineHeight: 1.5 }}>
+        Holder data from the launchpad. Escrow and pool addresses are labeled and left out of the concentration figures above.
+      </div>
+    </div>
+  );
+}
+
 export default function TokenPage() {
   const [changelogOpen, setChangelogOpen] = useState(false);
   const [value, setValue] = useState('');
@@ -213,6 +272,7 @@ export default function TokenPage() {
           </div>
 
           {result.signals.map((s, i) => <SignalCard key={i} s={s} />)}
+          {result.holders && <HoldersCard h={result.holders} />}
         </section>
       )}
 
