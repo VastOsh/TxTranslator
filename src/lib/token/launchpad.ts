@@ -100,7 +100,8 @@ export interface LaunchpadHolders {
   soldPct: number;       // 100 - escrowPct (roughly, how much left the curve)
   topRealPct: number;    // largest single non-protocol holder
   top10RealPct: number;
-  rows: HolderRow[];      // top rows for display (protocols labeled)
+  rows: HolderRow[];      // top rows for the list (protocols labeled)
+  bubble: Array<{ address: string; pct: number }>; // real holders only, for the bubble map
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -149,6 +150,7 @@ export async function fetchLaunchpadHolders(
   });
 
   const escrowPct = Number((escrowRaw * BigInt(10000)) / supply) / 100;
+  const bubble = real.slice(0, 40).map((h) => ({ address: String(h.address), pct: pctOf(String(h.balance)) }));
   return {
     totalHolders: Number(count?.count) || items.length,
     userHolders: Number(count?.userCount) || real.length,
@@ -157,6 +159,7 @@ export async function fetchLaunchpadHolders(
     topRealPct: real.length ? pctOf(String(real[0].balance)) : 0,
     top10RealPct: Number((top10Raw * BigInt(10000)) / supply) / 100,
     rows,
+    bubble,
   };
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
