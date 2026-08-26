@@ -1007,8 +1007,13 @@ async function computeTranslation(hash: string, viewerAddress: string) {
     );
 
     const message = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
-      max_tokens: 1024,
+      // Groq retired the Llama models; gpt-oss-120b is the strongest replacement
+      // and the only tier that keeps amounts/USD correct (20b and qwen mis-price).
+      // It's a reasoning model: reasoning is returned in a separate field (content
+      // stays clean JSON) but its tokens count toward max_tokens, so the budget is
+      // raised from 1024 so long governance/trade outputs can't get truncated.
+      model: 'openai/gpt-oss-120b',
+      max_tokens: 2048,
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: userPrompt },

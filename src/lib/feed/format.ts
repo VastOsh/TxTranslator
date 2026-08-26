@@ -115,8 +115,12 @@ export async function generateContextLine(c: FeedCandidate, tier: Tier): Promise
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        max_tokens: 80,
+        // Groq retired the Llama models; gpt-oss-120b replaces it. It's a
+        // reasoning model whose reasoning tokens count toward max_tokens, so we
+        // cap reasoning to 'low' and lift the budget enough to fit a one-liner.
+        model: 'openai/gpt-oss-120b',
+        reasoning_effort: 'low',
+        max_tokens: 160,
         temperature: 0.8,
         messages: [
           { role: 'system', content: CONTEXT_SYSTEM_PROMPT },

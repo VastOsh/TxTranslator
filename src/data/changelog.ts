@@ -11,10 +11,20 @@ export interface ChangelogVersion {
   entries: ChangelogEntry[];
 }
 
-export const CURRENT_VERSION = 'v1.10.0';
+export const CURRENT_VERSION = 'v1.10.1';
 
 // Entries within each version are ordered: critical → fix → improvement → feature
 export const CHANGELOG: ChangelogVersion[] = [
+  {
+    version: 'v1.10.1',
+    date: '2026-08-26',
+    entries: [
+      {
+        type: 'critical',
+        text: 'Transaction decoding works again. Groq retired the Llama model the decoder ran on, so every decode was failing with a "model does not exist" error. Decoding now runs on Groq’s gpt-oss-120b — the strongest available replacement and the one tier that keeps token amounts and USD values accurate (smaller models mis-priced them). The token budget was raised so the longer governance and trade explanations can’t get cut off. The whale-feed context line moved to the same model',
+      },
+    ],
+  },
   {
     version: 'v1.10.0',
     date: '2026-08-25',
