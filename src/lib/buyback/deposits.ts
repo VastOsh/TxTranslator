@@ -148,8 +148,13 @@ export async function fetchRoundParticipants(
     .sort((a, b) => a.timestamp - b.timestamp); // fastest first
 }
 
-/** Unix seconds of a wallet's oldest tx (≈ account age), or null if unknown. */
-export async function fetchFirstSeen(addr: string): Promise<number | null> {
+export interface WalletInfo {
+  firstSeen: number | null; // unix seconds of oldest tx (≈ account age)
+  txCount: number;          // lifetime tx count
+}
+
+/** A wallet's lifetime tx count and first-seen timestamp, or null if unknown. */
+export async function fetchWalletInfo(addr: string): Promise<WalletInfo | null> {
   const head = await fetchJsonOverHttps(
     `${INDEXER_BASE}/api/explorer/v1/accountTxs/${addr}?limit=1`,
   );
@@ -160,28 +165,28 @@ export async function fetchFirstSeen(addr: string): Promise<number | null> {
   );
   /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
   const oldest = (tail?.body?.data as any[])?.[0]?.block_unix_timestamp;
-  return oldest ? Number(oldest) / 1000 : null;
+  return { firstSeen: oldest ? Number(oldest) / 1000 : null, txCount: total };
 }
 
 /**
- * Best-effort first-seen timestamps for many wallets, bounded by a time budget.
+ * Best-effort tx-count + first-seen for many wallets, bounded by a time budget.
  * Wallets left unresolved when the budget runs out are simply absent (the caller
- * treats missing age as "unknown", never as "new"). Age is immutable, so the
- * caller should cache the result.
+ * treats missing data as "unknown", never as a positive signal). Both facts are
+ * immutable-ish, so the caller should cache the result.
  */
-export async function fetchFirstSeenBatch(
+export async function fetchWalletInfoBatch(
   addrs: string[],
   budgetMs: number,
-  concurrency = 10,
-): Promise<Map<string, number>> {
-  const out = new Map<string, number>();
+  concurrency = 12,
+): Promise<Map<string, WalletInfo>> {
+  const out = new Map<string, WalletInfo>();
   const deadline = Date.now() + budgetMs;
   let next = 0;
   async function worker() {
     while (next < addrs.length && Date.now() < deadline) {
       const a = addrs[next++];
-      const ts = await fetchFirstSeen(a);
-      if (ts !== null) out.set(a, ts);
+      const info = await fetchWalletInfo(a);
+      if (info) out.set(a, info);
     }
   }
   await Promise.all(Array.from({ length: Math.min(concurrency, addrs.length) }, worker));

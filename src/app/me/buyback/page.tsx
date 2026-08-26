@@ -39,9 +39,9 @@ interface Participant {
   secondsAfterOpen: number;
   amountInj: string;
   txHash: string;
-  gasWanted: number;
-  fleetSize: number;
+  txCount: number | null;
   firstSeen: number | null;
+  farmGroupSize: number;
   signals: string[];
   automationLikely: boolean;
 }
@@ -64,9 +64,9 @@ interface LastRound {
   };
   botSummary: {
     flaggedCount: number;
-    scriptedPct: number;
-    agesResolved: number;
-    fleets: Array<{ gas: number; count: number }>;
+    farmedCount: number;
+    hyperactiveCount: number;
+    infoResolved: number;
   };
   shutOut: {
     count: number;
@@ -89,9 +89,8 @@ interface WalletStatus {
 type View = 'mine' | 'round' | 'shutout';
 
 const SIGNAL_LABEL: Record<string, string> = {
-  fast: 'fast',
-  'gas-fleet': 'gas-fleet',
-  burst: 'burst',
+  farmed: 'farm group',
+  hyperactive: 'hyperactive',
   new: 'new wallet',
 };
 
@@ -144,6 +143,23 @@ function fmtDelayShort(s: number | null): string {
   if (s < 60) return `${s}s`;
   if (s < 3600) return `${Math.floor(s / 60)}m ${s % 60}s`;
   return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
+}
+
+// Wallet age at the moment the round opened, e.g. "23d" / "8mo" / "1.4y".
+function fmtAge(firstSeen: number | null, ref: number): string {
+  if (firstSeen === null) return '—';
+  const days = (ref - firstSeen) / 86400;
+  if (days < 1) return '<1d';
+  if (days < 30) return `${Math.round(days)}d`;
+  if (days < 365) return `${Math.round(days / 30)}mo`;
+  return `${(days / 365).toFixed(1)}y`;
+}
+
+function fmtCount(n: number | null): string {
+  if (n === null) return '—';
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1000) return `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k`;
+  return String(n);
 }
 
 export default function MyBuybackPage() {
@@ -660,25 +676,20 @@ function RoundView({
         }}
       >
         <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--tx-text)', marginBottom: '0.35rem' }}>
-          🤖 {data.botSummary.flaggedCount} of {stats.uniqueWallets} deposits show automation signals
+          🤖 {data.botSummary.flaggedCount} of {stats.uniqueWallets} wallets show automation signals
         </div>
         <div style={{ fontSize: '0.8rem', color: SOFT, lineHeight: 1.55 }}>
-          {data.botSummary.scriptedPct}% landed in a shared gas-fleet (many wallets submitting with the
-          exact same gas — a scripted tx-builder fingerprint).
-          {data.botSummary.fleets.length > 0 && (
-            <> Largest fleets:{' '}
-              {data.botSummary.fleets.slice(0, 4).map((f, i) => (
-                <span key={f.gas}>
-                  {i > 0 ? ', ' : ''}<strong style={{ color: 'var(--tx-text)' }}>{f.count}</strong>@{Math.round(f.gas / 1000)}k
-                </span>
-              ))}.
-            </>
-          )}
+          <strong style={{ color: 'var(--tx-text)' }}>{data.botSummary.farmedCount}</strong> created in the
+          same block as other entrants (a funded fleet) ·{' '}
+          <strong style={{ color: 'var(--tx-text)' }}>{data.botSummary.hyperactiveCount}</strong> with 5k+
+          lifetime transactions.
         </div>
         <div style={{ fontSize: '0.72rem', color: MUTED, marginTop: '0.45rem', lineHeight: 1.5 }}>
-          Signals from public on-chain data, not proof — a shared gas value can also mean a shared frontend.
-          {data.botSummary.agesResolved < stats.uniqueWallets &&
-            ` Wallet age resolved for ${data.botSummary.agesResolved}/${stats.uniqueWallets}.`}
+          Deliberately not based on deposit speed or gas — when a round fills this fast, everyone deposits
+          quickly and everyone on the Hub site submits near-identical gas, so those flag humans too. These
+          use wallet behaviour instead. Signals, not proof.
+          {data.botSummary.infoResolved < stats.uniqueWallets &&
+            ` Wallet history resolved for ${data.botSummary.infoResolved}/${stats.uniqueWallets}.`}
         </div>
       </div>
 
@@ -739,22 +750,24 @@ function RoundView({
                 {fmtInj(p.amountInj)}
               </span>
             </div>
-            {p.signals.length > 0 && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginTop: '0.35rem', marginLeft: 'calc(30px + 0.55rem)' }}>
-                {p.signals.map((s) => (
-                  <span
-                    key={s}
-                    style={{
-                      fontSize: '0.64rem', fontWeight: 600, color: p.automationLikely ? 'var(--tx-red)' : MUTED,
-                      background: p.automationLikely ? 'rgba(246, 71, 114, 0.1)' : 'rgba(244, 241, 233, 0.05)',
-                      borderRadius: 5, padding: '0.1rem 0.4rem',
-                    }}
-                  >
-                    {s === 'gas-fleet' ? `gas-fleet ×${p.fleetSize}` : SIGNAL_LABEL[s] ?? s}
-                  </span>
-                ))}
-              </div>
-            )}
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.3rem 0.55rem', marginTop: '0.35rem', marginLeft: 'calc(30px + 0.55rem)' }}>
+              <span style={{ fontSize: '0.68rem', color: MUTED }}>
+                age {fmtAge(p.firstSeen, round.startDate)} · {fmtCount(p.txCount)} tx
+              </span>
+              {p.signals.map((s) => (
+                <span
+                  key={s}
+                  style={{
+                    fontSize: '0.64rem', fontWeight: 600,
+                    color: (s !== 'new') ? 'var(--tx-red)' : MUTED,
+                    background: (s !== 'new') ? 'rgba(246, 71, 114, 0.1)' : 'rgba(244, 241, 233, 0.05)',
+                    borderRadius: 5, padding: '0.1rem 0.4rem',
+                  }}
+                >
+                  {s === 'farmed' ? `farm group ×${p.farmGroupSize}` : SIGNAL_LABEL[s] ?? s}
+                </span>
+              ))}
+            </div>
           </div>
         ))}
       </div>
