@@ -1,6 +1,9 @@
 import { getVerifiedTokens, KNOWN_PROJECTS, type VerifiedToken } from './reference';
 import { findSpotMarketByBase, choiceTradeUrl, choiceTokenUrl, type SpotMarket } from './market';
 import { normalizeTight, normalizeLoose, normalizeLeet, usesConfusables, editDistance } from './normalize';
+import {
+  isLaunchpadDenom, fetchLaunchInfo, fetchDevRecord, fetchAuthorityHoldingPct,
+} from './launchpad';
 
 export type SignalLevel = 'ok' | 'info' | 'warn' | 'danger';
 
@@ -125,6 +128,9 @@ export async function checkToken(rawQuery: string): Promise<TokenCheck> {
     ? { ticker: spot.ticker, marketId: spot.marketId, status: spot.status, url: choiceTradeUrl(spot.marketId) }
     : null;
 
+  // Launchpad rug-risk signals (empty + no network call for non-launchpad denoms).
+  const launchpadSignals = await buildLaunchpadSignals(denom, creator);
+
   // 1. Already in the verified registry → it IS the official token.
   const registered = tokens.find((t) => t.denom === denom);
   if (registered) {
@@ -153,6 +159,7 @@ export async function checkToken(rawQuery: string): Promise<TokenCheck> {
         'This denom has no readable bank metadata, or it could not be reached. It is not on the verified token list either — its identity cannot be confirmed.',
     });
     signals.push(identitySignal(denom, null, null, creator));
+    signals.push(...launchpadSignals);
     signals.push(marketSignal(spot));
     signals.push(DISCLAIMER);
     return {
@@ -300,6 +307,7 @@ export async function checkToken(rawQuery: string): Promise<TokenCheck> {
   }
 
   signals.push(identitySignal(denom, name, symbol, creator));
+  signals.push(...launchpadSignals);
   signals.push(marketSignal(spot));
   signals.push(DISCLAIMER);
 
@@ -357,6 +365,93 @@ function identitySignal(
     detail: bits.join(' '),
     link: creator ? { label: 'Creator on explorer', url: explorerAccount(creator) } : undefined,
   };
+}
+
+// ── Trippy launchpad rug-risk signals ─────────────────────────────────────
+// For tokens minted by the launchpad, surface what its own contract exposes:
+// how concentrated supply is in the launch wallet, whether more can still be
+// minted, the dev's track record, and the token's stage/age. Honest signals,
+// not a verdict — a launchpad token is not inherently a scam.
+function ageLabel(registeredAt: number): string {
+  if (!registeredAt) return 'recently';
+  const s = Math.floor(Date.now() / 1000) - registeredAt;
+  if (s < 3600) return `${Math.max(1, Math.round(s / 60))} min ago`;
+  if (s < 86400) return `${Math.round(s / 3600)}h ago`;
+  const d = Math.round(s / 86400);
+  return d <= 1 ? 'about a day ago' : `${d} days ago`;
+}
+
+async function buildLaunchpadSignals(denom: string, creator: string | null): Promise<Signal[]> {
+  if (!isLaunchpadDenom(creator)) return [];
+  const info = await fetchLaunchInfo(denom);
+  if (!info) return [];
+
+  const [pct, dev] = await Promise.all([
+    fetchAuthorityHoldingPct(denom, info.evmAuthority, info.totalSupplyRaw),
+    fetchDevRecord(info.evmAuthority),
+  ]);
+
+  const out: Signal[] = [];
+  const onCurve = !info.graduated && info.status !== 'delivered';
+  const stageWord = info.graduated ? 'graduated' : info.status === 'delivered' ? 'delivered' : 'on the curve';
+  const stageDetail = info.graduated
+    ? 'graduated to a live market'
+    : info.status === 'delivered'
+      ? 'completed its bonding curve (delivered), but is not on a live exchange market'
+      : 'still on the bonding curve — not yet graduated';
+
+  // Stage + age. Only an active, undistributed curve token is a caution on its own.
+  out.push({
+    level: onCurve ? 'warn' : 'info',
+    title: `Launchpad token — ${stageWord}`,
+    detail: `Minted on the Trippy launchpad and ${stageDetail}. Launched ${ageLabel(info.registeredAt)}.${onCurve ? ' Tokens still on the bonding curve are early and controlled by the launch wallet until they graduate.' : ''}`,
+  });
+
+  // Supply concentration — the single most useful rug number
+  if (pct != null) {
+    const shown = pct.toFixed(2).replace(/\.?0+$/, ''); // 99.97, 50, 0.03 — never round 99.97→100
+    const level: SignalLevel = pct >= 90 ? 'danger' : pct >= 50 ? 'warn' : 'info';
+    out.push({
+      level,
+      title: `Launch wallet holds ${shown}% of supply`,
+      detail:
+        pct >= 50
+          ? `One wallet — the launch authority — controls ${shown}% of total supply and can sell into any buyer at will; a purchase is effectively buying from the wallet that holds the entire float.${info.graduated ? '' : ' This is normal for a pre-graduation launchpad token, and exactly why they are high-risk until the supply distributes.'}`
+          : `The launch authority holds ${shown}% of supply — the rest has distributed to other holders.`,
+      link: info.evmAuthority ? { label: 'Launch wallet on explorer', url: explorerAccount(info.evmAuthority) } : undefined,
+    });
+  }
+
+  // Mint authority
+  out.push(
+    info.adminRenounced
+      ? {
+          level: 'ok',
+          title: 'Mint authority renounced',
+          detail: 'The launch admin has been renounced — total supply is fixed and no more can be minted.',
+        }
+      : {
+          level: 'warn',
+          title: 'Mint authority not renounced',
+          detail:
+            'The launch contract can still mint additional supply, which would dilute existing holders. Supply is not fixed.',
+        },
+  );
+
+  // Dev track record
+  if (dev && dev.total > 1) {
+    const serial = dev.total >= 5 && dev.graduated === 0;
+    out.push({
+      level: serial ? 'warn' : 'info',
+      title: serial
+        ? `Serial launcher: ${dev.total} tokens, none graduated`
+        : `Creator track record: ${dev.total} tokens`,
+      detail: `The launch wallet has created ${dev.total} tokens on this launchpad — ${dev.graduated} reached a real market, ${dev.onLaunchpad} are still on the launchpad.${serial ? ' A wallet that launches many tokens without any reaching a market is a common churn/rug pattern.' : ''}`,
+      link: info.evmAuthority ? { label: 'Launch wallet on explorer', url: explorerAccount(info.evmAuthority) } : undefined,
+    });
+  }
+
+  return out;
 }
 
 // ── Lookup mode: bare symbol/name → surface the real token(s)/project(s) ───────

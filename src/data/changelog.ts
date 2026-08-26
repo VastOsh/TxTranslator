@@ -11,10 +11,20 @@ export interface ChangelogVersion {
   entries: ChangelogEntry[];
 }
 
-export const CURRENT_VERSION = 'v1.10.1';
+export const CURRENT_VERSION = 'v1.11.0';
 
 // Entries within each version are ordered: critical → fix → improvement → feature
 export const CHANGELOG: ChangelogVersion[] = [
+  {
+    version: 'v1.11.0',
+    date: '2026-08-26',
+    entries: [
+      {
+        type: 'feature',
+        text: 'The /token check now adds rug-risk signals for tokens minted on the Trippy launchpad (pump.trippyinj). It reads the launchpad’s own on-chain contract to show: how much of the supply the launch wallet still controls (often ~100% before a token graduates — one wallet that can dump on any buyer); whether mint authority has been renounced or more supply can still be minted; the creator’s track record (how many tokens that same wallet has launched and how many ever reached a real market — a wallet that churns out dozens without a single graduation is a classic pattern); and the token’s stage and age (still on the bonding curve vs delivered vs graduated). Every signal is sourced from the launchpad contract and shown as an honest, plainly-worded flag — never a safety score. Note: a full holder “bubble map” isn’t possible because Injective disables denom-holder enumeration chain-wide, so we surface the launch wallet’s own share (the single most useful concentration number) instead',
+      },
+    ],
+  },
   {
     version: 'v1.10.1',
     date: '2026-08-26',
