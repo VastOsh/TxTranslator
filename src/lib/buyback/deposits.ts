@@ -78,6 +78,8 @@ export interface RoundParticipant {
   secondsAfterOpen: number; // timestamp - round start
   amountInjRaw: string;     // total INJ committed (summed if multiple deposits)
   txHash: string;           // first deposit tx
+  gasWanted: number;        // gas of the deposit tx — a tx-builder fingerprint
+  block: number;            // block the deposit landed in
 }
 
 /**
@@ -93,7 +95,7 @@ export async function fetchRoundParticipants(
 ): Promise<RoundParticipant[]> {
   const startMs = startSec * 1000;
   const endMs = endSec * 1000;
-  const byWallet = new Map<string, { ts: number; amount: bigint; hash: string }>();
+  const byWallet = new Map<string, { ts: number; amount: bigint; hash: string; gas: number; block: number }>();
   const MAX_PAGES = 20; // round cap / wallet cap bounds this to a few hundred txs
 
   /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -107,6 +109,8 @@ export async function fetchRoundParticipants(
     for (const t of rows) {
       if (t.code !== 0) continue;
       const ts = Number(t.block_unix_timestamp) / 1000;
+      const gas = Number(t.gas_wanted) || 0;
+      const block = Number(t.block_number) || 0;
       for (const m of t.messages ?? []) {
         if (!String(m.type).includes('MsgExecuteContract')) continue;
         const v = m.value ?? {};
@@ -120,10 +124,10 @@ export async function fetchRoundParticipants(
         const amt = injMatch ? BigInt(injMatch[1]) : BigInt(0);
         const prev = byWallet.get(sender);
         if (!prev) {
-          byWallet.set(sender, { ts, amount: amt, hash: String(t.hash) });
+          byWallet.set(sender, { ts, amount: amt, hash: String(t.hash), gas, block });
         } else {
           prev.amount += amt;
-          if (ts < prev.ts) { prev.ts = ts; prev.hash = String(t.hash); }
+          if (ts < prev.ts) { prev.ts = ts; prev.hash = String(t.hash); prev.gas = gas; prev.block = block; }
         }
       }
     }
@@ -138,8 +142,50 @@ export async function fetchRoundParticipants(
       secondsAfterOpen: Math.max(0, Math.round(d.ts - startSec)),
       amountInjRaw: d.amount.toString(),
       txHash: d.hash,
+      gasWanted: d.gas,
+      block: d.block,
     }))
     .sort((a, b) => a.timestamp - b.timestamp); // fastest first
+}
+
+/** Unix seconds of a wallet's oldest tx (≈ account age), or null if unknown. */
+export async function fetchFirstSeen(addr: string): Promise<number | null> {
+  const head = await fetchJsonOverHttps(
+    `${INDEXER_BASE}/api/explorer/v1/accountTxs/${addr}?limit=1`,
+  );
+  const total = Number(head?.body?.paging?.total);
+  if (!Number.isFinite(total) || total <= 0) return null;
+  const tail = await fetchJsonOverHttps(
+    `${INDEXER_BASE}/api/explorer/v1/accountTxs/${addr}?limit=1&skip=${total - 1}`,
+  );
+  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+  const oldest = (tail?.body?.data as any[])?.[0]?.block_unix_timestamp;
+  return oldest ? Number(oldest) / 1000 : null;
+}
+
+/**
+ * Best-effort first-seen timestamps for many wallets, bounded by a time budget.
+ * Wallets left unresolved when the budget runs out are simply absent (the caller
+ * treats missing age as "unknown", never as "new"). Age is immutable, so the
+ * caller should cache the result.
+ */
+export async function fetchFirstSeenBatch(
+  addrs: string[],
+  budgetMs: number,
+  concurrency = 10,
+): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  const deadline = Date.now() + budgetMs;
+  let next = 0;
+  async function worker() {
+    while (next < addrs.length && Date.now() < deadline) {
+      const a = addrs[next++];
+      const ts = await fetchFirstSeen(a);
+      if (ts !== null) out.set(a, ts);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, addrs.length) }, worker));
+  return out;
 }
 
 /**

@@ -39,6 +39,11 @@ interface Participant {
   secondsAfterOpen: number;
   amountInj: string;
   txHash: string;
+  gasWanted: number;
+  fleetSize: number;
+  firstSeen: number | null;
+  signals: string[];
+  automationLikely: boolean;
 }
 
 interface LastRound {
@@ -57,11 +62,38 @@ interface LastRound {
     medianSeconds: number | null;
     fillSeconds: number | null;
   };
+  botSummary: {
+    flaggedCount: number;
+    scriptedPct: number;
+    agesResolved: number;
+    fleets: Array<{ gas: number; count: number }>;
+  };
+  shutOut: {
+    count: number;
+    capped: boolean;
+    gotIn: number;
+    sample: string[];
+  };
   buckets: Array<{ label: string; count: number }>;
   participants: Participant[];
 }
 
-type View = 'mine' | 'round';
+interface WalletStatus {
+  roundId: number;
+  status: 'in' | 'shut_out' | 'not_whitelisted' | 'unknown';
+  depositInj: string | null;
+  depositTime: number | null;
+  secondsAfterOpen: number | null;
+}
+
+type View = 'mine' | 'round' | 'shutout';
+
+const SIGNAL_LABEL: Record<string, string> = {
+  fast: 'fast',
+  'gas-fleet': 'gas-fleet',
+  burst: 'burst',
+  new: 'new wallet',
+};
 
 const ADDR_RE = /^inj1[a-z0-9]{38}$/;
 const WALLET_KEY = 'tx_me_wallet';
@@ -132,10 +164,16 @@ export default function MyBuybackPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // "last round" global state
+  // "last round" global state (shared by the Last round + Shut out tabs)
   const [round, setRound] = useState<LastRound | null>(null);
   const [roundLoading, setRoundLoading] = useState(false);
   const [roundError, setRoundError] = useState<string | null>(null);
+
+  // "shut out" check-a-wallet state
+  const [checkAddr, setCheckAddr] = useState('');
+  const [checkResult, setCheckResult] = useState<WalletStatus | null>(null);
+  const [checkLoading, setCheckLoading] = useState(false);
+  const [checkError, setCheckError] = useState<string | null>(null);
 
   useEffect(() => {
     let saved = '';
@@ -213,10 +251,32 @@ export default function MyBuybackPage() {
       .finally(() => setRoundLoading(false));
   }
 
-  // Switch tabs; lazily load the round leaderboard the first time it's opened.
+  // Switch tabs; lazily load the shared round data the first time it's needed.
   function selectView(v: View) {
     setView(v);
-    if (v === 'round' && !round && !roundLoading && !roundError) loadRound();
+    if ((v === 'round' || v === 'shutout') && !round && !roundLoading && !roundError) loadRound();
+  }
+
+  function checkWallet(e: React.FormEvent) {
+    e.preventDefault();
+    const addr = checkAddr.trim();
+    if (!ADDR_RE.test(addr)) { setCheckError('Enter a valid inj1… address.'); return; }
+    setCheckError(null);
+    setCheckLoading(true);
+    setCheckResult(null);
+    fetch('/api/me/buyback/status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address: addr }),
+    })
+      .then(r => r.json().then(d => ({ ok: r.ok, status: r.status, d })))
+      .then(({ ok, status, d }) => {
+        if (status === 401) { setAuthed(false); return; }
+        if (!ok) { setCheckError(d?.error ?? 'Could not check this wallet.'); return; }
+        setCheckResult(d.result as WalletStatus);
+      })
+      .catch(() => setCheckError('Network error — try again.'))
+      .finally(() => setCheckLoading(false));
   }
 
   // Jump to "my deposits" for a specific wallet (from the leaderboard).
@@ -334,7 +394,7 @@ export default function MyBuybackPage() {
               marginBottom: '1.5rem', borderBottom: '1px solid var(--tx-border)',
             }}
           >
-            {([['mine', 'My deposits'], ['round', 'Last round · all wallets']] as Array<[View, string]>).map(([v, label]) => (
+            {([['mine', 'My deposits'], ['round', 'Last round'], ['shutout', 'Shut out']] as Array<[View, string]>).map(([v, label]) => (
               <button
                 key={v}
                 onClick={() => selectView(v)}
@@ -505,6 +565,21 @@ export default function MyBuybackPage() {
               onReload={loadRound}
             />
           )}
+
+          {view === 'shutout' && (
+            <ShutOutView
+              data={round}
+              loading={roundLoading}
+              error={roundError}
+              onReload={loadRound}
+              checkAddr={checkAddr}
+              setCheckAddr={setCheckAddr}
+              onCheck={checkWallet}
+              checkResult={checkResult}
+              checkLoading={checkLoading}
+              checkError={checkError}
+            />
+          )}
         </>
       )}
 
@@ -576,6 +651,37 @@ function RoundView({
         <Stat label="Wallet cap" value={`${fmtInj(round.walletCapInj)} INJ`} />
       </div>
 
+      {/* Automation summary */}
+      <div
+        style={{
+          background: 'rgba(246, 71, 114, 0.06)', border: '1px solid var(--tx-border)',
+          borderLeft: '3px solid var(--tx-red)', borderRadius: 10,
+          padding: '0.85rem 1rem', marginBottom: '1.25rem',
+        }}
+      >
+        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--tx-text)', marginBottom: '0.35rem' }}>
+          🤖 {data.botSummary.flaggedCount} of {stats.uniqueWallets} deposits show automation signals
+        </div>
+        <div style={{ fontSize: '0.8rem', color: SOFT, lineHeight: 1.55 }}>
+          {data.botSummary.scriptedPct}% landed in a shared gas-fleet (many wallets submitting with the
+          exact same gas — a scripted tx-builder fingerprint).
+          {data.botSummary.fleets.length > 0 && (
+            <> Largest fleets:{' '}
+              {data.botSummary.fleets.slice(0, 4).map((f, i) => (
+                <span key={f.gas}>
+                  {i > 0 ? ', ' : ''}<strong style={{ color: 'var(--tx-text)' }}>{f.count}</strong>@{Math.round(f.gas / 1000)}k
+                </span>
+              ))}.
+            </>
+          )}
+        </div>
+        <div style={{ fontSize: '0.72rem', color: MUTED, marginTop: '0.45rem', lineHeight: 1.5 }}>
+          Signals from public on-chain data, not proof — a shared gas value can also mean a shared frontend.
+          {data.botSummary.agesResolved < stats.uniqueWallets &&
+            ` Wallet age resolved for ${data.botSummary.agesResolved}/${stats.uniqueWallets}.`}
+        </div>
+      </div>
+
       {/* Time-after-open histogram */}
       <div style={{ marginBottom: '1.5rem' }}>
         <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: MUTED, marginBottom: '0.6rem' }}>
@@ -596,42 +702,59 @@ function RoundView({
       <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: MUTED, marginBottom: '0.6rem' }}>
         All {participants.length} wallets · fastest first
       </div>
-      <div style={{ maxHeight: 460, overflowY: 'auto', border: '1px solid var(--tx-border)', borderRadius: 10 }}>
+      <div style={{ maxHeight: 500, overflowY: 'auto', border: '1px solid var(--tx-border)', borderRadius: 10 }}>
         {participants.map((p) => (
           <div
             key={p.wallet}
             style={{
-              display: 'flex', alignItems: 'center', gap: '0.55rem',
               padding: '0.5rem 0.75rem', borderBottom: '1px solid var(--tx-border)',
-              fontSize: '0.8rem',
+              background: p.automationLikely ? 'rgba(246, 71, 114, 0.05)' : 'transparent',
             }}
           >
-            <span style={{ width: 30, flex: '0 0 auto', color: MUTED, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-              {p.rank}
-            </span>
-            <button
-              onClick={() => onInspect(p.wallet)}
-              title="Inspect this wallet"
-              style={{
-                flex: 1, minWidth: 0, textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer',
-                color: 'var(--tx-text)', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.76rem',
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              }}
-            >
-              {shortAddr(p.wallet)}
-            </button>
-            <span
-              style={{
-                flex: '0 0 auto', fontSize: '0.72rem', fontWeight: 700, color: 'var(--tx-purple)',
-                background: 'rgba(167, 139, 250, 0.12)', borderRadius: 999, padding: '0.15rem 0.5rem',
-                fontVariantNumeric: 'tabular-nums',
-              }}
-            >
-              ⚡ {fmtDelayShort(p.secondsAfterOpen)}
-            </span>
-            <span style={{ flex: '0 0 auto', width: 78, textAlign: 'right', color: SOFT, fontVariantNumeric: 'tabular-nums' }}>
-              {fmtInj(p.amountInj)}
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', fontSize: '0.8rem' }}>
+              <span style={{ width: 30, flex: '0 0 auto', color: MUTED, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                {p.rank}
+              </span>
+              <button
+                onClick={() => onInspect(p.wallet)}
+                title="Inspect this wallet"
+                style={{
+                  flex: 1, minWidth: 0, textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer',
+                  color: 'var(--tx-text)', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.76rem',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}
+              >
+                {shortAddr(p.wallet)}
+              </button>
+              <span
+                style={{
+                  flex: '0 0 auto', fontSize: '0.72rem', fontWeight: 700, color: 'var(--tx-purple)',
+                  background: 'rgba(167, 139, 250, 0.12)', borderRadius: 999, padding: '0.15rem 0.5rem',
+                  fontVariantNumeric: 'tabular-nums',
+                }}
+              >
+                ⚡ {fmtDelayShort(p.secondsAfterOpen)}
+              </span>
+              <span style={{ flex: '0 0 auto', width: 70, textAlign: 'right', color: SOFT, fontVariantNumeric: 'tabular-nums' }}>
+                {fmtInj(p.amountInj)}
+              </span>
+            </div>
+            {p.signals.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginTop: '0.35rem', marginLeft: 'calc(30px + 0.55rem)' }}>
+                {p.signals.map((s) => (
+                  <span
+                    key={s}
+                    style={{
+                      fontSize: '0.64rem', fontWeight: 600, color: p.automationLikely ? 'var(--tx-red)' : MUTED,
+                      background: p.automationLikely ? 'rgba(246, 71, 114, 0.1)' : 'rgba(244, 241, 233, 0.05)',
+                      borderRadius: 5, padding: '0.1rem 0.4rem',
+                    }}
+                  >
+                    {s === 'gas-fleet' ? `gas-fleet ×${p.fleetSize}` : SIGNAL_LABEL[s] ?? s}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -640,6 +763,119 @@ function RoundView({
         timestamp. This lists every wallet with a direct join deposit — a few deposits routed through
         other contracts may not resolve to a single wallet, so the count can trail the round&apos;s total
         (shown above) slightly.
+      </div>
+    </section>
+  );
+}
+
+function ShutOutView({
+  data, loading, error, onReload,
+  checkAddr, setCheckAddr, onCheck, checkResult, checkLoading, checkError,
+}: {
+  data: LastRound | null;
+  loading: boolean;
+  error: string | null;
+  onReload: () => void;
+  checkAddr: string;
+  setCheckAddr: (v: string) => void;
+  onCheck: (e: React.FormEvent) => void;
+  checkResult: WalletStatus | null;
+  checkLoading: boolean;
+  checkError: string | null;
+}) {
+  if (loading && !data) {
+    return (
+      <section className="tx-hero">
+        <div className="tx-spinner" style={{ margin: '2rem auto' }} />
+        <p className="tx-subline" style={{ textAlign: 'center' }}>Counting whitelisted wallets that didn&apos;t get in…</p>
+      </section>
+    );
+  }
+  if (error && !data) {
+    return (
+      <section style={{ width: '100%', maxWidth: 680 }}>
+        <div className="tx-error-msg">{error}</div>
+        <button className="tx-btn" style={{ marginTop: '1rem' }} onClick={onReload}>Retry</button>
+      </section>
+    );
+  }
+  if (!data) return null;
+
+  const { round, stats, shutOut } = data;
+  const ratio = shutOut.gotIn > 0 ? (shutOut.count / shutOut.gotIn) : 0;
+  const ratioLabel = ratio >= 1 ? `${ratio.toFixed(0)}×${shutOut.capped ? '+' : ''}` : '—';
+  const countLabel = `${shutOut.count.toLocaleString('en-US')}${shutOut.capped ? '+' : ''}`;
+
+  const CR = checkResult;
+  const crMeta = CR && ({
+    in: { color: 'var(--tx-green)', bg: 'rgba(14, 226, 155, 0.1)', label: 'Got in' },
+    shut_out: { color: 'var(--tx-red)', bg: 'rgba(246, 71, 114, 0.1)', label: 'Shut out' },
+    not_whitelisted: { color: MUTED, bg: 'rgba(244, 241, 233, 0.05)', label: 'Not whitelisted' },
+    unknown: { color: MUTED, bg: 'rgba(244, 241, 233, 0.05)', label: 'Unknown' },
+  } as const)[CR.status];
+
+  return (
+    <section style={{ width: '100%', maxWidth: 680 }}>
+      <h1 className="tx-headline" style={{ fontSize: '1.6rem', marginTop: 0, marginBottom: '0.5rem' }}>
+        Shut <span>out</span> · round {round.id}
+      </h1>
+      <p className="tx-subline" style={{ marginBottom: '1.25rem' }}>
+        Whitelisted wallets that didn&apos;t secure a spot — the round filled in {fmtDelayShort(stats.fillSeconds)}.
+      </p>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '0.6rem', marginBottom: '1.25rem' }}>
+        <Stat label="Shut out" value={countLabel} sub="whitelisted, no spot" />
+        <Stat label="Got in" value={shutOut.gotIn.toLocaleString('en-US')} sub={`in ${fmtDelayShort(stats.fillSeconds)}`} />
+        <Stat label="Oversubscribed" value={ratioLabel} sub="shut out : in" />
+      </div>
+
+      {/* Check a wallet */}
+      <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: MUTED, marginBottom: '0.55rem' }}>
+        Check a wallet in round {round.id}
+      </div>
+      <form className="tx-search-wrap" onSubmit={onCheck} noValidate style={{ marginBottom: '0.75rem' }}>
+        <div className="tx-search-bar">
+          <input
+            className="tx-input"
+            type="text"
+            spellCheck={false}
+            autoComplete="off"
+            placeholder="inj1… any wallet"
+            value={checkAddr}
+            onChange={e => setCheckAddr(e.target.value)}
+            disabled={checkLoading}
+            aria-label="Wallet to check"
+          />
+          <button type="submit" className="tx-btn" disabled={checkLoading} aria-busy={checkLoading}>
+            {checkLoading ? (<><div className="tx-spinner" />Checking</>) : 'Check'}
+          </button>
+        </div>
+      </form>
+      {checkError && <div className="tx-error-msg" style={{ marginBottom: '0.75rem' }}>{checkError}</div>}
+      {CR && crMeta && (
+        <div style={{ background: crMeta.bg, border: `1px solid ${crMeta.color}`, borderRadius: 10, padding: '0.85rem 1rem', marginBottom: '1.5rem' }}>
+          <span style={{ fontSize: '0.66rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--tx-bg)', background: crMeta.color, borderRadius: 999, padding: '0.2rem 0.55rem' }}>
+            {crMeta.label}
+          </span>
+          <div style={{ fontSize: '0.85rem', color: 'var(--tx-text)', marginTop: '0.5rem', lineHeight: 1.5 }}>
+            {CR.status === 'in' && `Deposited ${CR.depositInj ?? '?'} INJ${CR.secondsAfterOpen !== null ? ` at +${fmtDelayShort(CR.secondsAfterOpen)} after open` : ''}.`}
+            {CR.status === 'shut_out' && `Whitelisted for round ${CR.roundId} but no deposit landed — shut out.`}
+            {CR.status === 'not_whitelisted' && `Not on the whitelist for round ${CR.roundId}.`}
+            {CR.status === 'unknown' && `Couldn't determine this wallet's status this time.`}
+          </div>
+        </div>
+      )}
+
+      {/* Sample of shut-out addresses */}
+      <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: MUTED, marginBottom: '0.55rem' }}>
+        Sample · showing {shutOut.sample.length} of {countLabel}
+      </div>
+      <div style={{ maxHeight: 360, overflowY: 'auto', border: '1px solid var(--tx-border)', borderRadius: 10 }}>
+        {shutOut.sample.map((a) => (
+          <div key={a} style={{ padding: '0.4rem 0.75rem', borderBottom: '1px solid var(--tx-border)', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.74rem', color: SOFT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {a}
+          </div>
+        ))}
       </div>
     </section>
   );
