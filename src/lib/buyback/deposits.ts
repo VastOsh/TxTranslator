@@ -72,6 +72,76 @@ async function fetchDepositInWindow(
   return scanWindow(addr, startMs, endSec * 1000, 6);
 }
 
+export interface RoundParticipant {
+  wallet: string;
+  timestamp: number;        // unix seconds of (first) deposit
+  secondsAfterOpen: number; // timestamp - round start
+  amountInjRaw: string;     // total INJ committed (summed if multiple deposits)
+  txHash: string;           // first deposit tx
+}
+
+/**
+ * Every wallet that committed to a round, with the exact time it deposited.
+ * Pages the contract's own tx stream (newest-first) back to the round's open,
+ * keeping each `join_pool` deposit. For the latest round these deposits are the
+ * most recent contract activity, so this is a handful of pages. One entry per
+ * wallet: earliest deposit time, amounts summed across any repeat deposits.
+ */
+export async function fetchRoundParticipants(
+  startSec: number,
+  endSec: number,
+): Promise<RoundParticipant[]> {
+  const startMs = startSec * 1000;
+  const endMs = endSec * 1000;
+  const byWallet = new Map<string, { ts: number; amount: bigint; hash: string }>();
+  const MAX_PAGES = 20; // round cap / wallet cap bounds this to a few hundred txs
+
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const url =
+      `${INDEXER_BASE}/api/explorer/v1/accountTxs/${BUYBACK_CONTRACT}` +
+      `?limit=100&skip=${page * 100}&start_time=${startMs}&end_time=${endMs}`;
+    const res = await fetchJsonOverHttps(url);
+    const rows: any[] = res?.body?.data ?? [];
+    if (!rows.length) break;
+    for (const t of rows) {
+      if (t.code !== 0) continue;
+      const ts = Number(t.block_unix_timestamp) / 1000;
+      for (const m of t.messages ?? []) {
+        if (!String(m.type).includes('MsgExecuteContract')) continue;
+        const v = m.value ?? {};
+        if (v.contract !== BUYBACK_CONTRACT) continue;
+        let action: string | null = null;
+        try { action = Object.keys(JSON.parse(v.msg))[0]; } catch { /* not JSON */ }
+        if (action !== 'join_pool') continue;
+        const sender = String(v.sender ?? '');
+        if (!sender) continue;
+        const injMatch = String(v.funds ?? '').match(/^(\d+)inj$/);
+        const amt = injMatch ? BigInt(injMatch[1]) : BigInt(0);
+        const prev = byWallet.get(sender);
+        if (!prev) {
+          byWallet.set(sender, { ts, amount: amt, hash: String(t.hash) });
+        } else {
+          prev.amount += amt;
+          if (ts < prev.ts) { prev.ts = ts; prev.hash = String(t.hash); }
+        }
+      }
+    }
+    if (rows.length < 100) break;
+  }
+  /* eslint-enable @typescript-eslint/no-explicit-any */
+
+  return Array.from(byWallet.entries())
+    .map(([wallet, d]) => ({
+      wallet,
+      timestamp: d.ts,
+      secondsAfterOpen: Math.max(0, Math.round(d.ts - startSec)),
+      amountInjRaw: d.amount.toString(),
+      txHash: d.hash,
+    }))
+    .sort((a, b) => a.timestamp - b.timestamp); // fastest first
+}
+
 /**
  * For each supplied round window, resolve the wallet's deposit time (and tx).
  * Rounds with no resolvable deposit are simply absent from the map.

@@ -58,7 +58,7 @@ async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T)
   return results;
 }
 
-interface RoundInfo {
+export interface RoundInfo {
   id: number;
   slots: number;
   usedSlots: number;
@@ -214,10 +214,8 @@ export interface BuybackProfile {
   partial: boolean;                 // at least one round query never resolved
 }
 
-export async function buildBuybackProfile(address: string): Promise<BuybackProfile> {
-  const prices = await fetchTokenPrices();
-
-  // Discover existing rounds (probe concurrently, keep the contiguous run from 1).
+/** Discover existing rounds (probe concurrently, keep the contiguous run from 1). */
+export async function discoverRounds(): Promise<RoundInfo[]> {
   const ids = Array.from({ length: MAX_ROUND_PROBE }, (_, i) => i + 1);
   const infos = await mapWithConcurrency(ids, CONCURRENCY, fetchRoundInfo);
   const rounds: RoundInfo[] = [];
@@ -225,6 +223,13 @@ export async function buildBuybackProfile(address: string): Promise<BuybackProfi
     if (!info) break; // first gap = no more rounds
     rounds.push(info);
   }
+  return rounds;
+}
+
+export async function buildBuybackProfile(address: string): Promise<BuybackProfile> {
+  const prices = await fetchTokenPrices();
+
+  const rounds = await discoverRounds();
 
   const nowSec = Math.floor(Date.now() / 1000);
   const currentRound = rounds.length ? rounds[rounds.length - 1] : null;
