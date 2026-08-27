@@ -12,7 +12,7 @@ const MAX_QUERY_LEN = 200;
 // The verified registry refreshes every ~30 min and a denom's identity is
 // effectively static, so cache each query briefly to spare repeat lookups.
 const runCheck = (query: string) =>
-  unstable_cache(() => checkToken(query), ['token-check-v2', query], { revalidate: 300 })();
+  unstable_cache(() => checkToken(query), ['token-check-v3', query], { revalidate: 300 })();
 
 export async function POST(request: NextRequest) {
   try {
