@@ -1,4 +1,5 @@
 import https from 'node:https';
+import zlib from 'node:zlib';
 import { getNetworkEndpoints, Network } from '@injectivelabs/networks';
 
 const endpoints = getNetworkEndpoints(Network.Mainnet);
@@ -37,11 +38,6 @@ export interface CosmosTxResponse {
   };
 }
 
-// Node.js on Windows cannot verify the intermediate CA for Injective endpoints
-// because its bundled CA store lacks the issuer cert. We scope the bypass to
-// these specific public blockchain read-only requests only.
-const injectiveAgent = new https.Agent({ rejectUnauthorized: false });
-
 function normalizeHash(hash: string): string {
   const trimmed = hash.trim();
   if (trimmed.startsWith('0x') || trimmed.startsWith('0X')) {
@@ -58,14 +54,26 @@ const HEADERS = {
 
 export async function fetchJsonOverHttps(url: string): Promise<{ status: number; body: any } | null> {
   return new Promise((resolve) => {
-    const req = https.get(url, { agent: injectiveAgent, headers: HEADERS }, (res) => {
-      let raw = '';
-      res.on('data', (chunk) => (raw += chunk));
-      res.on('end', () => {
+    const req = https.get(url, { headers: HEADERS }, (res) => {
+      const status = res.statusCode ?? 0;
+      // We advertise gzip/deflate, so the body must be inflated before parsing.
+      // https.get does no automatic decompression — without this every compressed
+      // response fails JSON.parse and the endpoint looks silently dead.
+      const encoding = (res.headers['content-encoding'] ?? '').toLowerCase();
+      const stream =
+        encoding === 'gzip' ? res.pipe(zlib.createGunzip())
+        : encoding === 'deflate' ? res.pipe(zlib.createInflate())
+        : encoding === 'br' ? res.pipe(zlib.createBrotliDecompress())
+        : res;
+
+      const chunks: Buffer[] = [];
+      stream.on('data', (chunk: Buffer) => chunks.push(Buffer.from(chunk)));
+      stream.on('error', () => resolve({ status, body: null }));
+      stream.on('end', () => {
         try {
-          resolve({ status: res.statusCode ?? 0, body: JSON.parse(raw) });
+          resolve({ status, body: JSON.parse(Buffer.concat(chunks).toString('utf8')) });
         } catch {
-          resolve({ status: res.statusCode ?? 0, body: null });
+          resolve({ status, body: null });
         }
       });
     });

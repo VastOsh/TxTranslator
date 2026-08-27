@@ -4,14 +4,13 @@ import { unstable_cache } from 'next/cache';
 import { MANUAL_BANNER_ITEMS } from '@/data/banner';
 import type { BannerItem } from '@/data/banner';
 
-const agent = new https.Agent({ rejectUnauthorized: false });
 const HEADERS = { Accept: 'application/json' };
 const LCD = 'https://injective-api.polkachu.com';
 const BLOCK_TIME_S = 1.5;
 
 async function fetchJson(url: string): Promise<any> {
   return new Promise((resolve) => {
-    const req = https.get(url, { agent, headers: HEADERS }, (res) => {
+    const req = https.get(url, { headers: HEADERS }, (res) => {
       let raw = '';
       res.on('data', (c) => (raw += c));
       res.on('end', () => { try { resolve(JSON.parse(raw)); } catch { resolve(null); } });
