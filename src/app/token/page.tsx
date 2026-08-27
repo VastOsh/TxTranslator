@@ -114,20 +114,38 @@ function packBubbles(items: Array<{ address: string; pct: number }>): { placed: 
   return { placed, vb: `${minX} ${minY} ${w} ${hgt}` };
 }
 
-function BubbleMap({ items }: { items: Array<{ address: string; pct: number }> }) {
+const LINK_COLOR = '#f0a020'; // amber — connected wallets (a signal, not a verdict)
+
+function BubbleMap({
+  items, edges = [], connected,
+}: {
+  items: Array<{ address: string; pct: number }>;
+  edges?: Array<{ a: string; b: string }>;
+  connected?: Set<string>;
+}) {
   const pack = useMemo(() => packBubbles(items), [items]);
   if (!pack) return null;
+  const pos = new Map(pack.placed.map((p) => [p.address, p]));
+  const scale = pack.vb.split(' ').map(Number)[2] || 100; // viewbox width, for stroke sizing
+  const lineW = Math.max(0.5, scale / 240);
   return (
     <div style={{ marginBottom: '0.85rem' }}>
       <svg viewBox={pack.vb} style={{ width: '100%', height: 'auto', maxHeight: 320, display: 'block' }} role="img" aria-label="Holder distribution bubble map">
+        {edges.map((e, i) => {
+          const a = pos.get(e.a), b = pos.get(e.b);
+          if (!a || !b) return null;
+          return <line key={`e${i}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={LINK_COLOR} strokeOpacity={0.55} strokeWidth={lineW} />;
+        })}
         {pack.placed.map((p) => {
           const hot = p.pct >= 20;
+          const isLinked = connected?.has(p.address);
           const fill = hot ? 'rgba(246, 71, 114, 0.9)' : 'var(--tx-purple)';
           const op = 0.45 + Math.min(0.5, p.r / 54 * 0.5);
+          const stroke = isLinked ? LINK_COLOR : hot ? 'var(--tx-red)' : 'var(--tx-purple)';
           return (
             <g key={p.address}>
-              <circle cx={p.x} cy={p.y} r={p.r} fill={fill} fillOpacity={op} stroke={hot ? 'var(--tx-red)' : 'var(--tx-purple)'} strokeOpacity={0.5} strokeWidth={0.7}>
-                <title>{`${p.address}\n${(p.pct >= 1 ? p.pct.toFixed(1) : p.pct.toFixed(2)).replace(/\.?0+$/, '')}% of supply`}</title>
+              <circle cx={p.x} cy={p.y} r={p.r} fill={fill} fillOpacity={op} stroke={stroke} strokeOpacity={isLinked ? 0.95 : 0.5} strokeWidth={isLinked ? lineW * 1.6 : 0.7}>
+                <title>{`${p.address}\n${(p.pct >= 1 ? p.pct.toFixed(1) : p.pct.toFixed(2)).replace(/\.?0+$/, '')}% of supply${isLinked ? '\n⚠ shares a funding wallet with other holders' : ''}`}</title>
               </circle>
               {p.r >= 17 && (
                 <text x={p.x} y={p.y} textAnchor="middle" dominantBaseline="central" fontSize={Math.min(p.r * 0.5, 13)} fill="var(--tx-bg)" fontWeight={700} style={{ pointerEvents: 'none' }}>
@@ -145,6 +163,11 @@ function BubbleMap({ items }: { items: Array<{ address: string; pct: number }> }
 function HoldersCard({ h }: { h: Holders }) {
   const max = Math.max(...h.rows.map(r => r.pct), 0.0001);
   const muted = 'rgba(244, 241, 233, 0.55)';
+  const connectedSet = useMemo(() => {
+    const s = new Set<string>();
+    for (const e of h.edges) { s.add(e.a); s.add(e.b); }
+    return s;
+  }, [h.edges]);
   return (
     <div
       style={{
@@ -164,7 +187,13 @@ function HoldersCard({ h }: { h: Holders }) {
           <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: muted, marginBottom: '0.5rem' }}>
             Real-holder map · {h.bubble.length} wallet{h.bubble.length === 1 ? '' : 's'} (escrow &amp; pools excluded)
           </div>
-          <BubbleMap items={h.bubble} />
+          <BubbleMap items={h.bubble} edges={h.edges} connected={connectedSet} />
+          {connectedSet.size > 0 && (
+            <div style={{ fontSize: '0.68rem', color: muted, marginTop: '-0.4rem', marginBottom: '0.7rem', lineHeight: 1.5 }}>
+              <span style={{ color: LINK_COLOR, fontWeight: 700 }}>Amber</span> links wallets first funded by the same source —
+              possibly one entity across several addresses, possibly a shared exchange. A signal, not proof.
+            </div>
+          )}
         </>
       )}
       {h.rows.map((r) => (

@@ -396,9 +396,27 @@ async function buildLaunchpadSignals(
   if (!isLaunchpadDenom(creator)) return { signals: [], holders: null };
   const info = await fetchLaunchInfo(denom);
   if (!info) return { signals: [], holders: null };
-  const holders = await fetchLaunchpadHolders(denom, info.totalSupplyRaw);
+  // Budget the funding-graph sweep so the whole check stays inside maxDuration.
+  const holders = await fetchLaunchpadHolders(denom, info.totalSupplyRaw, { clusterBudgetMs: 12_000 });
 
   const out: Signal[] = [];
+
+  // The launchpad's own verdict — the strongest single signal when present.
+  if (holders?.flagged) {
+    out.push({
+      level: 'danger',
+      title: 'Flagged by the launchpad',
+      detail: holders.impersonates
+        ? `The Trippy launchpad has flagged this launch as impersonating ${holders.impersonates}. Treat it as a scam token unless the project itself says otherwise.`
+        : 'The Trippy launchpad has flagged this launch (typically for impersonation or abuse). Treat it as high-risk.',
+    });
+  } else if (holders?.impersonates) {
+    out.push({
+      level: 'warn',
+      title: `Launchpad notes a resemblance to ${holders.impersonates}`,
+      detail: `The launchpad associates this launch with ${holders.impersonates}. It is not flagged outright, but verify it is the one you intend before buying.`,
+    });
+  }
   const onCurve = !info.graduated && info.status !== 'delivered';
   const stageWord = info.graduated ? 'graduated' : info.status === 'delivered' ? 'delivered' : 'on the curve';
   const stageDetail = info.graduated
@@ -430,6 +448,34 @@ async function buildLaunchpadSignals(
           ? `The largest real holder controls ${pctText(p)}% of supply and the top 10 hold ${pctText(holders.top10RealPct)}% — enough to move the price sharply on a sell. `
           : `The largest real holder controls ${pctText(p)}% — no single wallet dominates the float. `) +
         (onCurve ? `${pctText(holders.escrowPct)}% of supply is still unsold in the curve escrow${lowTraction ? ', and very few wallets hold it — little traction so far' : ''}.` : ''),
+    });
+  }
+
+  // Wallet connections — top holders that were first funded by the same wallet.
+  // Honest framing: shared funding can be an insider/sybil cluster, or just a
+  // common exchange withdrawal address. We state the fact and link the funder.
+  if (holders && holders.clustersResolved && holders.clusters.length > 0) {
+    const c = holders.clusters[0];
+    const nConnected = holders.clusters.reduce(
+      (s, cl) => s + cl.members.length + (cl.funderIsHolder ? 1 : 0), 0,
+    );
+    const groups = holders.clusters.length;
+    const level: SignalLevel = holders.clusteredPct >= 20 || holders.largestClusterSize >= 4 ? 'warn' : 'info';
+    out.push({
+      level,
+      title: `Connected wallets: ${nConnected} of the top holders in ${groups} cluster${groups === 1 ? '' : 's'}`,
+      detail:
+        `Among the top real holders, ${nConnected} trace back to a shared funding wallet across ${groups} group${groups === 1 ? '' : 's'} ` +
+        `(largest: ${c.funderIsHolder ? c.members.length + 1 : c.members.length} wallets, ~${pctText(c.pct)}% of supply). ` +
+        'Wallets funded from one source can be a single entity holding through many addresses (an insider/sybil cluster) — ' +
+        'or simply people who withdrew from the same exchange. Shown as a signal, not a verdict; check the funder yourself.',
+      link: { label: 'Funder on explorer', url: explorerAccount(c.funder) },
+    });
+  } else if (holders && holders.clustersResolved && holders.bubble.length >= 3) {
+    out.push({
+      level: 'ok',
+      title: 'No wallet connections found',
+      detail: 'The top real holders were each funded independently — no shared funding source that would suggest one entity holding through multiple wallets.',
     });
   }
 

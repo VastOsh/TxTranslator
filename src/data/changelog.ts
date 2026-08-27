@@ -11,10 +11,24 @@ export interface ChangelogVersion {
   entries: ChangelogEntry[];
 }
 
-export const CURRENT_VERSION = 'v1.11.0';
+export const CURRENT_VERSION = 'v1.12.0';
 
 // Entries within each version are ordered: critical → fix → improvement → feature
 export const CHANGELOG: ChangelogVersion[] = [
+  {
+    version: 'v1.12.0',
+    date: '2026-08-27',
+    entries: [
+      {
+        type: 'feature',
+        text: 'The /token launchpad check now surfaces wallet connections between the top holders. Every top real holder is traced back to the wallet that first funded it — following both Cosmos (bank sends) and EVM (MetaMask) transfers — and holders that share a funding source are drawn as connected on the holder bubble map (linked in amber) with a signal that names how many wallets and how much supply are involved, plus a link to inspect the funder. Wallets funded from one source can be a single entity holding through many addresses (an insider or sybil cluster) — or simply people who withdrew from the same exchange — so it is shown honestly as a signal, never a verdict, and launchpad infrastructure (the bonding-curve escrow, pools and issuer) and broad exchange-style hubs are excluded so they never read as a cluster. When the top holders were each funded independently, that is stated too.',
+      },
+      {
+        type: 'feature',
+        text: 'The /token check now surfaces the launchpad’s own moderation flags: if the Trippy launchpad has flagged a launch as a scam or impersonation, that is shown as a top-level danger (naming what it impersonates, when known), and a noted resemblance short of a flag is shown as a warning.',
+      },
+    ],
+  },
   {
     version: 'v1.11.0',
     date: '2026-08-26',
