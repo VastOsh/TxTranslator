@@ -11,10 +11,20 @@ export interface ChangelogVersion {
   entries: ChangelogEntry[];
 }
 
-export const CURRENT_VERSION = 'v1.13.0';
+export const CURRENT_VERSION = 'v1.14.0';
 
 // Entries within each version are ordered: critical → fix → improvement → feature
 export const CHANGELOG: ChangelogVersion[] = [
+  {
+    version: 'v1.14.0',
+    date: '2026-08-28',
+    entries: [
+      {
+        type: 'feature',
+        text: 'The /wallet page now leads with Wallet Intelligence — a quick read on any Injective wallet above its NFT portfolio. It shows the account’s age, its lifetime transaction count, the wallet that first funded it (following both Cosmos and EVM transfers, with a link to inspect it), and its launchpad track record (how many tokens it created and how many graduated). Risk flags surface at a glance: on Injective’s restricted / OFAC list, a brand-new wallet, a very high-activity wallet, or a serial launcher whose tokens never graduate. It describes what a wallet has done, never who it is — Injective wallets are pseudonymous and we never attribute real-world identity.',
+      },
+    ],
+  },
   {
     version: 'v1.13.0',
     date: '2026-08-28',

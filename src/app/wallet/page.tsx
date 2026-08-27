@@ -8,14 +8,93 @@ import InjChart from '@/components/InjChart';
 import Changelog from '@/components/Changelog';
 import { CURRENT_VERSION } from '@/data/changelog';
 import type { Portfolio } from '@/lib/portfolio/nft';
+import type { WalletIntel, WalletFlag } from '@/lib/wallet/intel';
 
 const ADDR_RE = /^inj1[a-z0-9]{38}$/;
+const EXPLORER = 'https://explorer.injective.network/account';
+
+function shortAddr(a: string): string {
+  return a.length > 20 ? `${a.slice(0, 10)}…${a.slice(-6)}` : a;
+}
+function fmtAge(days: number | null): string {
+  if (days == null) return 'unknown';
+  if (days < 1) return 'today';
+  if (days < 30) return `${days} day${days === 1 ? '' : 's'}`;
+  if (days < 365) return `${Math.round(days / 30)} month${Math.round(days / 30) === 1 ? '' : 's'}`;
+  const y = (days / 365).toFixed(1).replace(/\.0$/, '');
+  return `${y} year${y === '1' ? '' : 's'}`;
+}
+const FLAG_STYLE: Record<WalletFlag['level'], { bg: string; color: string }> = {
+  danger: { bg: 'rgba(246, 71, 114, 0.14)', color: 'var(--tx-red)' },
+  warn: { bg: 'rgba(240, 160, 32, 0.14)', color: '#f0a020' },
+  info: { bg: 'rgba(167, 139, 250, 0.14)', color: 'var(--tx-purple)' },
+};
+
+function IntelCard({ intel }: { intel: WalletIntel }) {
+  const muted = 'rgba(244, 241, 233, 0.55)';
+  const label = { fontSize: '0.66rem', textTransform: 'uppercase' as const, letterSpacing: '0.04em', color: muted, marginBottom: '0.15rem' };
+  const val = { fontSize: '0.86rem', color: 'var(--tx-text)', fontWeight: 600 };
+  return (
+    <div className="tx-pnl-card" style={{ width: '100%', maxWidth: 680, marginBottom: '1rem' }}>
+      <div className="tx-pnl-head">
+        <span className="tx-pnl-head-title">Wallet intelligence</span>
+        {intel.hex && (
+          <a href={`${EXPLORER}/${intel.inj}`} target="_blank" rel="noopener noreferrer" className="tx-pnl-row-meta" style={{ textDecoration: 'none' }}>
+            explorer ↗
+          </a>
+        )}
+      </div>
+      <div style={{ padding: '0.9rem 1.2rem' }}>
+        {intel.flags.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.9rem' }}>
+            {intel.flags.map((f, i) => (
+              <span key={i} style={{ ...FLAG_STYLE[f.level], fontSize: '0.7rem', fontWeight: 700, padding: '0.2rem 0.5rem', borderRadius: 6 }}>
+                {f.label}
+              </span>
+            ))}
+          </div>
+        )}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.85rem 1rem' }}>
+          <div>
+            <div style={label}>Account age</div>
+            <div style={val}>{fmtAge(intel.ageDays)}</div>
+          </div>
+          <div>
+            <div style={label}>Lifetime txs</div>
+            <div style={val}>{intel.txCount.toLocaleString('en-US')}</div>
+          </div>
+          <div>
+            <div style={label}>First funded by</div>
+            <div style={val}>
+              {intel.firstFunder ? (
+                <a href={`${EXPLORER}/${intel.firstFunder}`} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--tx-purple)', textDecoration: 'none', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.78rem' }}>
+                  {shortAddr(intel.firstFunder)} ↗
+                </a>
+              ) : <span style={{ color: muted }}>—</span>}
+            </div>
+          </div>
+          <div>
+            <div style={label}>Launchpad launches</div>
+            <div style={val}>
+              {intel.launched > 0 ? `${intel.launched} · ${intel.graduated} graduated` : <span style={{ color: muted }}>None</span>}
+            </div>
+          </div>
+        </div>
+        <div style={{ fontSize: '0.68rem', color: muted, marginTop: '0.9rem', lineHeight: 1.5 }}>
+          On-chain history and launchpad activity — what this wallet has done, not who it is. First funder is the wallet
+          behind its earliest transfer (Cosmos or EVM); shared funders can indicate linked wallets or a common exchange.
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function WalletPage() {
   const [changelogOpen, setChangelogOpen] = useState(false);
   const [value, setValue] = useState('');
   const [address, setAddress] = useState<string | null>(null);
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
+  const [intel, setIntel] = useState<WalletIntel | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,7 +108,19 @@ export default function WalletPage() {
     setError(null);
     setLoading(true);
     setPortfolio(null);
+    setIntel(null);
     setAddress(addr);
+
+    // Wallet intelligence loads independently of (and usually faster than) the
+    // NFT/portfolio scan — render it as soon as it lands.
+    fetch('/api/wallet/intel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address: addr }),
+    })
+      .then(res => res.json().then(data => ({ ok: res.ok, data })))
+      .then(({ ok, data }) => { if (ok) setIntel(data.intel as WalletIntel); })
+      .catch(() => { /* intel is best-effort; the portfolio is the primary view */ });
 
     fetch('/api/portfolio', {
       method: 'POST',
@@ -87,10 +178,10 @@ export default function WalletPage() {
         {!portfolio && !loading && (
           <>
             <h1 className="tx-headline">
-              Wallet <span>NFT</span> portfolio
+              Wallet <span>intelligence</span>
             </h1>
             <p className="tx-subline">
-              Enter a wallet — see every Talis NFT it holds, read live from each collection on-chain
+              Enter a wallet — see its age, first funder, launchpad track record and risk flags, plus every Talis NFT it holds
             </p>
           </>
         )}
@@ -151,6 +242,8 @@ export default function WalletPage() {
           </div>
         </div>
       )}
+
+      {intel && <IntelCard intel={intel} />}
 
       {portfolio && !loading && <PortfolioView portfolio={portfolio} />}
 
