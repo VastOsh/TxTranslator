@@ -1,4 +1,6 @@
 import { Buffer } from 'node:buffer';
+import { INDEXER_BASE, fetchJsonOverHttps } from '../injective';
+import { subaccountToInjAddress } from '../feed/watch';
 
 // ── Trippy launchpad (choice_mts) — per-token rug-risk state ────────────────
 // pump.trippyinj mints every token through one CosmWasm issuer contract, which
@@ -85,6 +87,29 @@ export async function fetchLaunchInfo(denom: string): Promise<LaunchInfo | null>
   };
 }
 
+// ── pump-api: creator track record (dev reputation, not identity) ───────────
+// The launchpad is pseudonymous — no name/team/verified labels exist. What we
+// CAN read is a creator's history: /profiles/{creator}.createdLaunches lists
+// every token that wallet has launched, and `graduatedPoolAddress` (⟺ state 4)
+// marks the ones that reached a live market. Many launches with none graduating
+// is a churn-and-dump pattern; a couple that graduated reads better.
+export interface CreatorStats {
+  launched: number;   // total tokens this wallet has launched (incl. this one)
+  graduated: number;  // how many reached a live market
+}
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+export async function fetchCreatorStats(creatorHex: string): Promise<CreatorStats | null> {
+  if (!creatorHex) return null;
+  const prof = await apiJson(`/profiles/${creatorHex}`);
+  const list: any[] | null = Array.isArray(prof?.createdLaunches) ? prof.createdLaunches : null;
+  if (!list) return null;
+  let graduated = 0;
+  for (const l of list) if (l?.graduatedPoolAddress) graduated++;
+  return { launched: list.length, graduated };
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
 // ── pump-api: holder distribution (labels protocol addresses) ───────────────
 export interface HolderRow {
   address: string;
@@ -93,7 +118,20 @@ export interface HolderRow {
   label: string | null;  // e.g. 'Launchpad escrow', 'Graduated pool'
 }
 
+/** A set of top holders that trace back to one funding wallet. */
+export interface HolderCluster {
+  funder: string;         // inj1 wallet that first funded the members
+  funderIsHolder: boolean;// the funder is itself one of the token's top holders
+  members: string[];      // holder addresses (hex, matching bubble node ids)
+  pct: number;            // combined supply % of the members
+}
+
 export interface LaunchpadHolders {
+  // Launch-level flags from the launchpad's own backend (by-onchain record).
+  flagged: boolean;          // the launchpad flags this launch (scam/impersonation)
+  impersonates: string | null; // what the launchpad says it impersonates, if flagged
+  devCreator: string | null; // the real deployer (EVM hex), from launch.creator
+
   totalHolders: number;
   userHolders: number;   // excluding protocol/pool addresses
   escrowPct: number;     // supply share held by protocol/escrow/pool addresses
@@ -102,12 +140,151 @@ export interface LaunchpadHolders {
   top10RealPct: number;
   rows: HolderRow[];      // top rows for the list (protocols labeled)
   bubble: Array<{ address: string; pct: number }>; // real holders only, for the bubble map
+
+  // Wallet-connection analysis over the top real holders (funding graph).
+  edges: Array<{ a: string; b: string }>; // connections to draw between bubble nodes
+  clusters: HolderCluster[];               // groups sharing a funding source
+  clustersResolved: boolean;               // the funding sweep actually ran to completion
+  clusteredPct: number;                    // supply % held by connected wallets
+  largestClusterSize: number;
 }
 
+// ── Wallet-connection analysis: who funded the top holders ──────────────────
+// The launchpad's holder addresses are EVM hex; the same account is an inj1
+// bech32 address on the Cosmos side, where the explorer indexer keeps full tx
+// history. A wallet's oldest transaction is normally the bank send that first
+// funded it — its "funder". Top holders that share one funder are connected
+// (an insider/sybil cluster) — or were simply funded from a common exchange
+// withdrawal. We surface the fact and the funder address; we never claim intent.
+const CLUSTER_SAMPLE = 18;       // top real holders we trace funding for
+const FUNDER_CONCURRENCY = 12;
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
+// A wallet's oldest transaction reveals who first funded it. Two funding modes
+// dominate this launchpad's holders: a Cosmos bank MsgSend (funder is an inj1
+// sender) and an EVM transfer (MsgEthereumTx — the funder's EVM address is the
+// base64 `from`, which we re-encode to inj1). Peggy bridge-ins and old wallets
+// whose first indexed tx is their own action resolve to null (no edge — honest).
+async function firstFunder(inj: string, ownHex: string): Promise<string | null> {
+  const head = await fetchJsonOverHttps(`${INDEXER_BASE}/api/explorer/v1/accountTxs/${inj}?limit=1`);
+  const total = Number(head?.body?.paging?.total);
+  if (!Number.isFinite(total) || total <= 0) return null;
+  const tail = await fetchJsonOverHttps(
+    `${INDEXER_BASE}/api/explorer/v1/accountTxs/${inj}?limit=1&skip=${Math.max(0, total - 1)}`,
+  );
+  const oldest = (tail?.body?.data as any[])?.[0];
+  for (const m of oldest?.messages ?? []) {
+    const type = String(m.type ?? '');
+    const v = m.value ?? {};
+    if (type.includes('MsgSend')) {
+      const to = v.to_address ?? v.toAddress ?? v.receiver;
+      const from = v.from_address ?? v.fromAddress ?? v.sender;
+      if (to === inj && from && from !== inj) return String(from);
+    } else if (type.includes('MsgEthereumTx') && typeof v.from === 'string') {
+      // `from` is base64 of the sender's 20-byte EVM address.
+      let fromHex: string | null = null;
+      try { fromHex = Buffer.from(v.from, 'base64').toString('hex').toLowerCase(); } catch { fromHex = null; }
+      if (fromHex && /^[0-9a-f]{40}$/.test(fromHex) && fromHex !== ownHex) {
+        return subaccountToInjAddress(fromHex);
+      }
+    }
+  }
+  return null;
+}
+
+interface ClusterResult {
+  edges: Array<{ a: string; b: string }>;
+  clusters: HolderCluster[];
+  resolved: boolean;
+  clusteredPct: number;
+  largestClusterSize: number;
+}
+
+async function buildClusters(
+  bubble: Array<{ address: string; pct: number }>,
+  budgetMs: number,
+  excludeFunders: Set<string>,
+): Promise<ClusterResult> {
+  const empty: ClusterResult = { edges: [], clusters: [], resolved: false, clusteredPct: 0, largestClusterSize: 0 };
+  if (budgetMs <= 0) return empty;
+
+  const sample = bubble.slice(0, CLUSTER_SAMPLE);
+  const injOf = new Map<string, string>(); // hex → inj1
+  for (const b of sample) {
+    const inj = subaccountToInjAddress(b.address);
+    if (inj) injOf.set(b.address, inj);
+  }
+  if (injOf.size < 2) return empty;
+
+  const funderOf = new Map<string, string>(); // hex → funder inj1
+  const entries = [...injOf.entries()];
+  const deadline = Date.now() + budgetMs;
+  let next = 0;
+  let ranOut = false;
+  async function worker() {
+    while (next < entries.length) {
+      if (Date.now() >= deadline) { ranOut = true; return; }
+      const [hex, inj] = entries[next++];
+      const ownHex = hex.replace(/^0x/, '').toLowerCase();
+      const f = await firstFunder(inj, ownHex);
+      if (f && f !== inj) funderOf.set(hex, f);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(FUNDER_CONCURRENCY, entries.length) }, worker));
+
+  const pctByHex = new Map(sample.map((s) => [s.address, s.pct]));
+  const injToHex = new Map<string, string>();
+  for (const [hex, inj] of injOf) injToHex.set(inj, hex);
+
+  const byFunder = new Map<string, string[]>();
+  for (const [hex, f] of funderOf) {
+    if (!byFunder.has(f)) byFunder.set(f, []);
+    byFunder.get(f)!.push(hex);
+  }
+
+  // A funder that seeds a large fraction of the sample is infrastructure — a
+  // CEX/bridge withdrawal wallet or a launchpad gas faucet — not a distinguishing
+  // insider cluster. Above this share we drop it rather than cry wolf.
+  const hubCap = Math.max(6, Math.ceil(funderOf.size * 0.6));
+
+  const clusters: HolderCluster[] = [];
+  const edges: Array<{ a: string; b: string }> = [];
+  const clusteredHex = new Set<string>();
+  for (const [funder, members] of byFunder) {
+    if (members.length < 2) continue;
+    if (excludeFunders.has(funder)) continue;   // labeled protocol / escrow / issuer
+    if (members.length > hubCap) continue;       // too broad — likely CEX/faucet, not a cluster
+    members.sort((a, b) => (pctByHex.get(b) ?? 0) - (pctByHex.get(a) ?? 0));
+    const funderIsHolder = injToHex.has(funder);
+    const funderHex = funderIsHolder ? injToHex.get(funder)! : null;
+    const pct = members.reduce((s, h) => s + (pctByHex.get(h) ?? 0), 0)
+      + (funderHex ? (pctByHex.get(funderHex) ?? 0) : 0);
+    clusters.push({ funder, funderIsHolder, members, pct: Math.round(pct * 100) / 100 });
+    // Star the connections through a hub node (the funder if it holds, else the
+    // largest member) so the edge count stays small and reads as one group.
+    const hub = funderHex ?? members[0];
+    for (const m of members) if (m !== hub) edges.push({ a: hub, b: m });
+    for (const m of members) clusteredHex.add(m);
+    if (funderHex) clusteredHex.add(funderHex);
+  }
+  clusters.sort((a, b) => b.members.length - a.members.length || b.pct - a.pct);
+
+  let clusteredPct = 0;
+  for (const hex of clusteredHex) clusteredPct += pctByHex.get(hex) ?? 0;
+
+  return {
+    edges,
+    clusters,
+    resolved: !ranOut,
+    clusteredPct: Math.round(clusteredPct * 100) / 100,
+    largestClusterSize: clusters.reduce((m, c) => Math.max(m, c.members.length + (c.funderIsHolder ? 1 : 0)), 0),
+  };
+}
+
 export async function fetchLaunchpadHolders(
   denom: string,
   totalSupplyRaw: string,
+  opts: { clusterBudgetMs?: number } = {},
 ): Promise<LaunchpadHolders | null> {
   const onchainId = onchainIdFromDenom(denom);
   if (onchainId == null) return null;
@@ -151,7 +328,29 @@ export async function fetchLaunchpadHolders(
 
   const escrowPct = Number((escrowRaw * BigInt(10000)) / supply) / 100;
   const bubble = real.slice(0, 40).map((h) => ({ address: String(h.address), pct: pctOf(String(h.balance)) }));
+
+  // Funders that are launchpad/protocol infrastructure, not real peers: the
+  // labeled escrow/pool addresses, the curve core, the settler, and the issuer.
+  // Excluded so a gas-seeding or escrow address never reads as an insider cluster.
+  const excludeFunders = new Set<string>([LAUNCHPAD_ISSUER]);
+  for (const hexAddr of protoSet) {
+    const inj = subaccountToInjAddress(hexAddr);
+    if (inj) excludeFunders.add(inj);
+  }
+  for (const infra of [launch?.core, launch?.settler, launch?.sinkAddr, launch?.lockerAddr]) {
+    if (typeof infra === 'string') {
+      const inj = subaccountToInjAddress(infra);
+      if (inj) excludeFunders.add(inj);
+    }
+  }
+
+  // Trace the funding graph over the top real holders (budgeted; skipped on 0).
+  const cl = await buildClusters(bubble, opts.clusterBudgetMs ?? 0, excludeFunders);
+
   return {
+    flagged: Boolean(launch?.flagged),
+    impersonates: launch?.impersonates ? String(launch.impersonates) : null,
+    devCreator: launch?.creator ? String(launch.creator) : null,
     totalHolders: Number(count?.count) || items.length,
     userHolders: Number(count?.userCount) || real.length,
     escrowPct,
@@ -160,6 +359,11 @@ export async function fetchLaunchpadHolders(
     top10RealPct: Number((top10Raw * BigInt(10000)) / supply) / 100,
     rows,
     bubble,
+    edges: cl.edges,
+    clusters: cl.clusters,
+    clustersResolved: cl.resolved,
+    clusteredPct: cl.clusteredPct,
+    largestClusterSize: cl.largestClusterSize,
   };
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */

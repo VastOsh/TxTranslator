@@ -3,15 +3,16 @@ import { unstable_cache } from 'next/cache';
 import { checkToken } from '@/lib/token/check';
 
 // A denom check reads on-chain bank metadata across a few LCD nodes plus the
-// verified-token registry; bounded, but give it headroom over the default.
-export const maxDuration = 30;
+// verified-token registry; launchpad tokens additionally trace the funding graph
+// of the top holders (budgeted), so give it headroom over the default.
+export const maxDuration = 45;
 
 const MAX_QUERY_LEN = 200;
 
 // The verified registry refreshes every ~30 min and a denom's identity is
 // effectively static, so cache each query briefly to spare repeat lookups.
 const runCheck = (query: string) =>
-  unstable_cache(() => checkToken(query), ['token-check-v1', query], { revalidate: 300 })();
+  unstable_cache(() => checkToken(query), ['token-check-v2', query], { revalidate: 300 })();
 
 export async function POST(request: NextRequest) {
   try {
