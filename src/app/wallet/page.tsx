@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import PortfolioView from '@/components/PortfolioView';
@@ -98,9 +98,7 @@ export default function WalletPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  function scan(e: React.FormEvent) {
-    e.preventDefault();
-    const addr = value.trim();
+  function runScan(addr: string) {
     if (!ADDR_RE.test(addr)) {
       setError('Enter a valid inj1… wallet address.');
       return;
@@ -135,6 +133,22 @@ export default function WalletPage() {
       .catch(() => setError('Network error — check your connection and try again.'))
       .finally(() => setLoading(false));
   }
+
+  function scan(e: React.FormEvent) {
+    e.preventDefault();
+    runScan(value.trim());
+  }
+
+  // Deep-link support: /wallet?address=inj1… (e.g. from the insiders page) —
+  // prefill the input and scan on load. Read from the URL directly to avoid the
+  // useSearchParams Suspense requirement; defer the state updates out of the
+  // effect body so they don't cascade synchronously.
+  useEffect(() => {
+    const addr = new URLSearchParams(window.location.search).get('address')?.trim();
+    if (!addr || !ADDR_RE.test(addr)) return;
+    const t = setTimeout(() => { setValue(addr); runScan(addr); }, 0);
+    return () => clearTimeout(t);
+  }, []);
 
   const short = address ? `${address.slice(0, 12)}…${address.slice(-8)}` : null;
 
