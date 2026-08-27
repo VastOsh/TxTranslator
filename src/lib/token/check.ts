@@ -4,6 +4,7 @@ import { normalizeTight, normalizeLoose, normalizeLeet, usesConfusables, editDis
 import {
   isLaunchpadDenom, fetchLaunchInfo, fetchLaunchpadHolders, fetchCreatorStats, type LaunchpadHolders,
 } from './launchpad';
+import { lookupSerialFunders } from './insiders';
 
 export type SignalLevel = 'ok' | 'info' | 'warn' | 'danger';
 
@@ -517,6 +518,22 @@ async function buildLaunchpadSignals(
         'or simply people who withdrew from the same exchange. Shown as a signal, not a verdict; check the funder yourself.',
       link: { label: 'Funder on explorer', url: explorerAccount(c.funder) },
     });
+
+    // Cross-token context: is this cluster's funder a repeat insider across other
+    // launchpad tokens? Guarded lookup — a cold index is skipped, never blocks.
+    const serial = await lookupSerialFunders(holders.clusters.map((cl) => cl.funder));
+    const repeat = [...serial.values()].filter((s) => s.launchCount >= 2).sort((a, b) => b.launchCount - a.launchCount)[0];
+    if (repeat) {
+      const syms = repeat.tokens.map((t) => t.symbol || `#${t.onchainId}`).slice(0, 6).join(', ');
+      out.push({
+        level: repeat.launchCount >= 3 ? 'danger' : 'warn',
+        title: `Repeat insider funder — active across ${repeat.launchCount} launchpad tokens`,
+        detail:
+          `A wallet that funded this token’s connected holders has also seeded the top holders of other Trippy-launchpad tokens (${syms}). ` +
+          'A funder recurring across many launches points to a coordinated operator or market-maker fleet — strong context for the cluster above.',
+        link: { label: 'See all launchpad insiders', url: '/insiders' },
+      });
+    }
   } else if (holders && holders.clustersResolved && holders.bubble.length >= 3) {
     out.push({
       level: 'ok',

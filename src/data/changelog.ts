@@ -21,7 +21,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     entries: [
       {
         type: 'feature',
-        text: 'New Launchpad insiders view at /insiders — a cross-token map of coordinated activity no explorer surfaces. It traces the top holders of every recent Trippy-launchpad token back to the wallet that first funded them (Cosmos and EVM transfers), then lists the funders that seeded the top holders of multiple different tokens, most-connected first, with the tokens each one touched. A wallet funding early positions across many launches points to one operator running a fleet of wallets or a market-maker — shown honestly as a signal, not a verdict (it can also be a shared exchange), with each funder linking straight to its wallet profile. Rebuilt hourly.',
+        text: 'New Launchpad insiders view at /insiders — a cross-token map of coordinated activity no explorer surfaces. It traces the top holders of every recent Trippy-launchpad token back to the wallet that first funded them (Cosmos and EVM transfers), then lists the funders that seeded the top holders of multiple different tokens, most-connected first, with the tokens each one touched. A wallet funding early positions across many launches points to one operator running a fleet of wallets or a market-maker — shown honestly as a signal, not a verdict (it can also be a shared exchange), with each funder linking straight to its wallet profile. Rebuilt hourly. The /token check now uses this too: when a token’s connected-wallet cluster is funded by one of these repeat insiders, it flags that the funder is active across several launchpad tokens.',
       },
       {
         type: 'feature',

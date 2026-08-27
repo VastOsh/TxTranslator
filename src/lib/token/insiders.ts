@@ -101,3 +101,25 @@ async function scanSerialFunders(): Promise<SerialFunder[]> {
 export const getSerialFunders = unstable_cache(scanSerialFunders, ['serial-funders-v1'], {
   revalidate: 3600,
 });
+
+/**
+ * Look specific funders up in the cached index, bounded by a timeout so a cold
+ * index never blocks the caller (e.g. a /token check). On timeout the cache
+ * build continues in the background and this returns empty — the annotation is
+ * simply skipped this time, never wrong.
+ */
+export async function lookupSerialFunders(
+  funders: string[],
+  timeoutMs = 4000,
+): Promise<Map<string, SerialFunder>> {
+  const want = new Set(funders);
+  const result = new Map<string, SerialFunder>();
+  if (want.size === 0) return result;
+  const list = await Promise.race([
+    getSerialFunders(),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs)),
+  ]);
+  if (!list) return result;
+  for (const sf of list) if (want.has(sf.funder)) result.set(sf.funder, sf);
+  return result;
+}
