@@ -1,8 +1,8 @@
-import { getVerifiedTokens, KNOWN_PROJECTS, type VerifiedToken } from './reference';
+import { getVerifiedTokens, getRestrictedWallets, KNOWN_PROJECTS, type VerifiedToken } from './reference';
 import { findSpotMarketByBase, choiceTradeUrl, choiceTokenUrl, type SpotMarket } from './market';
 import { normalizeTight, normalizeLoose, normalizeLeet, usesConfusables, editDistance } from './normalize';
 import {
-  isLaunchpadDenom, fetchLaunchInfo, fetchLaunchpadHolders, type LaunchpadHolders,
+  isLaunchpadDenom, fetchLaunchInfo, fetchLaunchpadHolders, fetchCreatorStats, type LaunchpadHolders,
 } from './launchpad';
 
 export type SignalLevel = 'ok' | 'info' | 'warn' | 'danger';
@@ -401,6 +401,24 @@ async function buildLaunchpadSignals(
 
   const out: Signal[] = [];
 
+  // Sanctioned / restricted wallet involved — the most authoritative red flag.
+  // Injective's own OFAC + restricted list is EVM hex; the dev and holder
+  // addresses are hex too, so we compare 0x-stripped and lowercased.
+  if (holders) {
+    const restricted = await getRestrictedWallets();
+    const norm = (a: string) => a.replace(/^0x/, '').toLowerCase();
+    const hits: string[] = [];
+    if (holders.devCreator && restricted.has(norm(holders.devCreator))) hits.push('the token’s creator');
+    if (holders.bubble.slice(0, 12).some((b) => restricted.has(norm(b.address)))) hits.push('a top holder');
+    if (hits.length) {
+      out.push({
+        level: 'danger',
+        title: 'Sanctioned / restricted wallet involved',
+        detail: `${hits.join(' and ')} ${hits.length === 1 ? 'is' : 'are'} on Injective’s OFAC / restricted wallet list. Interacting with this token may be restricted — treat it as high-risk.`,
+      });
+    }
+  }
+
   // The launchpad's own verdict — the strongest single signal when present.
   if (holders?.flagged) {
     out.push({
@@ -477,6 +495,31 @@ async function buildLaunchpadSignals(
       title: 'No wallet connections found',
       detail: 'The top real holders were each funded independently — no shared funding source that would suggest one entity holding through multiple wallets.',
     });
+  }
+
+  // Creator track record — dev reputation, never identity. How many tokens this
+  // wallet has launched and how many reached a live market. Serial launches with
+  // nothing graduating is a churn-and-dump pattern.
+  if (holders?.devCreator) {
+    const stats = await fetchCreatorStats(holders.devCreator);
+    if (stats && stats.launched >= 1) {
+      const others = stats.launched - 1; // this token is one of them
+      const serial = stats.launched >= 5 && stats.graduated === 0;
+      out.push({
+        level: serial ? 'warn' : stats.launched >= 4 ? 'warn' : 'info',
+        title: others <= 0
+          ? 'Creator’s first launchpad token'
+          : `Creator has launched ${stats.launched} launchpad tokens`,
+        detail: others <= 0
+          ? `This is the only token this wallet has launched on the Trippy launchpad${stats.graduated > 0 ? ', and it graduated to a live market' : ' — no track record yet, good or bad'}.`
+          : `This wallet has launched ${stats.launched} tokens on the Trippy launchpad (including this one); ${stats.graduated} graduated to a live market. ` +
+            (serial
+              ? 'Many launches with none graduating is a churn-and-dump pattern — be cautious.'
+              : stats.graduated > 0
+                ? 'A creator with graduated tokens has some track record, though past launches are no guarantee.'
+                : 'None have graduated yet.'),
+      });
+    }
   }
 
   // Mint authority

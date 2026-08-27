@@ -49,6 +49,40 @@ export const getVerifiedTokens = unstable_cache(fetchVerifiedTokens, ['verified-
   revalidate: 1800,
 });
 
+// ── Restricted / sanctioned wallets ──────────────────────────────────────────
+//
+// Injective publishes the OFAC-sanctioned and otherwise-restricted wallet
+// addresses (EVM hex) it enforces against. A token whose creator or a top holder
+// is on this list is an authoritative red flag. We store them lowercased and
+// 0x-stripped so a hex or bech32-derived address compares cleanly.
+// https://github.com/InjectiveLabs/injective-lists/tree/master/json/wallets
+
+const RESTRICTED_URL =
+  'https://raw.githubusercontent.com/InjectiveLabs/injective-lists/master/json/wallets/ofacAndRestricted.json';
+
+async function fetchRestrictedWallets(): Promise<string[]> {
+  try {
+    const res = await fetch(RESTRICTED_URL, { signal: AbortSignal.timeout(10_000) });
+    if (!res.ok) return [];
+    const arr = await res.json();
+    if (!Array.isArray(arr)) return [];
+    return arr
+      .filter((a): a is string => typeof a === 'string')
+      .map((a) => a.replace(/^0x/, '').toLowerCase());
+  } catch {
+    return [];
+  }
+}
+
+const getRestrictedList = unstable_cache(fetchRestrictedWallets, ['restricted-wallets-v1'], {
+  revalidate: 1800,
+});
+
+/** Restricted/sanctioned wallets as a lookup set (0x-stripped, lowercased). */
+export async function getRestrictedWallets(): Promise<Set<string>> {
+  return new Set(await getRestrictedList());
+}
+
 // ── Set 2: known projects / NFT collections ──────────────────────────────────
 //
 // Famous Injective projects and blue-chip NFT collections whose *name* scammers

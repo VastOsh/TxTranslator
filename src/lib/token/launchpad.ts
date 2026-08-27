@@ -87,6 +87,29 @@ export async function fetchLaunchInfo(denom: string): Promise<LaunchInfo | null>
   };
 }
 
+// ── pump-api: creator track record (dev reputation, not identity) ───────────
+// The launchpad is pseudonymous — no name/team/verified labels exist. What we
+// CAN read is a creator's history: /profiles/{creator}.createdLaunches lists
+// every token that wallet has launched, and `graduatedPoolAddress` (⟺ state 4)
+// marks the ones that reached a live market. Many launches with none graduating
+// is a churn-and-dump pattern; a couple that graduated reads better.
+export interface CreatorStats {
+  launched: number;   // total tokens this wallet has launched (incl. this one)
+  graduated: number;  // how many reached a live market
+}
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+export async function fetchCreatorStats(creatorHex: string): Promise<CreatorStats | null> {
+  if (!creatorHex) return null;
+  const prof = await apiJson(`/profiles/${creatorHex}`);
+  const list: any[] | null = Array.isArray(prof?.createdLaunches) ? prof.createdLaunches : null;
+  if (!list) return null;
+  let graduated = 0;
+  for (const l of list) if (l?.graduatedPoolAddress) graduated++;
+  return { launched: list.length, graduated };
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
 // ── pump-api: holder distribution (labels protocol addresses) ───────────────
 export interface HolderRow {
   address: string;
