@@ -164,13 +164,9 @@ function extractValidatorData(rawMessages: any[]): {
   return { address: null, name: null, votingPower: null, commission: null };
 }
 
-// Same TLS bypass as lib/injective.ts — Windows Node.js lacks the Injective endpoint CA cert
-const bypassAgent = new https.Agent({ rejectUnauthorized: false });
-
 function httpsGetJson(url: string): Promise<any> {
   return new Promise((resolve) => {
     const req = https.get(url, {
-      agent: bypassAgent,
       headers: {
         Accept: 'application/json',
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
