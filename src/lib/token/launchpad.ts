@@ -1,6 +1,7 @@
 import { Buffer } from 'node:buffer';
 import { INDEXER_BASE, fetchJsonOverHttps } from '../injective';
 import { subaccountToInjAddress } from '../feed/watch';
+import { buildSellImpact, type CurveState, type SellImpact } from './impact';
 
 // ── Trippy launchpad (choice_mts) — per-token rug-risk state ────────────────
 // pump.trippyinj mints every token through one CosmWasm issuer contract, which
@@ -147,6 +148,9 @@ export interface LaunchpadHolders {
   clustersResolved: boolean;               // the funding sweep actually ran to completion
   clusteredPct: number;                    // supply % held by connected wallets
   largestClusterSize: number;
+
+  // Sell-impact on the bonding curve (on-curve tokens only; null once graduated).
+  sellImpact: SellImpact | null;
 }
 
 // ── Wallet-connection analysis: who funded the top holders ──────────────────
@@ -347,6 +351,23 @@ export async function fetchLaunchpadHolders(
   // Trace the funding graph over the top real holders (budgeted; skipped on 0).
   const cl = await buildClusters(bubble, opts.clusterBudgetMs ?? 0, excludeFunders);
 
+  // Sell-impact on the bonding curve — only while the token is still on the curve
+  // (once graduated it trades on a real market and this math no longer applies).
+  let sellImpact: SellImpact | null = null;
+  const onCurve = !launch?.graduatedPoolAddress && Number(launch?.state) !== 4;
+  if (onCurve && launch?.virtualPair != null && launch?.virtualToken != null) {
+    const curve: CurveState = {
+      virtualPair: String(launch.virtualPair),
+      virtualToken: String(launch.virtualToken),
+      tokensSold: String(launch.tokensSold ?? '0'),
+      realPair: String(launch.realPair ?? '0'),
+      feeBps: Number(launch.tradeFeeBps) || 0,
+    };
+    let topHolderTokens: bigint | null = null;
+    try { topHolderTokens = real.length ? BigInt(real[0].balance) : null; } catch { topHolderTokens = null; }
+    sellImpact = buildSellImpact(curve, { topHolderTokens });
+  }
+
   return {
     flagged: Boolean(launch?.flagged),
     impersonates: launch?.impersonates ? String(launch.impersonates) : null,
@@ -364,6 +385,7 @@ export async function fetchLaunchpadHolders(
     clustersResolved: cl.resolved,
     clusteredPct: cl.clusteredPct,
     largestClusterSize: cl.largestClusterSize,
+    sellImpact,
   };
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */

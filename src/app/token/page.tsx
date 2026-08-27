@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, Fragment } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import Changelog from '@/components/Changelog';
@@ -229,6 +229,67 @@ function HoldersCard({ h }: { h: Holders }) {
   );
 }
 
+type SellImpact = NonNullable<Holders['sellImpact']>;
+
+function fmtInjNum(n: number): string {
+  if (n >= 1000) return Math.round(n).toLocaleString('en-US');
+  if (n >= 1) return n.toFixed(2).replace(/\.?0+$/, '');
+  if (n >= 0.0001) return n.toFixed(4).replace(/\.?0+$/, '');
+  return n > 0 ? n.toExponential(1) : '0';
+}
+function fmtTok(n: number): string {
+  if (n >= 1e9) return `${(n / 1e9).toFixed(2).replace(/\.?0+$/, '')}B`;
+  if (n >= 1e6) return `${(n / 1e6).toFixed(2).replace(/\.?0+$/, '')}M`;
+  if (n >= 1e3) return `${(n / 1e3).toFixed(1).replace(/\.?0+$/, '')}K`;
+  return Math.round(n).toLocaleString('en-US');
+}
+function impactColor(pct: number): string {
+  return pct >= 50 ? 'var(--tx-red)' : pct >= 20 ? '#f0a020' : 'var(--tx-text)';
+}
+
+function ImpactCard({ si }: { si: SellImpact }) {
+  const muted = 'rgba(244, 241, 233, 0.55)';
+  return (
+    <div
+      style={{
+        background: 'rgba(244, 241, 233, 0.03)', border: '1px solid var(--tx-border)',
+        borderRadius: 10, padding: '0.9rem 1rem', marginBottom: '0.6rem',
+      }}
+    >
+      <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--tx-text)', marginBottom: '0.2rem' }}>
+        Sell impact
+      </div>
+      <div style={{ fontSize: '0.78rem', color: DETAIL_COLOR, marginBottom: '0.75rem', lineHeight: 1.5 }}>
+        Spot {fmtInjNum(si.spotPriceInj)} INJ/token · {fmtTok(si.circulatingTokens)} circulating ·
+        ~{fmtInjNum(si.curveInjLiquidity)} INJ of real liquidity in the curve
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: '0.35rem 0.9rem', alignItems: 'center' }}>
+        <span style={{ fontSize: '0.66rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: muted }}>If they sell</span>
+        <span style={{ fontSize: '0.66rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: muted, textAlign: 'right' }}>Price impact</span>
+        <span style={{ fontSize: '0.66rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: muted, textAlign: 'right' }}>Receives</span>
+        {si.rows.map((r) => (
+          <Fragment key={r.label}>
+            <span style={{ fontSize: '0.74rem', color: 'var(--tx-text)' }}>
+              {r.label}
+              <span style={{ color: muted }}> · {fmtTok(r.tokens)} ({pctLabel(r.pctCirculating)})</span>
+            </span>
+            <span style={{ fontSize: '0.76rem', fontWeight: 700, textAlign: 'right', color: impactColor(r.priceImpactPct), fontVariantNumeric: 'tabular-nums' }}>
+              −{pctLabel(r.priceImpactPct)}
+            </span>
+            <span style={{ fontSize: '0.74rem', textAlign: 'right', color: DETAIL_COLOR, fontVariantNumeric: 'tabular-nums' }}>
+              {fmtInjNum(r.injReceived)} INJ
+            </span>
+          </Fragment>
+        ))}
+      </div>
+      <div style={{ fontSize: '0.68rem', color: muted, marginTop: '0.7rem', lineHeight: 1.5 }}>
+        Exact figures from the bonding-curve reserves (constant-product, 1% fee). “Circulating” is the supply already
+        sold out of the curve; the rest is unsold reserve. Once the token graduates to a live market this no longer applies.
+      </div>
+    </div>
+  );
+}
+
 export default function TokenPage() {
   const [changelogOpen, setChangelogOpen] = useState(false);
   const [value, setValue] = useState('');
@@ -366,6 +427,7 @@ export default function TokenPage() {
 
           {result.signals.map((s, i) => <SignalCard key={i} s={s} />)}
           {result.holders && <HoldersCard h={result.holders} />}
+          {result.holders?.sellImpact && <ImpactCard si={result.holders.sellImpact} />}
         </section>
       )}
 

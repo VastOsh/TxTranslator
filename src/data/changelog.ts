@@ -11,10 +11,20 @@ export interface ChangelogVersion {
   entries: ChangelogEntry[];
 }
 
-export const CURRENT_VERSION = 'v1.12.0';
+export const CURRENT_VERSION = 'v1.13.0';
 
 // Entries within each version are ordered: critical → fix → improvement → feature
 export const CHANGELOG: ChangelogVersion[] = [
+  {
+    version: 'v1.13.0',
+    date: '2026-08-28',
+    entries: [
+      {
+        type: 'feature',
+        text: 'The /token check now shows sell impact for launchpad tokens still on the bonding curve — how far the price drops if a holder sells. It reads the curve’s own reserves and computes the exact figures (constant-product with the 1% fee, verified to the wei against real trades — not an estimate): for the largest holder’s bag and for 10/25/50/100% of the circulating supply, it shows how much INJ the seller nets and how much the price moves. Early tokens have little circulating supply so the impact is small; a token far along its curve with concentrated holders can drop sharply on a single sell. Once a token graduates to a live market this no longer applies (it then trades on the open orderbook).',
+      },
+    ],
+  },
   {
     version: 'v1.12.0',
     date: '2026-08-27',

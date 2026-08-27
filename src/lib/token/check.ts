@@ -389,6 +389,15 @@ function pctText(n: number): string {
   return (n >= 1 ? n.toFixed(1) : n.toFixed(2)).replace(/\.?0+$/, '');
 }
 
+// Compact INJ amount: big numbers get thousands separators, small ones keep
+// enough significant digits to not read as zero.
+function fmtInj(n: number): string {
+  if (n >= 1000) return Math.round(n).toLocaleString('en-US');
+  if (n >= 1) return n.toFixed(2).replace(/\.?0+$/, '');
+  if (n >= 0.0001) return n.toFixed(4).replace(/\.?0+$/, '');
+  return n > 0 ? n.toExponential(1) : '0';
+}
+
 async function buildLaunchpadSignals(
   denom: string,
   creator: string | null,
@@ -466,6 +475,25 @@ async function buildLaunchpadSignals(
           ? `The largest real holder controls ${pctText(p)}% of supply and the top 10 hold ${pctText(holders.top10RealPct)}% — enough to move the price sharply on a sell. `
           : `The largest real holder controls ${pctText(p)}% — no single wallet dominates the float. `) +
         (onCurve ? `${pctText(holders.escrowPct)}% of supply is still unsold in the curve escrow${lowTraction ? ', and very few wallets hold it — little traction so far' : ''}.` : ''),
+    });
+  }
+
+  // Sell-impact — how far a large holder can push the price on the bonding curve.
+  // Exact math on the curve reserves (verified against real fills), so this is a
+  // fact about current liquidity, not an estimate.
+  if (holders?.sellImpact && holders.sellImpact.rows.length) {
+    const si = holders.sellImpact;
+    const headline = si.rows.find((r) => r.label.startsWith('Largest holder')) ?? si.rows[0];
+    const all = si.rows.find((r) => r.label === 'All circulating');
+    const impact = headline.priceImpactPct;
+    const level: SignalLevel = impact >= 50 ? 'danger' : impact >= 20 ? 'warn' : 'info';
+    out.push({
+      level,
+      title: `Sell impact — ${headline.label.toLowerCase()} moves price −${pctText(impact)}%`,
+      detail:
+        `On the bonding curve, ${headline.label.toLowerCase()} (${pctText(headline.pctCirculating)}% of circulating) would net about ${fmtInj(headline.injReceived)} INJ and push the price down ${pctText(impact)}%. ` +
+        (all ? `Unwinding all circulating supply nets roughly ${fmtInj(all.injReceived)} INJ. ` : '') +
+        'Curve liquidity is shallow early on, so a large holder can move the price sharply.',
     });
   }
 
