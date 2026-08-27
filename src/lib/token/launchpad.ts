@@ -1,6 +1,7 @@
 import { Buffer } from 'node:buffer';
 import { INDEXER_BASE, fetchJsonOverHttps } from '../injective';
 import { subaccountToInjAddress } from '../feed/watch';
+import { injToHex } from '../address';
 import { buildSellImpact, type CurveState, type SellImpact } from './impact';
 
 // ── Trippy launchpad (choice_mts) — per-token rug-risk state ────────────────
@@ -194,6 +195,13 @@ async function firstFunder(inj: string, ownHex: string): Promise<string | null> 
     }
   }
   return null;
+}
+
+/** Public: the wallet that first funded `inj` (bank send or EVM transfer), or null. */
+export async function fetchFirstFunder(inj: string): Promise<string | null> {
+  const ownHex = injToHex(inj) ?? '';
+  const f = await firstFunder(inj, ownHex);
+  return f && f !== inj ? f : null;
 }
 
 interface ClusterResult {
