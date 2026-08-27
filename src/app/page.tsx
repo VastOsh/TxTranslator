@@ -321,7 +321,7 @@ export default function Home() {
                 <path d="M3 10h18" />
                 <circle cx="8" cy="14.5" r="1.5" />
               </svg>
-              NFT portfolio
+              Wallet intelligence
               <span aria-hidden style={{ opacity: 0.7 }}>→</span>
             </Link>
             <Link href="/token" className="tx-dapp-cta">
@@ -330,6 +330,17 @@ export default function Home() {
                 <path d="M9.5 12l2 2 3.5-4" />
               </svg>
               Token safety
+              <span aria-hidden style={{ opacity: 0.7 }}>→</span>
+            </Link>
+            <Link href="/insiders" className="tx-dapp-cta">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round">
+                <circle cx="12" cy="12" r="2.5" />
+                <circle cx="5" cy="6" r="1.8" />
+                <circle cx="19" cy="6" r="1.8" />
+                <circle cx="6" cy="18" r="1.8" />
+                <path d="M10 10.5 6.5 7M14 10.5 17.5 7M10.5 13.5 7.5 16.5" />
+              </svg>
+              Launchpad insiders
               <span aria-hidden style={{ opacity: 0.7 }}>→</span>
             </Link>
           </div>
