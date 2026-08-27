@@ -156,6 +156,9 @@ interface PostLines {
 function buildLines(c: FeedCandidate, tier: Tier, context?: string | null): PostLines {
   const url = `${SITE_URL}/tx/0x${c.hash}`;
   const base = c.baseSymbol;
+  // Cashtag in the hook so X indexes the post for the asset ($INJ etc.).
+  // Kept to the hook only — one cashtag per post; the size line stays a plain unit.
+  const tag = `$${base}`;
   const prefix = TEST_MODE ? '[TEST] ' : '';
   const ctx = context ?? fallbackContextLine(c);
 
@@ -163,7 +166,7 @@ function buildLines(c: FeedCandidate, tier: Tier, context?: string | null): Post
     const emoji = tier === 'hero' ? '🚨💀' : '💀';
     const side = c.direction ? ` ${c.direction}` : '';
     return {
-      hook: `${prefix}${emoji} Rekt. A ${fmtUsd(c.notionalUsd)} ${base}${side} just got liquidated on Injective.`,
+      hook: `${prefix}${emoji} Rekt. A ${fmtUsd(c.notionalUsd)} ${tag}${side} just got liquidated on Injective.`,
       numbers: `Size ${fmtQty(c.quantity ?? 0)} ${base} · forced out at ${fmtPrice(c.price ?? 0)}.`,
       context: ctx,
       link: `Full breakdown 👉 ${url}`,
@@ -179,7 +182,7 @@ function buildLines(c: FeedCandidate, tier: Tier, context?: string | null): Post
       ? `banking +${fmtUsd(pnl)} profit`
       : `eating a ${fmtUsd(Math.abs(pnl))} loss`;
     return {
-      hook: `${prefix}${emoji} Someone just closed a ${fmtUsd(c.notionalUsd)}${c.isTradFi ? ` tokenized ${base}` : ` ${base}`}${side} on Injective, ${result}.`,
+      hook: `${prefix}${emoji} Someone just closed a ${fmtUsd(c.notionalUsd)}${c.isTradFi ? ` tokenized ${tag}` : ` ${tag}`}${side} on Injective, ${result}.`,
       numbers: `Size ${fmtQty(c.quantity ?? 0)} ${base} · exit at ${fmtPrice(c.price ?? 0)}.`,
       context: ctx,
       link: `Full breakdown 👉 ${url}`,
@@ -190,8 +193,8 @@ function buildLines(c: FeedCandidate, tier: Tier, context?: string | null): Post
   const side = c.direction === 'short' ? 'Short' : 'Long';
   const lev = c.leverage ? `, ${c.leverage.toFixed(c.leverage >= 10 ? 0 : 1).replace(/\.0$/, '')}x` : '';
   const hook = c.isTradFi
-    ? `${prefix}${emoji} Someone just opened a ${fmtUsd(c.notionalUsd)} tokenized ${base} position on Injective. ${side}${lev}.`
-    : `${prefix}${emoji} Someone just opened a ${fmtUsd(c.notionalUsd)} ${base} perp on Injective. ${side}${lev}.`;
+    ? `${prefix}${emoji} Someone just opened a ${fmtUsd(c.notionalUsd)} tokenized ${tag} position on Injective. ${side}${lev}.`
+    : `${prefix}${emoji} Someone just opened a ${fmtUsd(c.notionalUsd)} ${tag} perp on Injective. ${side}${lev}.`;
   return {
     hook,
     numbers: `Entry ${fmtPrice(c.price ?? 0)} · margin ${fmtUsd(c.marginUsd ?? 0)} ${c.quoteSymbol}.`,
