@@ -17,6 +17,25 @@
 // batch — re-running skips nothing but simply overwrites, so it is safe to stop
 // and restart.
 
+// Load .env.local (KEY=VALUE lines) into process.env so the secret can live
+// there once instead of being retyped — and never mangled by shell quoting.
+// Existing env vars win; this only fills in what is missing.
+import { readFileSync } from 'node:fs';
+try {
+  for (const line of readFileSync(new URL('../.env.local', import.meta.url), 'utf8').split('\n')) {
+    const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)$/i);
+    if (!m) continue;
+    const key = m[1];
+    let val = m[2].replace(/\r$/, '').trim();
+    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+      val = val.slice(1, -1);
+    }
+    if (process.env[key] === undefined) process.env[key] = val;
+  }
+} catch {
+  /* no .env.local — rely on real env / CLI args */
+}
+
 const args = Object.fromEntries(
   process.argv.slice(2).reduce((acc, a, i, arr) => {
     if (a.startsWith('--')) acc.push([a.slice(2), arr[i + 1]]);
