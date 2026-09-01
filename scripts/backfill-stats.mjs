@@ -56,7 +56,9 @@ let totalVol = 0;
 for (const date of dates) {
   const t0 = Date.now();
   try {
-    const res = await fetch(`${BASE}/api/cron/stats?date=${date}`, {
+    // ?wait=1 = run synchronously and return the result, so we can confirm each
+    // day before moving on (sequential writes avoid clobbering the blob).
+    const res = await fetch(`${BASE}/api/cron/stats?wait=1&date=${date}`, {
       headers: { authorization: `Bearer ${SECRET}` },
     });
     const j = await res.json();
