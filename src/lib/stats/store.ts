@@ -35,7 +35,7 @@ function blobToken(): string | undefined {
 /** Read the aggregate blob. `fresh` bypasses the CDN cache (use after a write). */
 export async function readStats(fresh = false): Promise<StatsBlob> {
   try {
-    const res = await get(BLOB_PATH, { access: 'public', useCache: !fresh, token: blobToken() });
+    const res = await get(BLOB_PATH, { access: 'private', useCache: !fresh, token: blobToken() });
     if (!res || res.statusCode !== 200) return empty();
     const data = await new Response(res.stream).json();
     if (data && typeof data === 'object' && (data as StatsBlob).days) return data as StatsBlob;
@@ -48,7 +48,7 @@ export async function readStats(fresh = false): Promise<StatsBlob> {
 export async function writeStats(blob: StatsBlob): Promise<void> {
   blob.updatedAt = Date.now();
   await put(BLOB_PATH, JSON.stringify(blob), {
-    access: 'public',
+    access: 'private',
     contentType: 'application/json',
     allowOverwrite: true,
     addRandomSuffix: false,

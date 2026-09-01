@@ -73,7 +73,7 @@ export async function GET(req: NextRequest) {
     const { put, get } = await import('@vercel/blob');
     try {
       const w = await put('stats/_probe.json', JSON.stringify({ t: Date.now() }), {
-        access: 'public',
+        access: 'private',
         contentType: 'application/json',
         allowOverwrite: true,
         addRandomSuffix: false,
@@ -86,7 +86,7 @@ export async function GET(req: NextRequest) {
       out.putError = e instanceof Error ? e.message : String(e);
     }
     try {
-      const r = await get('stats/_probe.json', { access: 'public', useCache: false, token });
+      const r = await get('stats/_probe.json', { access: 'private', useCache: false, token });
       out.getOk = !!r && r.statusCode === 200;
     } catch (e) {
       out.getOk = false;
