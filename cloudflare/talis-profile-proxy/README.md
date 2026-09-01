@@ -1,6 +1,6 @@
 # Talis profile-id proxy + IPFS image/metadata cache (Cloudflare Worker)
 
-Three routes, all used by the wallet NFT portfolio:
+Four routes, all used by the wallet NFT portfolio:
 
 - `GET /?address=inj1...` (Bearer `PROXY_SECRET`) → resolves a wallet address to
   its Talis profile id, so the "N owned" count can link to the holder's Talis
@@ -31,7 +31,26 @@ Three routes, all used by the wallet NFT portfolio:
   JSON and is re-serialised before being served, so this route can only ever emit
   JSON — never smuggled HTML or script.
 
-Both cache routes cap each gateway attempt (8s) and fail over to the next, so one
+- `GET /tokens?owner=<profileId>` (Bearer `PROXY_SECRET`) → every NFT Talis's own
+  index attributes to a wallet, with title and media URI. Talis caps a page at 20,
+  so the Worker walks the pages here — next to Talis — and returns one merged list
+  instead of making Vercel pay ~60 round trips. Cached 5 minutes at the edge
+  (7s cold, ~50ms warm).
+
+  **This index is not authoritative for ownership.** Measured against the chain it
+  over-reports: for one wallet it claimed 1168 tokens where `owner_of()` confirms
+  883, including tokens since transferred away. The app uses it only to look up
+  title/media for tokens the on-chain scan has already proven, never to decide what
+  is owned. Talis exposes no contract address anywhere in its schema, so collections
+  are keyed by its opaque `minter` id and joined to contracts via the token ids the
+  scan found.
+
+  Capped at 40 pages (800 tokens) by the Workers **free plan's 50-subrequest limit**
+  — measured, not assumed: a 120-page walk returns HTTP 500. Beyond that the response
+  is marked `truncated` and the app falls back to per-token IPFS resolution. Raising
+  it meaningfully needs the paid Workers plan.
+
+Both cache routes cap each gateway attempt (12s) and fail over to the next, so one
 hanging gateway can't stall a request.
 
 ## Deploy

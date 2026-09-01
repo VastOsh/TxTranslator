@@ -11,12 +11,17 @@ import { unstable_cache } from 'next/cache';
 //      ranked by lifetime execution count so the busiest collections come first.
 //   2. For a wallet, ask each collection `tokens { owner }` — a ~120ms indexed
 //      query — spread across several LCD nodes under a wall-clock budget.
-//   3. For the collections that hold something, pull per-token metadata via the
-//      Talis `metadata_u_r_i` query and resolve the IPFS JSON for name + image.
+//   3. For the collections that hold something, resolve each token's name and
+//      image. Talis's own index answers that for the whole wallet in one request
+//      (see fetchTalisIndex); anything it can't place falls back to the on-chain
+//      `metadata_u_r_i` query plus the IPFS JSON.
 //
-// Every figure is read live from the chain; nothing here is fabricated. When the
-// budget is hit before every collection is scanned we say so rather than pretend
-// the list is complete.
+// Ownership is only ever read from the chain. Talis's index is a metadata
+// convenience and is NOT authoritative about what a wallet holds — it lags, and
+// lists tokens that have since moved on — so it is consulted only for token ids
+// step 2 has already proven. Every figure shown is live from the chain; nothing
+// here is fabricated. When the budget is hit before every collection is scanned
+// we say so rather than pretend the list is complete.
 
 const INDEXER_BASE = 'https://sentry.exchange.grpc-web.injective.network';
 
@@ -107,6 +112,10 @@ const METADATA_JSON_TIMEOUT_MS = 5_000;
 // single-digit ms). Sized above the Worker's own per-gateway timeout so we don't
 // give up while it is still failing over.
 const PROXY_JSON_TIMEOUT_MS = 15_000;
+// The Talis index walks ~60 upstream pages inside the Worker, so allow for that
+// on a cold edge cache. It runs concurrently with the ownership scan, which is
+// far longer, so this never extends the request on its own.
+const TALIS_INDEX_TIMEOUT_MS = 20_000;
 
 // ── Verified collections — pinned by CONTRACT ADDRESS, never by name ──
 //
@@ -493,17 +502,139 @@ async function resolveTalisProfileId(address: string): Promise<string | null> {
   }
 }
 
+// ── Talis token index (title + media, not ownership) ─────────────────────────
+
+/**
+ * Talis's own index of what a wallet holds, keyed by on-chain token id.
+ *
+ * This exists purely to skip the slow half of thumbnail resolution. Without it
+ * every token costs an LCD `metadata_u_r_i` query plus an IPFS metadata fetch;
+ * with it, one request covers the whole wallet and returns the title and media
+ * URI directly.
+ *
+ * It is deliberately NOT used to decide what a wallet owns. Talis's index lags
+ * the chain — for one test wallet it reported 1168 tokens where `owner_of` on
+ * the contract confirms 883, including tokens since transferred to someone
+ * else. Ownership therefore stays with scanOwnership(), and this map is only
+ * ever consulted for token ids that scan has already proven.
+ *
+ * Because a token id is only unique within its collection, entries are grouped
+ * by Talis's opaque `minter` id (its per-collection key — Talis exposes no
+ * contract address anywhere, so the two can't be joined directly). Callers
+ * resolve a collection's minter from the ids they know, then look up within it.
+ */
+interface TalisEntry {
+  title: string | null;
+  media: string | null;
+  minter: string | null;
+}
+type TalisIndex = Map<string, TalisEntry[]>;
+
+async function fetchTalisIndex(profileId: string | null): Promise<TalisIndex | null> {
+  const proxyUrl = process.env.TALIS_PROXY_URL;
+  const proxySecret = process.env.TALIS_PROXY_SECRET;
+  if (!profileId || !proxyUrl || !proxySecret) return null;
+  try {
+    const res = await fetch(
+      `${proxyUrl.replace(/\/+$/, '')}/tokens?owner=${encodeURIComponent(profileId)}`,
+      { headers: { Authorization: `Bearer ${proxySecret}` }, signal: AbortSignal.timeout(TALIS_INDEX_TIMEOUT_MS) },
+    );
+    if (!res.ok) return null;
+    const body = await res.json();
+    const rows: unknown = body?.tokens;
+    if (!Array.isArray(rows)) return null;
+    const index: TalisIndex = new Map();
+    for (const r of rows as { token_id?: unknown; title?: unknown; media?: unknown; minter?: unknown }[]) {
+      const id = typeof r?.token_id === 'string' ? r.token_id : null;
+      if (!id) continue;
+      const entry: TalisEntry = {
+        title: typeof r.title === 'string' ? r.title : null,
+        media: typeof r.media === 'string' ? r.media : null,
+        minter: typeof r.minter === 'string' ? r.minter : null,
+      };
+      const bucket = index.get(id);
+      if (bucket) bucket.push(entry);
+      else index.set(id, [entry]);
+    }
+    return index;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Which Talis minter (collection) the owned ids belong to.
+ *
+ * Ids that match exactly one entry are unambiguous, so the minter they agree on
+ * identifies the collection; that answer then resolves ids a wallet happens to
+ * hold under the same number in two collections. Null when nothing matched.
+ */
+function resolveMinter(index: TalisIndex, ownedIds: string[]): string | null {
+  const votes = new Map<string, number>();
+  for (const id of ownedIds) {
+    const bucket = index.get(id);
+    if (bucket?.length === 1 && bucket[0].minter) {
+      votes.set(bucket[0].minter, (votes.get(bucket[0].minter) ?? 0) + 1);
+    }
+  }
+  let best: string | null = null;
+  let bestVotes = 0;
+  for (const [minter, n] of votes) {
+    if (n > bestVotes) { best = minter; bestVotes = n; }
+  }
+  return best;
+}
+
+/** The Talis entry for one owned token, or null when the index can't place it. */
+function talisItem(index: TalisIndex, minter: string | null, tokenId: string): NftItem | null {
+  const bucket = index.get(tokenId);
+  if (!bucket?.length) return null;
+  const match = bucket.length === 1 ? bucket[0] : bucket.find(e => e.minter === minter);
+  if (!match || !match.media) return null;
+  return { tokenId, name: match.title, image: resolveImageUrl(match.media) };
+}
+
+/**
+ * Items for one collection: Talis first (free — already fetched for the whole
+ * wallet), then per-token IPFS resolution for whatever it couldn't place.
+ */
+async function resolveItems(
+  collection: string,
+  tokenIds: string[],
+  index: TalisIndex | null,
+  deadline: number,
+): Promise<NftItem[]> {
+  const minter = index ? resolveMinter(index, tokenIds) : null;
+  const out = new Array<NftItem | null>(tokenIds.length);
+  const missing: number[] = [];
+  tokenIds.forEach((id, i) => {
+    const hit = index ? talisItem(index, minter, id) : null;
+    out[i] = hit;
+    if (!hit) missing.push(i);
+  });
+  await mapWithConcurrency(missing, METADATA_CONCURRENCY, async (i, n) => {
+    out[i] = await fetchTokenMeta(collection, tokenIds[i], n, deadline);
+  });
+  return out.map((item, i) => item ?? { tokenId: tokenIds[i], name: null, image: null });
+}
+
 // ── Public entry point ───────────────────────────────────────────────────────
 
 export async function buildPortfolio(address: string): Promise<Portfolio> {
   const started = Date.now();
   const collections = await getCollections();
 
-  // Ownership scan and the profile-id lookup are independent — run them together.
-  const [{ hits, scanned, partial }, talisProfileId] = await Promise.all([
+  // The ownership scan is the long pole. The Talis lookups are independent of it,
+  // so the profile id and the token index are fetched alongside it and are
+  // effectively free — by the time the scan lands, the index is already in hand.
+  const [{ hits, scanned, partial }, talis] = await Promise.all([
     scanOwnership(address, collections),
-    resolveTalisProfileId(address),
+    (async () => {
+      const id = await resolveTalisProfileId(address);
+      return { id, index: await fetchTalisIndex(id) };
+    })(),
   ]);
+  const talisProfileId = talis.id;
 
   // Metadata gets its own window starting now — after the scan — so a long sweep
   // can't leave it with nothing (see METADATA_TIME_BUDGET_MS), bounded by the
@@ -527,10 +658,11 @@ export async function buildPortfolio(address: string): Promise<Portfolio> {
   async function toHolding(hit: Hit, withItems: boolean): Promise<CollectionHolding> {
     const v = VERIFIED[hit.collection.address];
     const items = withItems
-      ? await mapWithConcurrency(
+      ? await resolveItems(
+          hit.collection.address,
           hit.tokenIds.slice(0, Math.min(hit.tokenIds.length, MAX_NFTS)),
-          METADATA_CONCURRENCY,
-          (id, idx) => fetchTokenMeta(hit.collection.address, id, idx, metaDeadline),
+          talis.index,
+          metaDeadline,
         )
       : [];
     return {
@@ -547,7 +679,11 @@ export async function buildPortfolio(address: string): Promise<Portfolio> {
   const holdings: CollectionHolding[] = [];
   let budget = MAX_NFTS;
   for (const hit of hits) {
-    const holding = await toHolding(hit, budget > 0);
+    // MAX_NFTS rations IPFS resolution, which costs a request per token. When the
+    // Talis index is available the title and media are already in memory, so a
+    // thumbnail is free and every collection gets one instead of only the first
+    // two or three — the cap that used to leave most of a wallet imageless.
+    const holding = await toHolding(hit, talis.index !== null || budget > 0);
     if (budget > 0) budget -= holding.items.length;
     holdings.push(holding);
   }
@@ -586,12 +722,16 @@ export async function fetchCollectionItems(
   collection: string,
 ): Promise<CollectionItems> {
   const started = Date.now();
-  const { count, ids } = await pageOwnedTokenIds(collection, owner, 0, MAX_EXPAND_ITEMS);
+  // Ownership paging and the Talis index are independent — run them together.
+  // The index is usually still edge-cached from the portfolio scan that rendered
+  // the expander, so it normally costs nothing here.
+  const [{ count, ids }, index] = await Promise.all([
+    pageOwnedTokenIds(collection, owner, 0, MAX_EXPAND_ITEMS),
+    (async () => fetchTalisIndex(await resolveTalisProfileId(owner)))(),
+  ]);
   // Same split as buildPortfolio: the paging above is cheap here (one contract),
   // but metadata still gets a window of its own rather than the leftovers.
   const deadline = Math.min(Date.now() + METADATA_TIME_BUDGET_MS, started + HARD_TIME_BUDGET_MS);
-  const items = await mapWithConcurrency(ids, METADATA_CONCURRENCY, (id, idx) =>
-    fetchTokenMeta(collection, id, idx, deadline),
-  );
+  const items = await resolveItems(collection, ids, index, deadline);
   return { address: collection, count, items, truncated: count > ids.length };
 }

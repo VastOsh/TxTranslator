@@ -27,6 +27,18 @@
 //     as JSON and is re-serialised before it is served, so this route can only
 //     ever emit JSON — it can't be turned into a general-purpose proxy either.
 //
+//   GET /tokens?owner=<profileId>  (Bearer PROXY_SECRET required)
+//     Every NFT Talis's own index attributes to a wallet, with its title and
+//     media URI. Talis caps a page at 20, so this walks the pages here — on
+//     Cloudflare's network, next to Talis — and returns one merged list, rather
+//     than making Vercel pay ~60 round trips.
+//
+//     IMPORTANT: this index is NOT authoritative for ownership. Measured against
+//     the chain it over-reports: for one wallet it claimed 1168 tokens where
+//     owner_of() confirms 883, including tokens now owned by someone else. So
+//     the app uses it ONLY to look up title/media for tokens the on-chain scan
+//     has already proven the wallet owns — never to decide what is owned.
+//
 // Secrets / config (set via `wrangler secret put` or the dashboard):
 //   PROXY_SECRET  — the bearer token the profile route requires.
 
@@ -54,6 +66,17 @@ const IPFS_GATEWAYS = [
 const CID_RE = /^(Qm[1-9A-HJ-NP-Za-km-z]{44}|b[a-z2-7]{20,})$/;
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024; // don't cache absurdly large files
 const MAX_JSON_BYTES = 1024 * 1024; // metadata docs are a few KB; pure headroom
+// Talis hard-caps a page at 20 regardless of the limit asked for, so a 1000-token
+// wallet is 50 upstream calls. This account is on the Workers free plan, whose
+// 50-subrequest-per-request ceiling is real and was measured: a 120-page walk
+// returns HTTP 500 from the runtime, a 40-page one succeeds. Hence 40 (800
+// tokens), which leaves headroom and covers all but whale wallets; beyond that
+// the response is marked truncated and the caller falls back to per-token IPFS
+// resolution. Raising this meaningfully needs the paid Workers plan (1000).
+const TALIS_PAGE = 20;
+const TALIS_MAX_PAGES = 40;
+const TALIS_CONCURRENCY = 6;
+const MONGO_ID_RE = /^[0-9a-f]{24}$/;
 // A gateway that hangs must never hold up the walk — that is exactly the failure
 // this Worker exists to absorb. Cap every attempt and move on to the next one.
 // The surviving gateways answer in 2-12s (they are slower than the ones that
@@ -105,6 +128,100 @@ async function handleProfile(request, env) {
   } catch (err) {
     return json({ id: null, error: String(err && err.message ? err.message : err) });
   }
+}
+
+// ── Talis wallet-token index route ───────────────────────────────────────────
+
+async function talisGraphql(query, variables) {
+  const res = await fetch('https://injective.talis.art/api/graphql', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Origin: 'https://injective.talis.art',
+      Referer: 'https://injective.talis.art/',
+      'User-Agent': UA,
+    },
+    body: JSON.stringify({ query, variables }),
+  });
+  if (!res.ok) return null;
+  return await res.json().catch(() => null);
+}
+
+const TOKENS_QUERY = `query($i:TokensInput!){tokens(input:$i){count tokens{token_id title media minter{id}}}}`;
+
+async function talisPage(owner, offset) {
+  const body = await talisGraphql(TOKENS_QUERY, {
+    i: { filter: { owner }, limit: TALIS_PAGE, offset },
+  });
+  const t = body?.data?.tokens;
+  if (!t) return null;
+  return { count: Number(t.count) || 0, tokens: Array.isArray(t.tokens) ? t.tokens : [] };
+}
+
+/**
+ * Every token Talis attributes to `owner`, merged across its 20-per-page API.
+ *
+ * Ownership here is Talis's view, which lags the chain — callers must treat this
+ * as a title/media lookup for tokens they have already verified on-chain, never
+ * as the list of what a wallet owns (see the route notes at the top of the file).
+ */
+async function handleTokens(request, url, env, ctx) {
+  const auth = request.headers.get('authorization') || '';
+  const expected = env.PROXY_SECRET ? `Bearer ${env.PROXY_SECRET}` : '';
+  if (!expected || !safeEqual(auth, expected)) return json({ error: 'unauthorized' }, 401);
+
+  const owner = url.searchParams.get('owner') || '';
+  if (!MONGO_ID_RE.test(owner)) return json({ error: 'invalid owner id' }, 400);
+
+  // Ownership changes when the wallet trades, so this is cached briefly rather
+  // than immutably — long enough that the portfolio scan and the per-collection
+  // expander that follows it share one walk.
+  const cache = caches.default;
+  const cacheKey = new Request(url.toString(), { method: 'GET' });
+  const cached = await cache.match(cacheKey);
+  if (cached) return cached;
+
+  const first = await talisPage(owner, 0);
+  if (!first) return json({ error: 'upstream failed' }, 502);
+
+  const pages = Math.min(Math.ceil(first.count / TALIS_PAGE), TALIS_MAX_PAGES);
+  const tokens = [...first.tokens];
+  let next = 1;
+  await Promise.all(
+    Array.from({ length: Math.min(TALIS_CONCURRENCY, Math.max(pages - 1, 0)) }, async () => {
+      while (next < pages) {
+        const page = next++;
+        const got = await talisPage(owner, page * TALIS_PAGE);
+        if (got) tokens.push(...got.tokens);
+      }
+    }),
+  );
+
+  const out = new Response(
+    JSON.stringify({
+      count: first.count,
+      // True when the wallet holds more than the page cap can walk; callers fall
+      // back to per-token IPFS resolution for whatever is missing.
+      truncated: first.count > pages * TALIS_PAGE,
+      tokens: tokens.map(t => ({
+        token_id: String(t.token_id),
+        title: t.title ?? null,
+        media: t.media ?? null,
+        minter: t.minter?.id ?? null,
+      })),
+    }),
+    {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'public, max-age=300',
+        'X-Content-Type-Options': 'nosniff',
+      },
+    },
+  );
+  if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(cache.put(cacheKey, out.clone()));
+  else await cache.put(cacheKey, out.clone());
+  return out;
 }
 
 // ── Shared edge-cached IPFS fetch ────────────────────────────────────────────
@@ -227,6 +344,7 @@ export default {
     const url = new URL(request.url);
     if (url.pathname.startsWith('/ipfs/')) return handleIpfs(request, url, ctx);
     if (url.pathname.startsWith('/json/')) return handleJson(request, url, ctx);
+    if (url.pathname === '/tokens') return handleTokens(request, url, env, ctx);
     return handleProfile(request, env);
   },
 };
