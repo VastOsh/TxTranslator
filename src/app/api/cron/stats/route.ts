@@ -47,54 +47,6 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  // Diagnostic: report whether the Blob credentials actually reached this
-  // deployment's runtime — presence and length only, never the values.
-  if (sp.get('diag') === '1') {
-    return NextResponse.json({
-      vercelEnv: process.env.VERCEL_ENV ?? null,
-      hasBlobToken: !!process.env.BLOB_READ_WRITE_TOKEN,
-      blobTokenLen: (process.env.BLOB_READ_WRITE_TOKEN || '').length,
-      hasBlobStoreId: !!process.env.BLOB_STORE_ID,
-      hasCronSecret: !!process.env.CRON_SECRET,
-      // any env var whose name mentions BLOB, so a custom-named token shows up
-      blobVarNames: Object.keys(process.env).filter((k) => k.includes('BLOB')),
-    });
-  }
-
-  // Probe: actually attempt a Blob write/read and report the real outcome, so we
-  // can see the exact failure instead of guessing. `codeVersion` confirms which
-  // build is being hit.
-  if (sp.get('probe') === '1') {
-    const token = process.env.BLOB_READ_WRITE_TOKEN;
-    const out: Record<string, unknown> = {
-      codeVersion: 'probe-2',
-      tokenLenInRoute: (token || '').length,
-    };
-    const { put, get } = await import('@vercel/blob');
-    try {
-      const w = await put('stats/_probe.json', JSON.stringify({ t: Date.now() }), {
-        access: 'private',
-        contentType: 'application/json',
-        allowOverwrite: true,
-        addRandomSuffix: false,
-        token,
-      });
-      out.putOk = true;
-      out.putUrl = w.url;
-    } catch (e) {
-      out.putOk = false;
-      out.putError = e instanceof Error ? e.message : String(e);
-    }
-    try {
-      const r = await get('stats/_probe.json', { access: 'private', useCache: false, token });
-      out.getOk = !!r && r.statusCode === 200;
-    } catch (e) {
-      out.getOk = false;
-      out.getError = e instanceof Error ? e.message : String(e);
-    }
-    return NextResponse.json(out);
-  }
-
   const date = sp.get('date') ?? utcDate(Date.now() - 24 * 3600 * 1000);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     return NextResponse.json({ error: 'bad date (want YYYY-MM-DD)' }, { status: 400 });
