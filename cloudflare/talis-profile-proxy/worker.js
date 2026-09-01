@@ -35,11 +35,20 @@ const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36';
 
 // Direct IPFS gateways tried in order on a cache miss.
+//
+// Ordered by what actually answers, measured from this Worker (2026-09-01). The
+// previous list — filebase, pinata, dweb.link, ipfs.io — is now dead for our
+// CIDs: Protocol Labs' gateways (ipfs.io, dweb.link, w3s.link, nftstorage.link)
+// blanket-403 datacenter traffic in ~20-50ms, pinata 429s, filebase 504s. That
+// is not a rate-limit we can wait out, and it is why NFT thumbnails stopped
+// resolving altogether rather than merely being slow. Re-check this list if
+// images regress again; gateway availability is volatile.
 const IPFS_GATEWAYS = [
-  'https://ipfs.filebase.io/ipfs/',
-  'https://gateway.pinata.cloud/ipfs/',
-  'https://dweb.link/ipfs/',
-  'https://ipfs.io/ipfs/',
+  'https://snapshot.4everland.link/ipfs/', // only one that served every test CID
+  'https://gateway.ipfsscan.io/ipfs/',
+  'https://ipfs.raribleuserdata.com/ipfs/',
+  'https://4everland.io/ipfs/',
+  'https://ipfs.filebase.io/ipfs/', // flaky, kept as a last resort
 ];
 // First path segment must look like an IPFS CID (v0 Qm..., or v1 baf...).
 const CID_RE = /^(Qm[1-9A-HJ-NP-Za-km-z]{44}|b[a-z2-7]{20,})$/;
@@ -47,7 +56,9 @@ const MAX_IMAGE_BYTES = 20 * 1024 * 1024; // don't cache absurdly large files
 const MAX_JSON_BYTES = 1024 * 1024; // metadata docs are a few KB; pure headroom
 // A gateway that hangs must never hold up the walk — that is exactly the failure
 // this Worker exists to absorb. Cap every attempt and move on to the next one.
-const GATEWAY_TIMEOUT_MS = 8_000;
+// The surviving gateways answer in 2-12s (they are slower than the ones that
+// died), so this is sized to tolerate that rather than cut off a good response.
+const GATEWAY_TIMEOUT_MS = 12_000;
 
 function json(obj, status = 200) {
   return new Response(JSON.stringify(obj), {

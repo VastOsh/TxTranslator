@@ -79,15 +79,19 @@ const HARD_TIME_BUDGET_MS = 105_000;
 // Generous but bounded so a whale's collection can't spin forever.
 const MAX_EXPAND_ITEMS = 300;
 
-// Ordered by current reliability. The Protocol Labs gateways (ipfs.io, dweb.link)
-// have become slow/unresponsive, so a faster public gateway leads and they trail
-// as fallbacks. Metadata resolution and the initial <img> src both use [0] first;
-// the client retries down this same list on error (see PortfolioView handleImgError).
+// Ordered by what actually answers, measured 2026-09-01 (keep in sync with the
+// Worker's own list in cloudflare/talis-profile-proxy/worker.js and the client
+// fallback in PortfolioView). The Protocol Labs gateways didn't just get slow —
+// ipfs.io, dweb.link, w3s.link and nftstorage.link now blanket-403 datacenter
+// traffic in ~20-50ms, pinata 429s and filebase 504s, which is why thumbnails
+// stopped resolving entirely. Metadata resolution and the initial <img> src both
+// use [0] first; the client retries down this list (see handleImgError).
 const IPFS_GATEWAYS = [
-  'https://ipfs.filebase.io/ipfs/',
-  'https://gateway.pinata.cloud/ipfs/',
-  'https://dweb.link/ipfs/',
-  'https://ipfs.io/ipfs/',
+  'https://snapshot.4everland.link/ipfs/', // only one that served every test CID
+  'https://gateway.ipfsscan.io/ipfs/',
+  'https://ipfs.raribleuserdata.com/ipfs/',
+  'https://4everland.io/ipfs/',
+  'https://ipfs.filebase.io/ipfs/', // flaky, kept as a last resort
 ];
 
 // Direct-gateway metadata resolution (the no-Worker fallback) only tries the
