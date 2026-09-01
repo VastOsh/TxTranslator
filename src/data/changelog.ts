@@ -11,10 +11,24 @@ export interface ChangelogVersion {
   entries: ChangelogEntry[];
 }
 
-export const CURRENT_VERSION = 'v1.14.0';
+export const CURRENT_VERSION = 'v1.14.1';
 
 // Entries within each version are ordered: critical → fix → improvement → feature
 export const CHANGELOG: ChangelogVersion[] = [
+  {
+    version: 'v1.14.1',
+    date: '2026-09-01',
+    entries: [
+      {
+        type: 'critical',
+        text: 'Wallet NFT images load again. The public IPFS gateways that host NFT artwork stopped serving cloud traffic altogether — not slowly, but refused outright — so thumbnails could not be resolved at all: the portfolio sat loading for minutes and came back with no pictures. Images now come from a gateway set that was re-tested end to end, and the metadata document each thumbnail needs before its image URL is even known is cached at the edge too, so it is fetched once globally rather than on every view. Image resolution also gets its own time budget instead of sharing one with the collection scan, which had been consuming all of it and leaving nothing for the pictures. The first view of a wallet warms the cache; after that thumbnails load near-instantly for everyone.',
+      },
+      {
+        type: 'improvement',
+        text: 'The wallet NFT portfolio now shows thumbnails for every collection, not just the first few. Putting an image to an NFT used to cost a separate on-chain query and IPFS fetch each, so it was rationed — a wallet holding 42 collections got pictures for two or three and “images not loaded yet” for the rest. Talis’s own index can answer for a whole wallet in one request, so titles and images are read from there and the ration no longer applies. What a wallet owns is still read live from the chain and never from that index — it lags behind, listing NFTs that have since moved to someone else — so it is only ever used to put a picture to a token the chain has already confirmed. Anything it cannot place falls back to the previous per-NFT lookup, and very large wallets still fall back for part of their holdings.',
+      },
+    ],
+  },
   {
     version: 'v1.14.0',
     date: '2026-08-28',

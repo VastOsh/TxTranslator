@@ -13,11 +13,15 @@ interface Props {
 // placeholder. The CID path is whatever follows "/ipfs/", so this works
 // whatever the initial src was. dataset.gw tracks the last index tried; on the
 // first error it's absent (-1) so we start at gateway 0.
+// Keep in sync with IPFS_GATEWAYS in lib/portfolio/nft.ts — the gateways that
+// still answer as of 2026-09-01. The old Protocol Labs / pinata / filebase set
+// now 403s, 429s and 504s, so retrying down it could only ever fail.
 const IMG_GATEWAYS = [
+  'https://snapshot.4everland.link/ipfs/',
+  'https://gateway.ipfsscan.io/ipfs/',
+  'https://ipfs.raribleuserdata.com/ipfs/',
+  'https://4everland.io/ipfs/',
   'https://ipfs.filebase.io/ipfs/',
-  'https://gateway.pinata.cloud/ipfs/',
-  'https://dweb.link/ipfs/',
-  'https://ipfs.io/ipfs/',
 ];
 
 function handleImgError(e: React.SyntheticEvent<HTMLImageElement>) {

@@ -11,12 +11,17 @@ import { unstable_cache } from 'next/cache';
 //      ranked by lifetime execution count so the busiest collections come first.
 //   2. For a wallet, ask each collection `tokens { owner }` — a ~120ms indexed
 //      query — spread across several LCD nodes under a wall-clock budget.
-//   3. For the collections that hold something, pull per-token metadata via the
-//      Talis `metadata_u_r_i` query and resolve the IPFS JSON for name + image.
+//   3. For the collections that hold something, resolve each token's name and
+//      image. Talis's own index answers that for the whole wallet in one request
+//      (see fetchTalisIndex); anything it can't place falls back to the on-chain
+//      `metadata_u_r_i` query plus the IPFS JSON.
 //
-// Every figure is read live from the chain; nothing here is fabricated. When the
-// budget is hit before every collection is scanned we say so rather than pretend
-// the list is complete.
+// Ownership is only ever read from the chain. Talis's index is a metadata
+// convenience and is NOT authoritative about what a wallet holds — it lags, and
+// lists tokens that have since moved on — so it is consulted only for token ids
+// step 2 has already proven. Every figure shown is live from the chain; nothing
+// here is fabricated. When the budget is hit before every collection is scanned
+// we say so rather than pretend the list is complete.
 
 const INDEXER_BASE = 'https://sentry.exchange.grpc-web.injective.network';
 
@@ -57,36 +62,60 @@ const MAX_NFTS = 60; // total NFTs we resolve images for
 const MAX_PER_COLLECTION = 24; // thumbnails rendered per collection — the owned count stays exact
 const OWNER_PAGE_LIMIT = 30; // tokens{owner} page size
 const MAX_OWNER_COUNT_PAGES = 100; // safety bound on full-count paging (~3k tokens/collection)
-const METADATA_CONCURRENCY = 10;
-// Absolute wall-clock budget for the whole /api/portfolio request (ownership
-// scan + metadata resolution), measured from the function start. When IPFS
-// gateways are slow, metadata resolution stops issuing new fetches past this
-// mark and the response returns with the thumbnails it has (the rest resolve
-// client-side / via the "load images" expander), so the function can never hit
-// its maxDuration and 504. Kept comfortably under the route's maxDuration (120s)
-// to leave room for in-flight requests to drain.
-const OVERALL_TIME_BUDGET_MS = 70_000;
+// Metadata resolution is pure I/O wait on a remote fetch, so the ceiling here is
+// how many sockets we're willing to hold, not CPU. Ten left the budget mostly
+// idle while tokens queued behind it.
+const METADATA_CONCURRENCY = 24;
+
+// Metadata resolution gets its OWN window, measured from the moment the
+// ownership scan finishes — not a slice of one clock shared with the scan.
+// Sharing it meant a wallet in many collections (a full 3.7k-collection sweep
+// runs ~70s) arrived at metadata resolution with the deadline already blown, so
+// every token short-circuited to image:null and the portfolio came back with
+// zero thumbnails. The scan is the part that must yield to the clock; the images
+// are the part the user actually came for.
+const METADATA_TIME_BUDGET_MS = 30_000;
+// Hard ceiling from the function's start, whatever the phases above consumed, so
+// the request always returns before the route's maxDuration (120s) rather than
+// 504-ing. Whatever is unresolved by then falls back to the "load images"
+// expander, which starts a fresh budget for that one collection.
+const HARD_TIME_BUDGET_MS = 105_000;
 // "Show all" expander: how many images one collection can resolve on demand.
 // Generous but bounded so a whale's collection can't spin forever.
 const MAX_EXPAND_ITEMS = 300;
 
-// Ordered by current reliability. The Protocol Labs gateways (ipfs.io, dweb.link)
-// have become slow/unresponsive, so a faster public gateway leads and they trail
-// as fallbacks. Metadata resolution and the initial <img> src both use [0] first;
-// the client retries down this same list on error (see PortfolioView handleImgError).
+// Ordered by what actually answers, measured 2026-09-01 (keep in sync with the
+// Worker's own list in cloudflare/talis-profile-proxy/worker.js and the client
+// fallback in PortfolioView). The Protocol Labs gateways didn't just get slow —
+// ipfs.io, dweb.link, w3s.link and nftstorage.link now blanket-403 datacenter
+// traffic in ~20-50ms, pinata 429s and filebase 504s, which is why thumbnails
+// stopped resolving entirely. Metadata resolution and the initial <img> src both
+// use [0] first; the client retries down this list (see handleImgError).
 const IPFS_GATEWAYS = [
-  'https://ipfs.filebase.io/ipfs/',
-  'https://gateway.pinata.cloud/ipfs/',
-  'https://dweb.link/ipfs/',
-  'https://ipfs.io/ipfs/',
+  'https://snapshot.4everland.link/ipfs/', // only one that served every test CID
+  'https://gateway.ipfsscan.io/ipfs/',
+  'https://ipfs.raribleuserdata.com/ipfs/',
+  'https://4everland.io/ipfs/',
+  'https://ipfs.filebase.io/ipfs/', // flaky, kept as a last resort
 ];
 
-// Server-side metadata JSON resolution only tries the first N (fast) gateways
-// with a short timeout, so a slow/rate-limited gateway can't push the whole
-// /api/portfolio function past its maxDuration. The remaining gateways still
-// serve as client-side <img> fallbacks (which don't count against that budget).
+// Direct-gateway metadata resolution (the no-Worker fallback) only tries the
+// first N (fast) gateways with a short timeout, so a slow/rate-limited gateway
+// can't push the whole /api/portfolio function past its maxDuration. The
+// remaining gateways still serve as client-side <img> fallbacks (which don't
+// count against that budget).
 const METADATA_JSON_GATEWAYS = 2;
 const METADATA_JSON_TIMEOUT_MS = 5_000;
+// Through the Worker we can afford to wait longer: a miss costs one gateway walk
+// and then fills the edge cache for every later visitor, so the wait buys
+// something permanent rather than being repaid on every request (a hit is
+// single-digit ms). Sized above the Worker's own per-gateway timeout so we don't
+// give up while it is still failing over.
+const PROXY_JSON_TIMEOUT_MS = 15_000;
+// The Talis index walks ~60 upstream pages inside the Worker, so allow for that
+// on a cold edge cache. It runs concurrently with the ownership scan, which is
+// far longer, so this never extends the request on its own.
+const TALIS_INDEX_TIMEOUT_MS = 20_000;
 
 // ── Verified collections — pinned by CONTRACT ADDRESS, never by name ──
 //
@@ -202,6 +231,32 @@ function resolveImageUrl(uri: string): string {
     return `${base.replace(/\/+$/, '')}/ipfs/${path}`;
   }
   return resolveIpfs(uri);
+}
+
+/**
+ * The URLs to try, in order, for a token's metadata JSON.
+ *
+ * The Worker's `/json/` route leads whenever it is configured. Fetching metadata
+ * straight from a public gateway is THE bottleneck in thumbnail resolution: the
+ * gateways rate-limit Vercel's shared egress IPs hard, so those fetches mostly
+ * time out and the token ends up with no image at all — measured at 1 of 130
+ * tokens resolving for a large collection. Cloudflare's egress isn't throttled
+ * that way, and the document is immutable, so one lookup fills the edge for
+ * everyone after. Direct gateways stay on as the fallback for when the Worker is
+ * unset or itself fails.
+ */
+function metadataJsonUrls(uri: string): { url: string; timeoutMs: number }[] {
+  const out: { url: string; timeoutMs: number }[] = [];
+  const base = process.env.TALIS_PROXY_URL;
+  if (base && uri.startsWith('ipfs://')) {
+    const path = uri.slice('ipfs://'.length).replace(/#/g, '%23').replace(/\?/g, '%3F');
+    out.push({ url: `${base.replace(/\/+$/, '')}/json/${path}`, timeoutMs: PROXY_JSON_TIMEOUT_MS });
+  }
+  const direct = Math.min(METADATA_JSON_GATEWAYS, IPFS_GATEWAYS.length);
+  for (let g = 0; g < direct; g++) {
+    out.push({ url: resolveIpfs(uri, g), timeoutMs: METADATA_JSON_TIMEOUT_MS });
+  }
+  return out;
 }
 
 async function mapWithConcurrency<T, R>(
@@ -406,11 +461,11 @@ async function fetchTokenMeta(
   const uri: string | undefined = typeof uriBody?.data === 'string' ? uriBody.data : undefined;
   if (!uri) return { tokenId, name: null, image: null };
 
-  // Resolve the JSON, trying only the fast gateways in turn (bounded so this
-  // can't blow the function budget); the client retries images across all gateways.
-  const jsonGateways = Math.min(METADATA_JSON_GATEWAYS, IPFS_GATEWAYS.length);
-  for (let g = 0; g < jsonGateways; g++) {
-    const meta = await getJson(resolveIpfs(uri, g), METADATA_JSON_TIMEOUT_MS);
+  // Resolve the JSON — edge-cached Worker first, then a bounded direct-gateway
+  // fallback; the client retries images across all gateways.
+  for (const { url, timeoutMs } of metadataJsonUrls(uri)) {
+    if (Date.now() > deadline) break; // out of budget mid-walk — don't start another
+    const meta = await getJson(url, timeoutMs);
     if (!meta) continue;
     const name: string | null = meta.title ?? meta.name ?? null;
     const rawImage: string | undefined = meta.media ?? meta.image ?? meta.image_url;
@@ -447,21 +502,147 @@ async function resolveTalisProfileId(address: string): Promise<string | null> {
   }
 }
 
+// ── Talis token index (title + media, not ownership) ─────────────────────────
+
+/**
+ * Talis's own index of what a wallet holds, keyed by on-chain token id.
+ *
+ * This exists purely to skip the slow half of thumbnail resolution. Without it
+ * every token costs an LCD `metadata_u_r_i` query plus an IPFS metadata fetch;
+ * with it, one request covers the whole wallet and returns the title and media
+ * URI directly.
+ *
+ * It is deliberately NOT used to decide what a wallet owns. Talis's index lags
+ * the chain — for one test wallet it reported 1168 tokens where `owner_of` on
+ * the contract confirms 883, including tokens since transferred to someone
+ * else. Ownership therefore stays with scanOwnership(), and this map is only
+ * ever consulted for token ids that scan has already proven.
+ *
+ * Because a token id is only unique within its collection, entries are grouped
+ * by Talis's opaque `minter` id (its per-collection key — Talis exposes no
+ * contract address anywhere, so the two can't be joined directly). Callers
+ * resolve a collection's minter from the ids they know, then look up within it.
+ */
+interface TalisEntry {
+  title: string | null;
+  media: string | null;
+  minter: string | null;
+}
+type TalisIndex = Map<string, TalisEntry[]>;
+
+async function fetchTalisIndex(profileId: string | null): Promise<TalisIndex | null> {
+  const proxyUrl = process.env.TALIS_PROXY_URL;
+  const proxySecret = process.env.TALIS_PROXY_SECRET;
+  if (!profileId || !proxyUrl || !proxySecret) return null;
+  try {
+    const res = await fetch(
+      `${proxyUrl.replace(/\/+$/, '')}/tokens?owner=${encodeURIComponent(profileId)}`,
+      { headers: { Authorization: `Bearer ${proxySecret}` }, signal: AbortSignal.timeout(TALIS_INDEX_TIMEOUT_MS) },
+    );
+    if (!res.ok) return null;
+    const body = await res.json();
+    const rows: unknown = body?.tokens;
+    if (!Array.isArray(rows)) return null;
+    const index: TalisIndex = new Map();
+    for (const r of rows as { token_id?: unknown; title?: unknown; media?: unknown; minter?: unknown }[]) {
+      const id = typeof r?.token_id === 'string' ? r.token_id : null;
+      if (!id) continue;
+      const entry: TalisEntry = {
+        title: typeof r.title === 'string' ? r.title : null,
+        media: typeof r.media === 'string' ? r.media : null,
+        minter: typeof r.minter === 'string' ? r.minter : null,
+      };
+      const bucket = index.get(id);
+      if (bucket) bucket.push(entry);
+      else index.set(id, [entry]);
+    }
+    return index;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Which Talis minter (collection) the owned ids belong to.
+ *
+ * Ids that match exactly one entry are unambiguous, so the minter they agree on
+ * identifies the collection; that answer then resolves ids a wallet happens to
+ * hold under the same number in two collections. Null when nothing matched.
+ */
+function resolveMinter(index: TalisIndex, ownedIds: string[]): string | null {
+  const votes = new Map<string, number>();
+  for (const id of ownedIds) {
+    const bucket = index.get(id);
+    if (bucket?.length === 1 && bucket[0].minter) {
+      votes.set(bucket[0].minter, (votes.get(bucket[0].minter) ?? 0) + 1);
+    }
+  }
+  let best: string | null = null;
+  let bestVotes = 0;
+  for (const [minter, n] of votes) {
+    if (n > bestVotes) { best = minter; bestVotes = n; }
+  }
+  return best;
+}
+
+/** The Talis entry for one owned token, or null when the index can't place it. */
+function talisItem(index: TalisIndex, minter: string | null, tokenId: string): NftItem | null {
+  const bucket = index.get(tokenId);
+  if (!bucket?.length) return null;
+  const match = bucket.length === 1 ? bucket[0] : bucket.find(e => e.minter === minter);
+  if (!match || !match.media) return null;
+  return { tokenId, name: match.title, image: resolveImageUrl(match.media) };
+}
+
+/**
+ * Items for one collection: Talis first (free — already fetched for the whole
+ * wallet), then per-token IPFS resolution for whatever it couldn't place.
+ */
+async function resolveItems(
+  collection: string,
+  tokenIds: string[],
+  index: TalisIndex | null,
+  deadline: number,
+): Promise<NftItem[]> {
+  const minter = index ? resolveMinter(index, tokenIds) : null;
+  const out = new Array<NftItem | null>(tokenIds.length);
+  const missing: number[] = [];
+  tokenIds.forEach((id, i) => {
+    const hit = index ? talisItem(index, minter, id) : null;
+    out[i] = hit;
+    if (!hit) missing.push(i);
+  });
+  await mapWithConcurrency(missing, METADATA_CONCURRENCY, async (i, n) => {
+    out[i] = await fetchTokenMeta(collection, tokenIds[i], n, deadline);
+  });
+  return out.map((item, i) => item ?? { tokenId: tokenIds[i], name: null, image: null });
+}
+
 // ── Public entry point ───────────────────────────────────────────────────────
 
 export async function buildPortfolio(address: string): Promise<Portfolio> {
   const started = Date.now();
   const collections = await getCollections();
 
-  // Ownership scan and the profile-id lookup are independent — run them together.
-  const [{ hits, scanned, partial }, talisProfileId] = await Promise.all([
+  // The ownership scan is the long pole. The Talis lookups are independent of it,
+  // so the profile id and the token index are fetched alongside it and are
+  // effectively free — by the time the scan lands, the index is already in hand.
+  const [{ hits, scanned, partial }, talis] = await Promise.all([
     scanOwnership(address, collections),
-    resolveTalisProfileId(address),
+    (async () => {
+      const id = await resolveTalisProfileId(address);
+      return { id, index: await fetchTalisIndex(id) };
+    })(),
   ]);
+  const talisProfileId = talis.id;
 
-  // Whatever the scan consumed, metadata resolution must stop by this mark so the
-  // whole request returns before the route's maxDuration (see OVERALL_TIME_BUDGET_MS).
-  const metaDeadline = started + OVERALL_TIME_BUDGET_MS;
+  // Metadata gets its own window starting now — after the scan — so a long sweep
+  // can't leave it with nothing (see METADATA_TIME_BUDGET_MS), bounded by the
+  // hard ceiling from the function's start so we still return before maxDuration.
+  const metaDeadline = Math.min(
+    Date.now() + METADATA_TIME_BUDGET_MS,
+    started + HARD_TIME_BUDGET_MS,
+  );
 
   // Verified collections first, then busiest — so authentic holdings lead and
   // metadata budget favours them over the impostor long tail.
@@ -477,10 +658,11 @@ export async function buildPortfolio(address: string): Promise<Portfolio> {
   async function toHolding(hit: Hit, withItems: boolean): Promise<CollectionHolding> {
     const v = VERIFIED[hit.collection.address];
     const items = withItems
-      ? await mapWithConcurrency(
+      ? await resolveItems(
+          hit.collection.address,
           hit.tokenIds.slice(0, Math.min(hit.tokenIds.length, MAX_NFTS)),
-          METADATA_CONCURRENCY,
-          (id, idx) => fetchTokenMeta(hit.collection.address, id, idx, metaDeadline),
+          talis.index,
+          metaDeadline,
         )
       : [];
     return {
@@ -497,7 +679,11 @@ export async function buildPortfolio(address: string): Promise<Portfolio> {
   const holdings: CollectionHolding[] = [];
   let budget = MAX_NFTS;
   for (const hit of hits) {
-    const holding = await toHolding(hit, budget > 0);
+    // MAX_NFTS rations IPFS resolution, which costs a request per token. When the
+    // Talis index is available the title and media are already in memory, so a
+    // thumbnail is free and every collection gets one instead of only the first
+    // two or three — the cap that used to leave most of a wallet imageless.
+    const holding = await toHolding(hit, talis.index !== null || budget > 0);
     if (budget > 0) budget -= holding.items.length;
     holdings.push(holding);
   }
@@ -536,10 +722,16 @@ export async function fetchCollectionItems(
   collection: string,
 ): Promise<CollectionItems> {
   const started = Date.now();
-  const { count, ids } = await pageOwnedTokenIds(collection, owner, 0, MAX_EXPAND_ITEMS);
-  const deadline = started + OVERALL_TIME_BUDGET_MS;
-  const items = await mapWithConcurrency(ids, METADATA_CONCURRENCY, (id, idx) =>
-    fetchTokenMeta(collection, id, idx, deadline),
-  );
+  // Ownership paging and the Talis index are independent — run them together.
+  // The index is usually still edge-cached from the portfolio scan that rendered
+  // the expander, so it normally costs nothing here.
+  const [{ count, ids }, index] = await Promise.all([
+    pageOwnedTokenIds(collection, owner, 0, MAX_EXPAND_ITEMS),
+    (async () => fetchTalisIndex(await resolveTalisProfileId(owner)))(),
+  ]);
+  // Same split as buildPortfolio: the paging above is cheap here (one contract),
+  // but metadata still gets a window of its own rather than the leftovers.
+  const deadline = Math.min(Date.now() + METADATA_TIME_BUDGET_MS, started + HARD_TIME_BUDGET_MS);
+  const items = await resolveItems(collection, ids, index, deadline);
   return { address: collection, count, items, truncated: count > ids.length };
 }
