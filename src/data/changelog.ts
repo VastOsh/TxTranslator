@@ -11,10 +11,20 @@ export interface ChangelogVersion {
   entries: ChangelogEntry[];
 }
 
-export const CURRENT_VERSION = 'v1.14.1';
+export const CURRENT_VERSION = 'v1.15.0';
 
 // Entries within each version are ordered: critical → fix → improvement → feature
 export const CHANGELOG: ChangelogVersion[] = [
+  {
+    version: 'v1.15.0',
+    date: '2026-09-01',
+    entries: [
+      {
+        type: 'feature',
+        text: 'New Injective volume tracker at /stats — real spot and perp volume, reconstructed trade-by-trade straight from the chain, with a daily / weekly / monthly / yearly / all-time toggle. There is no public per-market volume feed on Injective any more, so the number is built the only honest way: summing the taker-side notional of every matched trade, counted once, with the decimal scaling verified to the cent against each market’s minimum notional. It exists because the usual sources are wrong — DeFiLlama’s free data shows only Helix spot volume (a fraction of a percent of the real figure) because perps are paywalled, so the page shows the on-chain number next to DeFiLlama’s side by side. It also tracks the INJ burn auction: cumulative INJ burned and the latest round, the real revenue-to-deflation metric now that on-chain trading fees run near zero. Volume is served from a daily aggregate the tracker stores, so every timeframe is instant and nothing re-scans the chain on load.',
+      },
+    ],
+  },
   {
     version: 'v1.14.1',
     date: '2026-09-01',
