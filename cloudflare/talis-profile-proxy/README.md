@@ -1,6 +1,6 @@
-# Talis profile-id proxy + IPFS image cache (Cloudflare Worker)
+# Talis profile-id proxy + IPFS image/metadata cache (Cloudflare Worker)
 
-Two routes, both used by the wallet NFT portfolio:
+Three routes, all used by the wallet NFT portfolio:
 
 - `GET /?address=inj1...` (Bearer `PROXY_SECRET`) → resolves a wallet address to
   its Talis profile id, so the "N owned" count can link to the holder's Talis
@@ -18,6 +18,21 @@ Two routes, both used by the wallet NFT portfolio:
   it can't be used as a general-purpose open proxy. No auth (browsers load it as
   an `<img>` src). The app points image URLs at this route automatically when
   `TALIS_PROXY_URL` is set, and falls back to direct gateways if it ever fails.
+
+- `GET /json/<cid>/<path>` (public, JSON only) → the same edge cache for NFT
+  **metadata** documents, and the single biggest win in thumbnail latency.
+  Resolving a thumbnail needs the token's metadata JSON before its image URL is
+  even known, and fetching that from Vercel is the slow leg: the public gateways
+  rate-limit Vercel's shared egress IPs, so most of those fetches time out and
+  the token renders with no image at all (measured: 1 of 130 tokens resolving on
+  a large collection, and 0 of 71 on a cold full-portfolio scan). Cloudflare's
+  egress isn't throttled that way, and metadata is as immutable as the image, so
+  one lookup fills the edge for every visitor after it. The body must parse as
+  JSON and is re-serialised before being served, so this route can only ever emit
+  JSON — never smuggled HTML or script.
+
+Both cache routes cap each gateway attempt (8s) and fail over to the next, so one
+hanging gateway can't stall a request.
 
 ## Deploy
 

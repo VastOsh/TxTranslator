@@ -57,15 +57,24 @@ const MAX_NFTS = 60; // total NFTs we resolve images for
 const MAX_PER_COLLECTION = 24; // thumbnails rendered per collection — the owned count stays exact
 const OWNER_PAGE_LIMIT = 30; // tokens{owner} page size
 const MAX_OWNER_COUNT_PAGES = 100; // safety bound on full-count paging (~3k tokens/collection)
-const METADATA_CONCURRENCY = 10;
-// Absolute wall-clock budget for the whole /api/portfolio request (ownership
-// scan + metadata resolution), measured from the function start. When IPFS
-// gateways are slow, metadata resolution stops issuing new fetches past this
-// mark and the response returns with the thumbnails it has (the rest resolve
-// client-side / via the "load images" expander), so the function can never hit
-// its maxDuration and 504. Kept comfortably under the route's maxDuration (120s)
-// to leave room for in-flight requests to drain.
-const OVERALL_TIME_BUDGET_MS = 70_000;
+// Metadata resolution is pure I/O wait on a remote fetch, so the ceiling here is
+// how many sockets we're willing to hold, not CPU. Ten left the budget mostly
+// idle while tokens queued behind it.
+const METADATA_CONCURRENCY = 24;
+
+// Metadata resolution gets its OWN window, measured from the moment the
+// ownership scan finishes — not a slice of one clock shared with the scan.
+// Sharing it meant a wallet in many collections (a full 3.7k-collection sweep
+// runs ~70s) arrived at metadata resolution with the deadline already blown, so
+// every token short-circuited to image:null and the portfolio came back with
+// zero thumbnails. The scan is the part that must yield to the clock; the images
+// are the part the user actually came for.
+const METADATA_TIME_BUDGET_MS = 30_000;
+// Hard ceiling from the function's start, whatever the phases above consumed, so
+// the request always returns before the route's maxDuration (120s) rather than
+// 504-ing. Whatever is unresolved by then falls back to the "load images"
+// expander, which starts a fresh budget for that one collection.
+const HARD_TIME_BUDGET_MS = 105_000;
 // "Show all" expander: how many images one collection can resolve on demand.
 // Generous but bounded so a whale's collection can't spin forever.
 const MAX_EXPAND_ITEMS = 300;
@@ -81,12 +90,19 @@ const IPFS_GATEWAYS = [
   'https://ipfs.io/ipfs/',
 ];
 
-// Server-side metadata JSON resolution only tries the first N (fast) gateways
-// with a short timeout, so a slow/rate-limited gateway can't push the whole
-// /api/portfolio function past its maxDuration. The remaining gateways still
-// serve as client-side <img> fallbacks (which don't count against that budget).
+// Direct-gateway metadata resolution (the no-Worker fallback) only tries the
+// first N (fast) gateways with a short timeout, so a slow/rate-limited gateway
+// can't push the whole /api/portfolio function past its maxDuration. The
+// remaining gateways still serve as client-side <img> fallbacks (which don't
+// count against that budget).
 const METADATA_JSON_GATEWAYS = 2;
 const METADATA_JSON_TIMEOUT_MS = 5_000;
+// Through the Worker we can afford to wait longer: a miss costs one gateway walk
+// and then fills the edge cache for every later visitor, so the wait buys
+// something permanent rather than being repaid on every request (a hit is
+// single-digit ms). Sized above the Worker's own per-gateway timeout so we don't
+// give up while it is still failing over.
+const PROXY_JSON_TIMEOUT_MS = 15_000;
 
 // ── Verified collections — pinned by CONTRACT ADDRESS, never by name ──
 //
@@ -202,6 +218,32 @@ function resolveImageUrl(uri: string): string {
     return `${base.replace(/\/+$/, '')}/ipfs/${path}`;
   }
   return resolveIpfs(uri);
+}
+
+/**
+ * The URLs to try, in order, for a token's metadata JSON.
+ *
+ * The Worker's `/json/` route leads whenever it is configured. Fetching metadata
+ * straight from a public gateway is THE bottleneck in thumbnail resolution: the
+ * gateways rate-limit Vercel's shared egress IPs hard, so those fetches mostly
+ * time out and the token ends up with no image at all — measured at 1 of 130
+ * tokens resolving for a large collection. Cloudflare's egress isn't throttled
+ * that way, and the document is immutable, so one lookup fills the edge for
+ * everyone after. Direct gateways stay on as the fallback for when the Worker is
+ * unset or itself fails.
+ */
+function metadataJsonUrls(uri: string): { url: string; timeoutMs: number }[] {
+  const out: { url: string; timeoutMs: number }[] = [];
+  const base = process.env.TALIS_PROXY_URL;
+  if (base && uri.startsWith('ipfs://')) {
+    const path = uri.slice('ipfs://'.length).replace(/#/g, '%23').replace(/\?/g, '%3F');
+    out.push({ url: `${base.replace(/\/+$/, '')}/json/${path}`, timeoutMs: PROXY_JSON_TIMEOUT_MS });
+  }
+  const direct = Math.min(METADATA_JSON_GATEWAYS, IPFS_GATEWAYS.length);
+  for (let g = 0; g < direct; g++) {
+    out.push({ url: resolveIpfs(uri, g), timeoutMs: METADATA_JSON_TIMEOUT_MS });
+  }
+  return out;
 }
 
 async function mapWithConcurrency<T, R>(
@@ -406,11 +448,11 @@ async function fetchTokenMeta(
   const uri: string | undefined = typeof uriBody?.data === 'string' ? uriBody.data : undefined;
   if (!uri) return { tokenId, name: null, image: null };
 
-  // Resolve the JSON, trying only the fast gateways in turn (bounded so this
-  // can't blow the function budget); the client retries images across all gateways.
-  const jsonGateways = Math.min(METADATA_JSON_GATEWAYS, IPFS_GATEWAYS.length);
-  for (let g = 0; g < jsonGateways; g++) {
-    const meta = await getJson(resolveIpfs(uri, g), METADATA_JSON_TIMEOUT_MS);
+  // Resolve the JSON — edge-cached Worker first, then a bounded direct-gateway
+  // fallback; the client retries images across all gateways.
+  for (const { url, timeoutMs } of metadataJsonUrls(uri)) {
+    if (Date.now() > deadline) break; // out of budget mid-walk — don't start another
+    const meta = await getJson(url, timeoutMs);
     if (!meta) continue;
     const name: string | null = meta.title ?? meta.name ?? null;
     const rawImage: string | undefined = meta.media ?? meta.image ?? meta.image_url;
@@ -459,9 +501,13 @@ export async function buildPortfolio(address: string): Promise<Portfolio> {
     resolveTalisProfileId(address),
   ]);
 
-  // Whatever the scan consumed, metadata resolution must stop by this mark so the
-  // whole request returns before the route's maxDuration (see OVERALL_TIME_BUDGET_MS).
-  const metaDeadline = started + OVERALL_TIME_BUDGET_MS;
+  // Metadata gets its own window starting now — after the scan — so a long sweep
+  // can't leave it with nothing (see METADATA_TIME_BUDGET_MS), bounded by the
+  // hard ceiling from the function's start so we still return before maxDuration.
+  const metaDeadline = Math.min(
+    Date.now() + METADATA_TIME_BUDGET_MS,
+    started + HARD_TIME_BUDGET_MS,
+  );
 
   // Verified collections first, then busiest — so authentic holdings lead and
   // metadata budget favours them over the impostor long tail.
@@ -537,7 +583,9 @@ export async function fetchCollectionItems(
 ): Promise<CollectionItems> {
   const started = Date.now();
   const { count, ids } = await pageOwnedTokenIds(collection, owner, 0, MAX_EXPAND_ITEMS);
-  const deadline = started + OVERALL_TIME_BUDGET_MS;
+  // Same split as buildPortfolio: the paging above is cheap here (one contract),
+  // but metadata still gets a window of its own rather than the leftovers.
+  const deadline = Math.min(Date.now() + METADATA_TIME_BUDGET_MS, started + HARD_TIME_BUDGET_MS);
   const items = await mapWithConcurrency(ids, METADATA_CONCURRENCY, (id, idx) =>
     fetchTokenMeta(collection, id, idx, deadline),
   );
