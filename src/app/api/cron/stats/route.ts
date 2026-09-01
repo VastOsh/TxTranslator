@@ -47,6 +47,20 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  // Diagnostic: report whether the Blob credentials actually reached this
+  // deployment's runtime — presence and length only, never the values.
+  if (sp.get('diag') === '1') {
+    return NextResponse.json({
+      vercelEnv: process.env.VERCEL_ENV ?? null,
+      hasBlobToken: !!process.env.BLOB_READ_WRITE_TOKEN,
+      blobTokenLen: (process.env.BLOB_READ_WRITE_TOKEN || '').length,
+      hasBlobStoreId: !!process.env.BLOB_STORE_ID,
+      hasCronSecret: !!process.env.CRON_SECRET,
+      // any env var whose name mentions BLOB, so a custom-named token shows up
+      blobVarNames: Object.keys(process.env).filter((k) => k.includes('BLOB')),
+    });
+  }
+
   const date = sp.get('date') ?? utcDate(Date.now() - 24 * 3600 * 1000);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     return NextResponse.json({ error: 'bad date (want YYYY-MM-DD)' }, { status: 400 });
