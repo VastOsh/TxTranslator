@@ -24,10 +24,18 @@ function empty(): StatsBlob {
   return { updatedAt: 0, days: {} };
 }
 
+// Pass the token explicitly rather than trusting the SDK's zero-config lookup:
+// under Next 16 + Turbopack the SDK's internal `process.env.BLOB_READ_WRITE_TOKEN`
+// read can come back empty even when the var is present in the runtime (our own
+// read of it works), yielding a misleading "No blob credentials found" error.
+function blobToken(): string | undefined {
+  return process.env.BLOB_READ_WRITE_TOKEN;
+}
+
 /** Read the aggregate blob. `fresh` bypasses the CDN cache (use after a write). */
 export async function readStats(fresh = false): Promise<StatsBlob> {
   try {
-    const res = await get(BLOB_PATH, { access: 'public', useCache: !fresh });
+    const res = await get(BLOB_PATH, { access: 'public', useCache: !fresh, token: blobToken() });
     if (!res || res.statusCode !== 200) return empty();
     const data = await new Response(res.stream).json();
     if (data && typeof data === 'object' && (data as StatsBlob).days) return data as StatsBlob;
@@ -44,6 +52,7 @@ export async function writeStats(blob: StatsBlob): Promise<void> {
     contentType: 'application/json',
     allowOverwrite: true,
     addRandomSuffix: false,
+    token: blobToken(),
   });
 }
 
