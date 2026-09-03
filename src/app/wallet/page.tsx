@@ -31,7 +31,7 @@ const FLAG_STYLE: Record<WalletFlag['level'], { bg: string; color: string }> = {
 };
 
 function IntelCard({ intel }: { intel: WalletIntel }) {
-  const muted = 'rgba(244, 241, 233, 0.55)';
+  const muted = 'rgba(236, 239, 245, 0.55)';
   const label = { fontSize: '0.66rem', textTransform: 'uppercase' as const, letterSpacing: '0.04em', color: muted, marginBottom: '0.15rem' };
   const val = { fontSize: '0.86rem', color: 'var(--tx-text)', fontWeight: 600 };
   return (

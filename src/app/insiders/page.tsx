@@ -95,7 +95,7 @@ export default function InsidersPage() {
             </div>
           ) : (
             <>
-              <div style={{ fontSize: '0.72rem', color: 'rgba(244, 241, 233, 0.55)', marginBottom: '0.75rem' }}>
+              <div style={{ fontSize: '0.72rem', color: 'rgba(236, 239, 245, 0.55)', marginBottom: '0.75rem' }}>
                 {funders.length} wallet{funders.length === 1 ? '' : 's'} funded the top holders of 2+ tokens · most-connected first
               </div>
               {funders.map((f) => (
@@ -128,7 +128,7 @@ export default function InsidersPage() {
                         title={`onchain #${t.onchainId}`}
                         style={{
                           fontSize: '0.68rem', fontWeight: 600, padding: '0.15rem 0.45rem', borderRadius: 5,
-                          background: 'rgba(244, 241, 233, 0.05)', color: 'var(--tx-text)', textDecoration: 'none',
+                          background: 'rgba(236, 239, 245, 0.05)', color: 'var(--tx-text)', textDecoration: 'none',
                         }}
                       >
                         {t.symbol || `#${t.onchainId}`}
@@ -138,14 +138,14 @@ export default function InsidersPage() {
                       href={`${EXPLORER}/${f.funder}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      style={{ fontSize: '0.68rem', color: 'rgba(244, 241, 233, 0.5)', textDecoration: 'none', alignSelf: 'center' }}
+                      style={{ fontSize: '0.68rem', color: 'rgba(236, 239, 245, 0.5)', textDecoration: 'none', alignSelf: 'center' }}
                     >
                       explorer ↗
                     </a>
                   </div>
                 </div>
               ))}
-              <div style={{ fontSize: '0.68rem', color: 'rgba(244, 241, 233, 0.5)', marginTop: '0.8rem', lineHeight: 1.5 }}>
+              <div style={{ fontSize: '0.68rem', color: 'rgba(236, 239, 245, 0.5)', marginTop: '0.8rem', lineHeight: 1.5 }}>
                 A funder shared by the top holders of several tokens points to coordinated activity — one operator across
                 many wallets, or a market-maker fleet — but it can also be a common exchange withdrawal address. Shown as a
                 signal, not a verdict; open a funder’s wallet profile or the explorer to judge. Covers recent launches only.

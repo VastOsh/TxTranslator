@@ -7,7 +7,7 @@ import Changelog from '@/components/Changelog';
 import { CURRENT_VERSION } from '@/data/changelog';
 import type { TokenCheck, Signal, SignalLevel, Verdict } from '@/lib/token/check';
 
-const DETAIL_COLOR = 'rgba(244, 241, 233, 0.82)';
+const DETAIL_COLOR = 'rgba(236, 239, 245, 0.82)';
 
 const LEVEL_STYLE: Record<SignalLevel, { color: string; bg: string; icon: string }> = {
   ok: { color: 'var(--tx-green)', bg: 'rgba(14, 226, 155, 0.08)', icon: '✓' },
@@ -21,7 +21,7 @@ const VERDICT_META: Record<Verdict, { color: string; bg: string; label: string }
   impersonation: { color: 'var(--tx-red)', bg: 'rgba(246, 71, 114, 0.13)', label: 'Impersonation risk' },
   lookalike: { color: 'var(--tx-amber)', bg: 'rgba(243, 164, 0, 0.13)', label: 'Look-alike' },
   unverified: { color: 'var(--tx-purple)', bg: 'rgba(167, 139, 250, 0.10)', label: 'Unverified' },
-  unknown: { color: 'var(--tx-text-muted)', bg: 'rgba(244, 241, 233, 0.05)', label: 'Unknown' },
+  unknown: { color: 'var(--tx-text-muted)', bg: 'rgba(236, 239, 245, 0.05)', label: 'Unknown' },
 };
 
 function SignalCard({ s }: { s: Signal }) {
@@ -162,7 +162,7 @@ function BubbleMap({
 
 function HoldersCard({ h }: { h: Holders }) {
   const max = Math.max(...h.rows.map(r => r.pct), 0.0001);
-  const muted = 'rgba(244, 241, 233, 0.55)';
+  const muted = 'rgba(236, 239, 245, 0.55)';
   const connectedSet = useMemo(() => {
     const s = new Set<string>();
     for (const e of h.edges) { s.add(e.a); s.add(e.b); }
@@ -171,7 +171,7 @@ function HoldersCard({ h }: { h: Holders }) {
   return (
     <div
       style={{
-        background: 'rgba(244, 241, 233, 0.03)', border: '1px solid var(--tx-border)',
+        background: 'rgba(236, 239, 245, 0.03)', border: '1px solid var(--tx-border)',
         borderRadius: 10, padding: '0.9rem 1rem', marginBottom: '0.6rem',
       }}
     >
@@ -206,7 +206,7 @@ function HoldersCard({ h }: { h: Holders }) {
           >
             {shortHolder(r.address)}
           </span>
-          <div style={{ flex: 1, background: 'rgba(244, 241, 233, 0.05)', borderRadius: 4, height: 14, overflow: 'hidden' }}>
+          <div style={{ flex: 1, background: 'rgba(236, 239, 245, 0.05)', borderRadius: 4, height: 14, overflow: 'hidden' }}>
             <div
               style={{
                 width: `${Math.max(2, (r.pct / max) * 100)}%`, height: '100%', borderRadius: 4,
@@ -248,11 +248,11 @@ function impactColor(pct: number): string {
 }
 
 function ImpactCard({ si }: { si: SellImpact }) {
-  const muted = 'rgba(244, 241, 233, 0.55)';
+  const muted = 'rgba(236, 239, 245, 0.55)';
   return (
     <div
       style={{
-        background: 'rgba(244, 241, 233, 0.03)', border: '1px solid var(--tx-border)',
+        background: 'rgba(236, 239, 245, 0.03)', border: '1px solid var(--tx-border)',
         borderRadius: 10, padding: '0.9rem 1rem', marginBottom: '0.6rem',
       }}
     >

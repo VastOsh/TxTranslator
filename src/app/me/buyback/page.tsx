@@ -97,8 +97,8 @@ const SIGNAL_LABEL: Record<string, string> = {
 const ADDR_RE = /^inj1[a-z0-9]{38}$/;
 const WALLET_KEY = 'tx_me_wallet';
 
-const MUTED = 'rgba(244, 241, 233, 0.6)';
-const SOFT = 'rgba(244, 241, 233, 0.82)';
+const MUTED = 'rgba(236, 239, 245, 0.6)';
+const SOFT = 'rgba(236, 239, 245, 0.82)';
 
 function fmtInj(v: string | number): string {
   const n = typeof v === 'string' ? Number(v) : v;
@@ -696,7 +696,7 @@ function RoundView({
         {buckets.map((b) => (
           <div key={b.label} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.35rem' }}>
             <span style={{ width: 48, flex: '0 0 auto', fontSize: '0.74rem', color: SOFT, textAlign: 'right' }}>{b.label}</span>
-            <div style={{ flex: 1, background: 'rgba(244, 241, 233, 0.05)', borderRadius: 5, height: 18, overflow: 'hidden' }}>
+            <div style={{ flex: 1, background: 'rgba(236, 239, 245, 0.05)', borderRadius: 5, height: 18, overflow: 'hidden' }}>
               <div style={{ width: `${(b.count / maxBucket) * 100}%`, height: '100%', background: 'var(--tx-purple)', borderRadius: 5, minWidth: b.count ? 2 : 0 }} />
             </div>
             <span style={{ width: 34, flex: '0 0 auto', fontSize: '0.74rem', color: MUTED, textAlign: 'left' }}>{b.count}</span>
@@ -755,7 +755,7 @@ function RoundView({
                   style={{
                     fontSize: '0.64rem', fontWeight: 600,
                     color: (s !== 'new') ? 'var(--tx-red)' : MUTED,
-                    background: (s !== 'new') ? 'rgba(246, 71, 114, 0.1)' : 'rgba(244, 241, 233, 0.05)',
+                    background: (s !== 'new') ? 'rgba(246, 71, 114, 0.1)' : 'rgba(236, 239, 245, 0.05)',
                     borderRadius: 5, padding: '0.1rem 0.4rem',
                   }}
                 >
@@ -818,8 +818,8 @@ function ShutOutView({
   const crMeta = CR && ({
     in: { color: 'var(--tx-green)', bg: 'rgba(14, 226, 155, 0.1)', label: 'Got in' },
     shut_out: { color: 'var(--tx-red)', bg: 'rgba(246, 71, 114, 0.1)', label: 'Shut out' },
-    not_whitelisted: { color: MUTED, bg: 'rgba(244, 241, 233, 0.05)', label: 'Not whitelisted' },
-    unknown: { color: MUTED, bg: 'rgba(244, 241, 233, 0.05)', label: 'Unknown' },
+    not_whitelisted: { color: MUTED, bg: 'rgba(236, 239, 245, 0.05)', label: 'Not whitelisted' },
+    unknown: { color: MUTED, bg: 'rgba(236, 239, 245, 0.05)', label: 'Unknown' },
   } as const)[CR.status];
 
   return (
@@ -893,7 +893,7 @@ function Stat({ label, value, sub }: { label: string; value: string; sub?: strin
   return (
     <div
       style={{
-        background: 'rgba(244, 241, 233, 0.03)', border: '1px solid var(--tx-border)',
+        background: 'rgba(236, 239, 245, 0.03)', border: '1px solid var(--tx-border)',
         borderRadius: 10, padding: '0.75rem 0.85rem',
       }}
     >
