@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import LensCrumb from '@/components/LensCrumb';
+import BackToRenzu from '@/components/BackToRenzu';
 import PortfolioView from '@/components/PortfolioView';
 import InjChart from '@/components/InjChart';
 import Changelog from '@/components/Changelog';
@@ -81,7 +81,7 @@ function IntelCard({ intel }: { intel: WalletIntel }) {
           </div>
         </div>
         <div style={{ fontSize: '0.68rem', color: muted, marginTop: '0.9rem', lineHeight: 1.5 }}>
-          On-chain history and launchpad activity — what this wallet has done, not who it is. First funder is the wallet
+          On-chain history and launchpad activity, what this wallet has done, not who it is. First funder is the wallet
           behind its earliest transfer (Cosmos or EVM); shared funders can indicate linked wallets or a common exchange.
         </div>
       </div>
@@ -110,7 +110,7 @@ export default function WalletPage() {
     setAddress(addr);
 
     // Wallet intelligence loads independently of (and usually faster than) the
-    // NFT/portfolio scan — render it as soon as it lands.
+    // NFT/portfolio scan, render it as soon as it lands.
     fetch('/api/wallet/intel', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -130,7 +130,7 @@ export default function WalletPage() {
         if (!ok) setError(data.error ?? 'Could not read the wallet portfolio.');
         else setPortfolio(data.portfolio as Portfolio);
       })
-      .catch(() => setError('Network error — check your connection and try again.'))
+      .catch(() => setError('Network error, check your connection and try again.'))
       .finally(() => setLoading(false));
   }
 
@@ -179,7 +179,7 @@ export default function WalletPage() {
       {changelogOpen && <Changelog onClose={() => setChangelogOpen(false)} />}
 
       <div style={{ width: '100%', maxWidth: 680, marginBottom: '1.25rem' }}>
-        <Link href="/" className="tx-back-link">← All lenses</Link>
+        <BackToRenzu />
       </div>
 
       {/* ── Intro + address input ── */}
@@ -190,7 +190,7 @@ export default function WalletPage() {
               Wallet <span>intelligence</span>
             </h1>
             <p className="tx-subline">
-              Enter a wallet — see its age, first funder, launchpad track record and risk flags, plus every Talis NFT it holds
+              Enter a wallet, see its age, first funder, launchpad track record and risk flags, plus every Talis NFT it holds
             </p>
           </>
         )}
@@ -247,7 +247,7 @@ export default function WalletPage() {
           </div>
           <div style={{ padding: '0.9rem 1.2rem', fontSize: '0.72rem', color: 'var(--tx-text-muted)' }}>
             Asking every Talis collection whether this wallet holds a token, then resolving
-            metadata — usually under ten seconds.
+            metadata, usually under ten seconds.
           </div>
         </div>
       )}

@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import LensCrumb from '@/components/LensCrumb';
+import BackToRenzu from '@/components/BackToRenzu';
 import DappDirectory from '@/components/DappDirectory';
 import Changelog from '@/components/Changelog';
 import { CURRENT_VERSION } from '@/data/changelog';
@@ -36,7 +36,7 @@ export default function DappsPage() {
         if (!ok) setError(data.error ?? 'Could not load the dApp directory.');
         else setDapps(data.dapps as DappSummary[]);
       })
-      .catch(() => { if (!cancelled) setError('Network error — check your connection and try again.'); });
+      .catch(() => { if (!cancelled) setError('Network error, check your connection and try again.'); });
     return () => { cancelled = true; };
   }, []);
 
@@ -67,7 +67,7 @@ export default function DappsPage() {
       {changelogOpen && <Changelog onClose={() => setChangelogOpen(false)} />}
 
       <div style={{ width: '100%', maxWidth: 680, marginBottom: '1.5rem' }}>
-        <Link href="/" className="tx-back-link">← Decode a transaction</Link>
+        <BackToRenzu />
         <h1 className="tx-headline" style={{ fontSize: '1.9rem', marginTop: '1rem' }}>
           Injective <span>dApps</span>
         </h1>

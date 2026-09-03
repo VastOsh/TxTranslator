@@ -1,8 +1,8 @@
 'use client';
 
 import { use, useState, useEffect } from 'react';
-import Link from 'next/link';
 import LensCrumb from '@/components/LensCrumb';
+import BackToRenzu from '@/components/BackToRenzu';
 import PnlDashboard, { type PnlRangeKey } from '@/components/PnlDashboard';
 import InjChart from '@/components/InjChart';
 import Changelog from '@/components/Changelog';
@@ -58,7 +58,7 @@ export default function PnlPage({ params }: { params: Promise<{ address: string 
         else setReport(data.report as PnlReport);
       })
       .catch(() => {
-        if (!cancelled) setError('Network error — check your connection and try again.');
+        if (!cancelled) setError('Network error, check your connection and try again.');
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -115,7 +115,7 @@ export default function PnlPage({ params }: { params: Promise<{ address: string 
           flexWrap: 'wrap',
         }}
       >
-        <Link href="/" className="tx-back-link">← Decode another transaction</Link>
+        <BackToRenzu />
         <span className="tx-wallet-addr">{short}</span>
       </div>
 

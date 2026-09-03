@@ -38,7 +38,7 @@ export default function DappDetailPage({ params }: { params: Promise<{ slug: str
         if (!ok) setError(data.error ?? 'Could not load this dApp.');
         else setDetail(data.detail as DappDetail);
       })
-      .catch(() => { if (!cancelled) setError('Network error — check your connection and try again.'); });
+      .catch(() => { if (!cancelled) setError('Network error, check your connection and try again.'); });
     return () => { cancelled = true; };
   }, [slug]);
 
@@ -172,7 +172,7 @@ export default function DappDetailPage({ params }: { params: Promise<{ slug: str
 
           <p className="tx-dapp-intro">
             Executions are lifetime contract calls from the chain&rsquo;s wasm registry. This is not TVL
-            or trading volume — those aren&rsquo;t available as a lookup and would need per-protocol state
+            or trading volume, those aren&rsquo;t available as a lookup and would need per-protocol state
             queries plus historical pricing to compute honestly.
           </p>
         </div>

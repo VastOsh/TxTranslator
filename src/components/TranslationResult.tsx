@@ -283,7 +283,7 @@ function buildTweetText(data: TranslationResponse): string {
       return [
         `I just voted on @Injective Proposal ${propId}! 🗳️`,
         `🔹 ${vote}: ${title}`,
-        `Don't just stake — participate. Understand your votes:`,
+        `Don't just stake, participate. Understand your votes:`,
         `🔍 ${APP_URL}`,
         `@Injective #Injective #Governance #nINJas`,
       ].filter(Boolean).join('\n');
@@ -327,7 +327,7 @@ function buildTweetText(data: TranslationResponse): string {
     case 'REDELEGATE':
       return [
         `Redelegated my INJ stake on @Injective ⚡`,
-        `Instant validator switch — no 21-day lockup. That's Cosmos.`,
+        `Instant validator switch, no 21-day lockup. That's Cosmos.`,
         `Decode your txs: 🔍 ${APP_URL}`,
         `@Injective #Injective #Staking #nINJas`,
       ].join('\n');
@@ -341,7 +341,7 @@ function buildTweetText(data: TranslationResponse): string {
       ].join('\n');
 
     default: {
-      // Security & Transparency angle — batch orders, contracts, sends, authz, etc.
+      // Security & Transparency angle, batch orders, contracts, sends, authz, etc.
       const snippet = data.action.length > 80 ? data.action.slice(0, 79) + '…' : data.action;
       return [
         `Keeping my @Injective positions secure and optimized ⚡`,

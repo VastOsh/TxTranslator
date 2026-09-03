@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useMemo, useEffect, Fragment } from 'react';
-import Link from 'next/link';
 import LensCrumb from '@/components/LensCrumb';
+import BackToRenzu from '@/components/BackToRenzu';
 import Changelog from '@/components/Changelog';
 import { CURRENT_VERSION } from '@/data/changelog';
 import type { TokenCheck, Signal, SignalLevel, Verdict } from '@/lib/token/check';
@@ -114,7 +114,7 @@ function packBubbles(items: Array<{ address: string; pct: number }>): { placed: 
   return { placed, vb: `${minX} ${minY} ${w} ${hgt}` };
 }
 
-const LINK_COLOR = '#f0a020'; // amber — connected wallets (a signal, not a verdict)
+const LINK_COLOR = '#f0a020'; // amber, connected wallets (a signal, not a verdict)
 
 function BubbleMap({
   items, edges = [], connected,
@@ -190,7 +190,7 @@ function HoldersCard({ h }: { h: Holders }) {
           <BubbleMap items={h.bubble} edges={h.edges} connected={connectedSet} />
           {connectedSet.size > 0 && (
             <div style={{ fontSize: '0.68rem', color: muted, marginTop: '-0.4rem', marginBottom: '0.7rem', lineHeight: 1.5 }}>
-              <span style={{ color: LINK_COLOR, fontWeight: 700 }}>Amber</span> links wallets first funded by the same source —
+              <span style={{ color: LINK_COLOR, fontWeight: 700 }}>Amber</span> links wallets first funded by the same source,
               possibly one entity across several addresses, possibly a shared exchange. A signal, not proof.
             </div>
           )}
@@ -316,7 +316,7 @@ export default function TokenPage() {
         if (!ok) setError(data.error ?? 'Could not check this token.');
         else setResult(data.result as TokenCheck);
       })
-      .catch(() => setError('Network error — check your connection and try again.'))
+      .catch(() => setError('Network error, check your connection and try again.'))
       .finally(() => setLoading(false));
   }
 
@@ -360,7 +360,7 @@ export default function TokenPage() {
       {changelogOpen && <Changelog onClose={() => setChangelogOpen(false)} />}
 
       <div style={{ width: '100%', maxWidth: 680, marginBottom: '1.25rem' }}>
-        <Link href="/" className="tx-back-link">← All lenses</Link>
+        <BackToRenzu />
       </div>
 
       <section className="tx-hero" style={{ marginBottom: result || loading || error ? '2rem' : '0' }}>
@@ -370,7 +370,7 @@ export default function TokenPage() {
               Token <span>safety</span> check
             </h1>
             <p className="tx-subline">
-              Paste a token’s denom (or a symbol) — see if it’s the real one or an impostor copying a
+              Paste a token’s denom (or a symbol), see if it’s the real one or an impostor copying a
               trusted name, checked against Injective’s verified lists and on-chain data
             </p>
           </>

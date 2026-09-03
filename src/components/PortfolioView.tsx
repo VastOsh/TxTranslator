@@ -13,7 +13,7 @@ interface Props {
 // placeholder. The CID path is whatever follows "/ipfs/", so this works
 // whatever the initial src was. dataset.gw tracks the last index tried; on the
 // first error it's absent (-1) so we start at gateway 0.
-// Keep in sync with IPFS_GATEWAYS in lib/portfolio/nft.ts — the gateways that
+// Keep in sync with IPFS_GATEWAYS in lib/portfolio/nft.ts, the gateways that
 // still answer as of 2026-09-01. The old Protocol Labs / pinata / filebase set
 // now 403s, 429s and 504s, so retrying down it could only ever fail.
 const IMG_GATEWAYS = [
@@ -203,7 +203,7 @@ function CollectionSection({
         </>
       ) : (
         <div className="tx-nft-count-only">
-          {h.count} NFT{h.count === 1 ? '' : 's'} owned — images not loaded yet.{' '}
+          {h.count} NFT{h.count === 1 ? '' : 's'} owned, images not loaded yet.{' '}
           <button type="button" className="tx-nft-linkbtn" onClick={showAll} disabled={loading}>
             {loading ? 'Loading…' : 'Load images'}
           </button>
@@ -249,7 +249,7 @@ export default function PortfolioView({ portfolio }: Props) {
         <span className="tx-nft-coverage">
           {partial ? 'Scanned' : 'Checked'} {collectionsScanned.toLocaleString()} of{' '}
           {collectionsKnown.toLocaleString()} Talis collections
-          {partial && ' — hit the time budget; refine or retry for the rest'}
+          {partial && ', hit the time budget; refine or retry for the rest'}
         </span>
       </div>
 

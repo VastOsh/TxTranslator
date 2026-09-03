@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import LensCrumb from '@/components/LensCrumb';
+import BackToRenzu from '@/components/BackToRenzu';
 import Changelog from '@/components/Changelog';
 import { CURRENT_VERSION } from '@/data/changelog';
 
@@ -219,7 +219,7 @@ export default function MyBuybackPage() {
         setPassphrase('');
         setAuthed(true);
       })
-      .catch(() => setLoginError('Network error — try again.'))
+      .catch(() => setLoginError('Network error, try again.'))
       .finally(() => setLoggingIn(false));
   }
 
@@ -249,7 +249,7 @@ export default function MyBuybackPage() {
         if (!ok) { setError(d?.error ?? 'Could not load your buyback data.'); return; }
         setResult(d.result as MyBuyback);
       })
-      .catch(() => setError('Network error — check your connection and try again.'))
+      .catch(() => setError('Network error, check your connection and try again.'))
       .finally(() => setLoading(false));
   }
 
@@ -263,7 +263,7 @@ export default function MyBuybackPage() {
         if (!ok) { setRoundError(d?.error ?? 'Could not load the last round.'); return; }
         setRound(d.result as LastRound);
       })
-      .catch(() => setRoundError('Network error — try again.'))
+      .catch(() => setRoundError('Network error, try again.'))
       .finally(() => setRoundLoading(false));
   }
 
@@ -291,7 +291,7 @@ export default function MyBuybackPage() {
         if (!ok) { setCheckError(d?.error ?? 'Could not check this wallet.'); return; }
         setCheckResult(d.result as WalletStatus);
       })
-      .catch(() => setCheckError('Network error — try again.'))
+      .catch(() => setCheckError('Network error, try again.'))
       .finally(() => setCheckLoading(false));
   }
 
@@ -314,7 +314,7 @@ export default function MyBuybackPage() {
         if (!ok) { setError(d?.error ?? 'Could not load this wallet.'); return; }
         setResult(d.result as MyBuyback);
       })
-      .catch(() => setError('Network error — try again.'))
+      .catch(() => setError('Network error, try again.'))
       .finally(() => setLoading(false));
   }
 
@@ -349,7 +349,7 @@ export default function MyBuybackPage() {
       {changelogOpen && <Changelog onClose={() => setChangelogOpen(false)} />}
 
       <div style={{ width: '100%', maxWidth: 680, marginBottom: '1.25rem' }}>
-        <Link href="/" className="tx-back-link">← All lenses</Link>
+        <BackToRenzu />
       </div>
 
       {/* Checking session */}
@@ -359,7 +359,7 @@ export default function MyBuybackPage() {
         </section>
       )}
 
-      {/* Locked — passphrase gate */}
+      {/* Locked, passphrase gate */}
       {authed === false && (
         <section className="tx-hero">
           <h1 className="tx-headline">
@@ -396,7 +396,7 @@ export default function MyBuybackPage() {
         </section>
       )}
 
-      {/* Unlocked — the tool */}
+      {/* Unlocked, the tool */}
       {authed === true && (
         <>
           <div
@@ -431,7 +431,7 @@ export default function MyBuybackPage() {
                   My <span>buyback</span> deposits
                 </h1>
                 <p className="tx-subline">
-                  Every Community BuyBack round this wallet joined — the exact time each deposit
+                  Every Community BuyBack round this wallet joined, the exact time each deposit
                   landed, how much, and whether rewards were claimed. On-chain, private to you.
                 </p>
               </>
@@ -680,7 +680,7 @@ function RoundView({
           lifetime transactions.
         </div>
         <div style={{ fontSize: '0.72rem', color: MUTED, marginTop: '0.45rem', lineHeight: 1.5 }}>
-          Deliberately not based on deposit speed or gas — when a round fills this fast, everyone deposits
+          Deliberately not based on deposit speed or gas, when a round fills this fast, everyone deposits
           quickly and everyone on the Hub site submits near-identical gas, so those flag humans too. These
           use wallet behaviour instead. Signals, not proof.
           {data.botSummary.infoResolved < stats.uniqueWallets &&
@@ -704,7 +704,7 @@ function RoundView({
         ))}
       </div>
 
-      {/* Leaderboard — fastest first */}
+      {/* Leaderboard, fastest first */}
       <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: MUTED, marginBottom: '0.6rem' }}>
         All {participants.length} wallets · fastest first
       </div>
@@ -768,7 +768,7 @@ function RoundView({
       </div>
       <div style={{ marginTop: '0.75rem', fontSize: '0.72rem', color: MUTED, lineHeight: 1.5 }}>
         Tap a wallet to see its full deposit history. Times are each deposit&apos;s on-chain block
-        timestamp. This lists every wallet with a direct join deposit — a few deposits routed through
+        timestamp. This lists every wallet with a direct join deposit, a few deposits routed through
         other contracts may not resolve to a single wallet, so the count can trail the round&apos;s total
         (shown above) slightly.
       </div>
@@ -828,7 +828,7 @@ function ShutOutView({
         Shut <span>out</span> · round {round.id}
       </h1>
       <p className="tx-subline" style={{ marginBottom: '1.25rem' }}>
-        Whitelisted wallets that didn&apos;t secure a spot — the round filled in {fmtDelayShort(stats.fillSeconds)}.
+        Whitelisted wallets that didn&apos;t secure a spot, the round filled in {fmtDelayShort(stats.fillSeconds)}.
       </p>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '0.6rem', marginBottom: '1.25rem' }}>
@@ -867,7 +867,7 @@ function ShutOutView({
           </span>
           <div style={{ fontSize: '0.85rem', color: 'var(--tx-text)', marginTop: '0.5rem', lineHeight: 1.5 }}>
             {CR.status === 'in' && `Deposited ${CR.depositInj ?? '?'} INJ${CR.secondsAfterOpen !== null ? ` at +${fmtDelayShort(CR.secondsAfterOpen)} after open` : ''}.`}
-            {CR.status === 'shut_out' && `Whitelisted for round ${CR.roundId} but no deposit landed — shut out.`}
+            {CR.status === 'shut_out' && `Whitelisted for round ${CR.roundId} but no deposit landed, shut out.`}
             {CR.status === 'not_whitelisted' && `Not on the whitelist for round ${CR.roundId}.`}
             {CR.status === 'unknown' && `Couldn't determine this wallet's status this time.`}
           </div>

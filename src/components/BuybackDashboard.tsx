@@ -75,7 +75,7 @@ function StatusBanner({ profile }: { profile: BuybackProfile }) {
       tone: 'idle',
       icon: '○',
       title: `Not whitelisted yet for round ${rid}`,
-      sub: `The upcoming round${starts ? ` opens ${starts}` : ''} and its whitelist is still being finalised on chain — check again closer to the start.`,
+      sub: `The upcoming round${starts ? ` opens ${starts}` : ''} and its whitelist is still being finalised on chain, check again closer to the start.`,
     },
     not_whitelisted: {
       tone: 'no',
@@ -165,7 +165,7 @@ function SignalRow({ tone, label, value, note }: { tone: SigTone; label: string;
   );
 }
 
-/** Honest "where do I stand" panel — real signals, no fabricated probability. */
+/** Honest "where do I stand" panel, real signals, no fabricated probability. */
 function SignalsCard({ s }: { s: EligibilitySignals }) {
   const hasHistory = s.recentWindow > 0;
   const rate = hasHistory ? Math.round((s.recentHits / s.recentWindow) * 100) : null;
@@ -173,7 +173,7 @@ function SignalsCard({ s }: { s: EligibilitySignals }) {
   const partTone: SigTone = !hasHistory ? 'idle' : s.recentHits >= 2 ? 'go' : 'warn';
   const partValue = hasHistory ? `${s.recentHits} / ${s.recentWindow}` : 'New';
   const partNote = hasHistory
-    ? `Whitelisted in ${s.recentHits} of the last ${s.recentWindow} rounds${s.whitelistedLastRound ? ' — including the most recent' : ''}`
+    ? `Whitelisted in ${s.recentHits} of the last ${s.recentWindow} rounds${s.whitelistedLastRound ? ', including the most recent' : ''}`
     : 'No prior whitelist on record yet';
 
   const stakeTone: SigTone = s.stakedInj >= 1 ? 'go' : 'warn';
@@ -190,7 +190,7 @@ function SignalsCard({ s }: { s: EligibilitySignals }) {
         <div className="tx-bb-rate">
           <span className="tx-bb-rate-value">{s.recentHits}<span className="tx-bb-rate-sep">/</span>{s.recentWindow}</span>
           <span className="tx-bb-rate-label">
-            rounds whitelisted since you first joined — your measured selection rate ({rate}%)
+            rounds whitelisted since you first joined, your measured selection rate ({rate}%)
           </span>
         </div>
       )}
@@ -206,7 +206,7 @@ function SignalsCard({ s }: { s: EligibilitySignals }) {
           tone={stakeTone}
           label="Active staker"
           value={s.stakedInj >= 1 ? `${num(s.stakedInj)} INJ` : 'None'}
-          note={s.stakedInj >= 1 ? 'Staked INJ — selection favours active stakers' : 'No active delegation detected'}
+          note={s.stakedInj >= 1 ? 'Staked INJ, selection favours active stakers' : 'No active delegation detected'}
         />
         <SignalRow
           tone={actTone}
@@ -220,7 +220,7 @@ function SignalsCard({ s }: { s: EligibilitySignals }) {
         <span>ℹ</span>
         <span>
           These are favourable signals, not a prediction. The whitelist is compiled off-chain by the team with
-          a randomized element, so no honest per-wallet percentage exists — your own track record above is the
+          a randomized element, so no honest per-wallet percentage exists, your own track record above is the
           best guide.
         </span>
       </div>
@@ -256,7 +256,7 @@ export default function BuybackDashboard({ profile }: Props) {
         {!everParticipated ? (
           <div className="tx-pnl-empty">
             This wallet has never been whitelisted for a Community BuyBack round. Eligibility favours active
-            stakers and on-chain participants — round results are also visible on injhub.com/community-buyback.
+            stakers and on-chain participants, round results are also visible on injhub.com/community-buyback.
           </div>
         ) : (
           <div className="tx-pnl-grid">
@@ -312,7 +312,7 @@ export default function BuybackDashboard({ profile }: Props) {
         <div className="tx-pnl-note tx-pnl-note--center">
           <span>⚠</span>
           <span>
-            Reward baskets include ecosystem tokens with no market price feed — the USD figures cover only the
+            Reward baskets include ecosystem tokens with no market price feed, the USD figures cover only the
             priced portion (stablecoins, majors) and a “+” marks rounds with additional unpriced tokens.
           </span>
         </div>

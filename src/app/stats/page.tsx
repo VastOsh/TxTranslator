@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import Link from 'next/link';
 import LensCrumb from '@/components/LensCrumb';
+import BackToRenzu from '@/components/BackToRenzu';
 import Changelog from '@/components/Changelog';
 import { CURRENT_VERSION } from '@/data/changelog';
 
@@ -113,12 +113,12 @@ export default function StatsPage() {
       {changelogOpen && <Changelog onClose={() => setChangelogOpen(false)} />}
 
       <div style={{ width: '100%', maxWidth: 820, marginBottom: '1.25rem' }}>
-        <Link href="/" className="tx-back-link">← All lenses</Link>
+        <BackToRenzu />
       </div>
 
       <section className="tx-hero" style={{ marginBottom: '1.5rem' }}>
         <h1 className="tx-headline">Injective <span>volume</span></h1>
-        <p className="tx-subline">Real spot + perp volume, reconstructed trade-by-trade from the chain — the numbers DeFiLlama misses.</p>
+        <p className="tx-subline">Real spot + perp volume, reconstructed trade-by-trade from the chain, the numbers DeFiLlama misses.</p>
       </section>
 
       {/* Timeframe toggle */}
@@ -142,7 +142,7 @@ export default function StatsPage() {
         <div style={{ width: '100%', maxWidth: 820, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {empty && (
             <div className="tx-pnl-card" style={{ padding: '1rem 1.2rem', fontSize: '0.8rem', color: 'var(--tx-text-muted)', lineHeight: 1.5 }}>
-              No days ingested yet. Run the daily cron (<code>/api/cron/stats</code>) or the backfill script to populate the dataset — every timeframe fills in as days land.
+              No days ingested yet. Run the daily cron (<code>/api/cron/stats</code>) or the backfill script to populate the dataset, every timeframe fills in as days land.
             </div>
           )}
 

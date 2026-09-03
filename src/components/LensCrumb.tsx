@@ -5,7 +5,7 @@ import Link from 'next/link';
 // "TX · TRANSLATOR" logo block so each lens is named for what it is.
 export default function LensCrumb({ name, accent = '#35C9BE' }: { name: string; accent?: string }) {
   return (
-    <Link href="/" className="lens-crumb" aria-label={`Renzu — ${name}`}>
+    <Link href="/" className="lens-crumb" aria-label={`Renzu, ${name}`}>
       <svg className="lens-glyph" width="24" height="24" viewBox="0 0 32 32" fill="none" aria-hidden="true">
         <circle cx="16" cy="16" r="14" stroke="url(#lcg)" strokeWidth="2" />
         <circle cx="16" cy="16" r="7.5" stroke="#9AA3B5" strokeWidth="1.4" opacity="0.7" />

@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
 import LensCrumb from '@/components/LensCrumb';
+import BackToRenzu from '@/components/BackToRenzu';
 import TranslationResult from '@/components/TranslationResult';
 import InjChart from '@/components/InjChart';
 import Changelog from '@/components/Changelog';
@@ -72,7 +72,7 @@ export default function TxPage() {
           });
         }
       })
-      .catch(() => setError('Network error — check your connection and try again.'))
+      .catch(() => setError('Network error, check your connection and try again.'))
       .finally(() => setLoading(false));
   }, [hash, addRecent]);
 
@@ -103,7 +103,7 @@ export default function TxPage() {
       {changelogOpen && <Changelog onClose={() => setChangelogOpen(false)} />}
 
       <div style={{ width: '100%', maxWidth: 680, marginBottom: '1.25rem' }}>
-        <Link href="/" className="tx-back-link">← Decode another transaction</Link>
+        <BackToRenzu />
       </div>
 
       {loading && <LoadingSkeleton />}
@@ -119,7 +119,7 @@ export default function TxPage() {
             {error}
           </div>
           <div style={{ marginTop: '1rem' }}>
-            <Link href="/" className="tx-back-link">← Go back</Link>
+            <BackToRenzu />
           </div>
         </div>
       )}
@@ -145,7 +145,7 @@ export default function TxPage() {
             marginRight: 'auto',
           }}>
             <span style={{ fontSize: '0.75rem' }}>⚠</span>
-            AI-generated insights may contain inaccuracies — this tool is in active development.
+            AI-generated insights may contain inaccuracies, this tool is in active development.
           </div>
         </>
       )}

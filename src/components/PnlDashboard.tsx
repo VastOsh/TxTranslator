@@ -67,7 +67,7 @@ function toneClass(n: number): string {
   return n > 0 ? 'tx-pnl-up' : n < 0 ? 'tx-pnl-down' : 'tx-pnl-flat';
 }
 
-/** Cumulative net-PnL line. Purely presentational — no axes, it's a shape. */
+/** Cumulative net-PnL line. Purely presentational, no axes, it's a shape. */
 function EquityCurve({ points, positive }: { points: Array<{ t: number; v: number }>; positive: boolean }) {
   if (points.length < 2) return null;
 
@@ -165,7 +165,7 @@ export default function PnlDashboard({ report, range, onRangeChange, loading = f
 
         {!hasActivity ? (
           <div className="tx-pnl-empty">
-            No perp trades in this window. Try a longer range — this wallet may only trade spot or hold positions.
+            No perp trades in this window. Try a longer range, this wallet may only trade spot or hold positions.
           </div>
         ) : (
           <>
@@ -325,7 +325,7 @@ export default function PnlDashboard({ report, range, onRangeChange, loading = f
         </div>
       )}
 
-      {/* ── Caveats — these numbers have real limits, say so ── */}
+      {/* ── Caveats, these numbers have real limits, say so ── */}
       {truncated && (
         <div className="tx-pnl-note">
           <span>⚠</span>

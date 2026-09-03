@@ -101,7 +101,7 @@ export default function TxTool() {
     window.history.replaceState(null, '', '/tx');
   }
 
-  // Runs alongside the wallet scan rather than inside it — the tx list should
+  // Runs alongside the wallet scan rather than inside it, the tx list should
   // render immediately instead of waiting on the multi-page fee scan. The
   // address is captured so a slow response for a previous wallet cannot land on
   // the current one.
@@ -146,7 +146,7 @@ export default function TxTool() {
       }
       setPnlReport(data.report as PnlReport);
     } catch {
-      setError('Network error — check your connection and try again.');
+      setError('Network error, check your connection and try again.');
     } finally {
       setPnlLoading(false);
     }
@@ -193,7 +193,7 @@ export default function TxTool() {
       });
       window.history.pushState(null, '', `/tx/${tx.hash}`);
     } catch {
-      setError('Network error — check your connection and try again.');
+      setError('Network error, check your connection and try again.');
     } finally {
       setLoading(false);
     }
@@ -215,7 +215,7 @@ export default function TxTool() {
       setWalletAddress(address);
       loadFootprint(address);
     } catch {
-      setError('Network error — check your connection and try again.');
+      setError('Network error, check your connection and try again.');
     } finally {
       setLoading(false);
     }
@@ -271,7 +271,7 @@ export default function TxTool() {
               Decode any<br /><span>Injective</span> transaction
             </h1>
             <p className="tx-subline">
-              Paste a tx hash or a wallet address — get a plain-English breakdown in seconds
+              Paste a tx hash or a wallet address, get a plain-English breakdown in seconds
             </p>
           </>
         )}
@@ -303,7 +303,7 @@ export default function TxTool() {
         )}
       </section>
 
-      {/* ── Recent history — idle state only ── */}
+      {/* ── Recent history, idle state only ── */}
       {!hasOutput && !loading && recent.length > 0 && (
         <div style={{ width: '100%', maxWidth: 680, marginTop: '2rem', marginBottom: '1rem' }}>
           <RecentHistory recent={recent} onSelect={handleSearch} onClear={clearRecent} />
@@ -339,7 +339,7 @@ export default function TxTool() {
             letterSpacing: '0.02em',
           }}>
             <span style={{ fontSize: '0.75rem' }}>⚠</span>
-            AI-generated insights may contain inaccuracies — this tool is in active development.
+            AI-generated insights may contain inaccuracies, this tool is in active development.
           </div>
         </>
       )}
@@ -375,7 +375,7 @@ export default function TxTool() {
                     </span>
                   </div>
                   <div style={{ padding: '0.9rem 1.2rem', fontSize: '0.72rem', color: 'var(--tx-text-muted)' }}>
-                    Reading recent transactions to compute gas paid and dApps used — a few seconds.
+                    Reading recent transactions to compute gas paid and dApps used, a few seconds.
                   </div>
                 </div>
               )}
@@ -391,7 +391,7 @@ export default function TxTool() {
                     </button>
                   </div>
                   <div style={{ padding: '0.9rem 1.2rem', fontSize: '0.72rem', color: 'var(--tx-text-muted)' }}>
-                    Couldn&rsquo;t load the footprint — the indexer may be busy. Retry above.
+                    Couldn&rsquo;t load the footprint, the indexer may be busy. Retry above.
                   </div>
                 </div>
               )}

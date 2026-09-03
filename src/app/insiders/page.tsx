@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import LensCrumb from '@/components/LensCrumb';
+import BackToRenzu from '@/components/BackToRenzu';
 import Changelog from '@/components/Changelog';
 import { CURRENT_VERSION } from '@/data/changelog';
 import type { SerialFunder } from '@/lib/token/insiders';
@@ -27,7 +28,7 @@ export default function InsidersPage() {
         if (!ok) setError(data.error ?? 'Could not build the insider index.');
         else setFunders(data.funders as SerialFunder[]);
       })
-      .catch(() => { if (live) setError('Network error — try again.'); });
+      .catch(() => { if (live) setError('Network error, try again.'); });
     return () => { live = false; };
   }, []);
 
@@ -53,7 +54,7 @@ export default function InsidersPage() {
       {changelogOpen && <Changelog onClose={() => setChangelogOpen(false)} />}
 
       <div style={{ width: '100%', maxWidth: 680, marginBottom: '1.25rem' }}>
-        <Link href="/" className="tx-back-link">← All lenses</Link>
+        <BackToRenzu />
       </div>
 
       <section className="tx-hero" style={{ marginBottom: '1.75rem' }}>
@@ -61,7 +62,7 @@ export default function InsidersPage() {
           Launchpad <span>insiders</span>
         </h1>
         <p className="tx-subline">
-          Wallets that funded the top holders of many different Trippy-launchpad tokens — a cross-token
+          Wallets that funded the top holders of many different Trippy-launchpad tokens, a cross-token
           view of coordinated activity no explorer surfaces
         </p>
       </section>
@@ -80,7 +81,7 @@ export default function InsidersPage() {
           </div>
           <div style={{ padding: '0.9rem 1.2rem', fontSize: '0.72rem', color: 'var(--tx-text-muted)' }}>
             Following each recent token’s top holders back to the wallet that first funded them, then
-            grouping funders seen across multiple tokens. Built hourly — first load can take a few seconds.
+            grouping funders seen across multiple tokens. Built hourly, first load can take a few seconds.
           </div>
         </div>
       )}
@@ -90,7 +91,7 @@ export default function InsidersPage() {
           {funders.length === 0 ? (
             <div className="tx-pnl-card">
               <div style={{ padding: '1rem 1.2rem', fontSize: '0.8rem', color: 'var(--tx-text)' }}>
-                No serial funders found across the recent launches — top holders were funded independently.
+                No serial funders found across the recent launches, top holders were funded independently.
               </div>
             </div>
           ) : (
@@ -146,8 +147,8 @@ export default function InsidersPage() {
                 </div>
               ))}
               <div style={{ fontSize: '0.68rem', color: 'rgba(236, 239, 245, 0.5)', marginTop: '0.8rem', lineHeight: 1.5 }}>
-                A funder shared by the top holders of several tokens points to coordinated activity — one operator across
-                many wallets, or a market-maker fleet — but it can also be a common exchange withdrawal address. Shown as a
+                A funder shared by the top holders of several tokens points to coordinated activity, one operator across
+                many wallets, or a market-maker fleet, but it can also be a common exchange withdrawal address. Shown as a
                 signal, not a verdict; open a funder’s wallet profile or the explorer to judge. Covers recent launches only.
               </div>
             </>
