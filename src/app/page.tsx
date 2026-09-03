@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Lenis from 'lenis';
+import Ferrofluid from '@/components/Ferrofluid';
 
 // Official Injective symbol path (viewBox 308.5 308.699 617 617).
 const INJ_PATH =
@@ -120,7 +121,9 @@ export default function RenzuHub() {
   const cursorRef = useRef<HTMLDivElement>(null);
   const progressRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const heroRef = useRef<HTMLElement>(null);
   const [q, setQ] = useState('');
+  const [fluidPaused, setFluidPaused] = useState(false);
 
   const det = detect(q);
   const rc = det ? det.color : 'var(--accent)';
@@ -231,6 +234,16 @@ export default function RenzuHub() {
     };
   }, []);
 
+  // Pause the hero fluid when it scrolls out of view or for reduced-motion.
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion:reduce)').matches) { setFluidPaused(true); return; }
+    const hero = heroRef.current;
+    if (!hero) return;
+    const io = new IntersectionObserver(([e]) => setFluidPaused(!e.isIntersecting), { threshold: 0 });
+    io.observe(hero);
+    return () => io.disconnect();
+  }, []);
+
   return (
     <div className="renzu" ref={rootRef}>
       <div className="rz-progress" ref={progressRef} />
@@ -269,7 +282,25 @@ export default function RenzuHub() {
         </div>
       </header>
 
-      <section className="rz-hero">
+      <section className="rz-hero" ref={heroRef}>
+        <Ferrofluid
+          className="rz-hero-fluid"
+          colors={['#35C9BE', '#9B8CFF', '#F0B24A', '#E77BA6']}
+          speed={0.4}
+          scale={1.5}
+          turbulence={1}
+          fluidity={0.12}
+          rimWidth={0.22}
+          sharpness={2.4}
+          shimmer={1.2}
+          glow={1.5}
+          flowDirection="up"
+          opacity={0.85}
+          mouseStrength={1.1}
+          mouseRadius={0.32}
+          dpr={1.5}
+          paused={fluidPaused}
+        />
         <div className="rz-wrap rz-hero-grid">
           <div>
             <span className="rz-eyebrow"><b>Injective</b> · intelligence hub · v2.0</span>
