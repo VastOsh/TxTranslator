@@ -1,513 +1,380 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import Image from 'next/image';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import SearchForm from '@/components/SearchForm';
-import TranslationResult from '@/components/TranslationResult';
-import WalletTxList from '@/components/WalletTxList';
-import PnlDashboard, { type PnlRangeKey } from '@/components/PnlDashboard';
-import WalletFootprint from '@/components/WalletFootprint';
-import InjChart from '@/components/InjChart';
-import RecentHistory from '@/components/RecentHistory';
-import Changelog from '@/components/Changelog';
-import NewsTicker from '@/components/NewsTicker';
-import { useRecentTxs } from '@/hooks/useRecentTxs';
-import { CURRENT_VERSION } from '@/data/changelog';
-import type { TranslationResponse } from '@/types';
-import type { WalletTx } from '@/components/WalletTxList';
-import type { PnlReport } from '@/lib/pnl/aggregate';
-import type { WalletFootprint as Footprint } from '@/lib/wallet/footprint';
+import { useRouter } from 'next/navigation';
+import Lenis from 'lenis';
 
-const HASH_RE = /^(0x)?[0-9a-fA-F]{64}$/;
-const ADDR_RE = /^inj1[a-z0-9]{38}$/;
+// Official Injective symbol path (viewBox 308.5 308.699 617 617).
+const INJ_PATH =
+  'M681.785 316.104L679.934 319.806C744.102 347.571 780.505 404.952 780.505 467.886C780.505 535.756 736.081 597.456 649.701 649.901L635.51 658.539C570.725 698.027 538.024 742.451 538.024 796.13C538.024 865.234 592.32 915.827 666.977 915.827C786.675 915.827 925.5 788.109 925.5 617.817C925.5 590.052 921.798 562.904 915.011 536.99L910.692 538.224C912.543 552.415 913.16 562.904 913.16 572.776C913.16 673.347 856.396 759.727 761.378 817.108L752.123 822.661C731.762 834.384 714.486 841.171 697.21 841.171C674.381 841.171 657.105 826.363 657.105 804.768C657.105 786.258 669.445 767.748 709.55 744.302L721.273 737.515C810.121 685.687 859.481 612.881 859.481 532.054C859.481 429.632 782.973 345.103 681.785 316.104ZM552.215 918.912L554.066 915.21C489.898 887.446 453.495 830.065 453.495 767.131C453.495 699.261 497.919 637.561 584.299 585.116L598.49 576.478C663.275 536.99 695.976 492.566 695.976 438.887C695.976 369.783 641.68 319.189 567.023 319.189C447.325 319.189 308.5 446.908 308.5 617.2C308.5 644.965 312.202 672.113 318.989 698.027L323.308 696.793C321.457 682.602 320.84 672.113 320.84 662.241C320.84 561.67 377.604 475.29 472.622 417.909L481.877 412.356C502.238 400.633 519.514 393.846 536.79 393.846C559.619 393.846 576.895 408.654 576.895 430.249C576.895 448.759 564.555 467.269 524.45 490.715L512.727 497.502C423.879 549.33 374.519 622.136 374.519 702.963C374.519 805.385 451.027 889.914 552.215 918.912Z';
 
-function LoadingSkeleton() {
+type Detected = { name: string | null; color: string; kind: string; href: string | null };
+
+function detect(raw: string): Detected | null {
+  const v = raw.trim();
+  if (!v) return null;
+  if (/^inj1[0-9a-z]{34,}$/i.test(v))
+    return { name: 'Wallet Intelligence', color: 'var(--violet)', kind: 'Injective address', href: `/wallet?address=${encodeURIComponent(v)}` };
+  if (/^0x[0-9a-fA-F]{40}$/.test(v))
+    return { name: 'Wallet Intelligence', color: 'var(--violet)', kind: 'EVM address', href: `/wallet?address=${encodeURIComponent(v)}` };
+  if (/^(0x)?[0-9a-fA-F]{64}$/.test(v))
+    return { name: 'TxTranslator', color: 'var(--teal)', kind: 'Transaction hash', href: `/tx/${v}` };
+  if (/^(factory\/|peggy0x|ibc\/)/i.test(v))
+    return { name: 'Token Safety', color: 'var(--amber)', kind: 'Token / denom', href: `/token?q=${encodeURIComponent(v)}` };
+  if (/^[A-Za-z][A-Za-z0-9]{1,11}$/.test(v))
+    return { name: 'Token Safety', color: 'var(--amber)', kind: 'Token symbol', href: `/token?q=${encodeURIComponent(v)}` };
+  return { name: null, color: 'var(--faint)', kind: 'Unrecognized, keep typing', href: null };
+}
+
+const EXAMPLES = [
+  { label: 'transaction', value: '0x9f3ca8b1d47e2065f0a9c7b3e15d8842aa6c04f19b7de35216c0af8de49b7c31' },
+  { label: 'inj1… address', value: 'inj1kp9r7q2y8xhs3f4m6vd0lw5nt7cga2ejzu4b9d' },
+  { label: 'token', value: 'INJ' },
+];
+
+type CardDef = { href: string; external?: boolean; name: string; chip: string; desc: string; stat: string };
+type CatDef = { id: string; tag: string; desc: string; color: string; cards: CardDef[] };
+
+const CATS: CatDef[] = [
+  {
+    id: 'understand', tag: 'Understand', desc: 'Make sense of what just happened.', color: 'var(--teal)',
+    cards: [
+      { href: '/tx', name: 'TxTranslator', chip: 'flagship · on X', desc: 'Any Injective transaction decoded into plain English. Every message, transfer and fee, in the order they happened.', stat: 'decode · wallet scan · PnL' },
+    ],
+  },
+  {
+    id: 'detect', tag: 'Detect', desc: 'See risk and intent before it costs you.', color: 'var(--violet)',
+    cards: [
+      { href: '/token', name: 'Token Safety', chip: '6 signals', desc: 'Impersonation checks, launchpad rug signals, holder bubble maps and wallet-funding graphs for any denom.', stat: 'impersonates · creator history' },
+      { href: '/wallet', name: 'Wallet Intelligence', chip: 'Cosmos · EVM', desc: 'Who is behind an address. Wallet age, first funder, launchpad track record, holdings and live risk flags.', stat: 'first funder · portfolio' },
+      { href: '/insiders', name: 'Insiders', chip: 'cross-token', desc: 'Serial funders that quietly seed the same wallets across tokens, surfaced before a launch rather than after.', stat: 'funding graph · 1h refresh' },
+    ],
+  },
+  {
+    id: 'markets', tag: 'Markets', desc: 'Real numbers, reconstructed from the chain.', color: 'var(--amber)',
+    cards: [
+      { href: '/stats', name: 'Volume', chip: 'on-chain', desc: 'Spot and perp volume rebuilt trade by trade, plus the INJ burn auction. Daily, weekly, monthly, all time.', stat: '$457M / 7d verified' },
+      { href: 'https://x.com/TxTranslator', external: true, name: 'Whale Feed', chip: 'live · on X', desc: 'Large trades and transfers the moment they settle, streamed and auto-posted to X.', stat: 'thresholded · real time' },
+    ],
+  },
+  {
+    id: 'ecosystem', tag: 'Ecosystem', desc: 'Everything else worth watching on Injective.', color: 'var(--rose)',
+    cards: [
+      { href: '/dapps', name: 'dApp Directory', chip: 'directory', desc: 'Every app building on Injective, gathered in one browsable place, with the links that actually work.', stat: 'DeFi · NFT · infra' },
+      { href: '/buyback', name: 'Community BuyBack', chip: '/buyback', desc: 'Follow each INJ buyback round, with honest deposit timing and a clear read on where the flows land.', stat: 'rounds · leaderboard' },
+    ],
+  },
+];
+
+function Lensmark() {
   return (
-    <div className="tx-skel-wrap">
-      <div className="tx-skel-card">
-        <div className="tx-skel" style={{ height: 10, width: '40%' }} />
-        <div className="tx-skel" style={{ height: 22, width: '85%' }} />
-        <div className="tx-skel" style={{ height: 18, width: '60%' }} />
-      </div>
-      <div className="tx-skel-card">
-        <div className="tx-skel" style={{ height: 10, width: '30%' }} />
-        <div className="tx-skel" style={{ height: 18, width: '50%' }} />
-      </div>
-      <div className="tx-skel-card">
-        <div className="tx-skel" style={{ height: 10, width: '35%' }} />
-        <div className="tx-skel" style={{ height: 14, width: '95%' }} />
-        <div className="tx-skel" style={{ height: 14, width: '70%' }} />
-      </div>
-    </div>
+    <svg className="rz-lensmark" viewBox="0 0 118 118" fill="none" aria-hidden="true">
+      <circle cx="59" cy="59" r="46" stroke="var(--cc)" strokeWidth="1.2" opacity=".9" />
+      <circle cx="59" cy="59" r="30" stroke="var(--cc)" strokeWidth="1" opacity=".55" />
+      <circle className="rz-pupil" cx="59" cy="59" r="6" fill="var(--faint)" />
+    </svg>
   );
 }
 
-function WalletSkeleton() {
-  return (
-    <div className="tx-skel-wrap">
-      {[85, 70, 90, 65, 80].map((w, i) => (
-        <div key={i} className="tx-skel-card" style={{ padding: '0.75rem 1.2rem', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flex: 1 }}>
-            <div className="tx-skel" style={{ height: 8, width: 8, borderRadius: '50%', flexShrink: 0 }} />
-            <div className="tx-skel" style={{ height: 14, width: `${w}%` }} />
-          </div>
-          <div className="tx-skel" style={{ height: 26, width: 72, flexShrink: 0, borderRadius: 3 }} />
-        </div>
-      ))}
-    </div>
+function ToolCard({ c }: { c: CardDef }) {
+  const inner = (
+    <>
+      <Lensmark />
+      <div className="rz-card-top">
+        <h3>{c.name}</h3>
+        <span className="rz-chip">{c.chip}</span>
+      </div>
+      <p>{c.desc}</p>
+      <div className="rz-foot">
+        <span className="rz-stat">{c.stat}</span>
+        <span className="rz-go">open →</span>
+      </div>
+    </>
+  );
+  return c.external ? (
+    <a className="rz-card" href={c.href} target="_blank" rel="noopener noreferrer">{inner}</a>
+  ) : (
+    <Link className="rz-card" href={c.href}>{inner}</Link>
   );
 }
 
-const CHANGELOG_READ_KEY = 'tx-changelog-read';
+function RenzuGlyph({ size = 26 }: { size?: number }) {
+  return (
+    <svg className="rz-glyph" width={size} height={size} viewBox="0 0 32 32" fill="none" aria-hidden="true">
+      <circle cx="16" cy="16" r="14" stroke="url(#rzg)" strokeWidth="2" />
+      <circle cx="16" cy="16" r="7.5" stroke="#9AA3B5" strokeWidth="1.4" opacity=".7" />
+      <circle cx="16" cy="16" r="2.4" fill="#35C9BE" />
+      <defs>
+        <linearGradient id="rzg" x1="2" y1="4" x2="30" y2="28">
+          <stop stopColor="#35C9BE" /><stop offset=".55" stopColor="#9B8CFF" /><stop offset="1" stopColor="#F0B24A" />
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+}
 
-export default function Home() {
-  const [changelogOpen, setChangelogOpen] = useState(false);
-  const [hasUnread, setHasUnread] = useState(false);
+export default function RenzuHub() {
+  const router = useRouter();
+  const rootRef = useRef<HTMLDivElement>(null);
+  const cursorRef = useRef<HTMLDivElement>(null);
+  const progressRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [q, setQ] = useState('');
+
+  const det = detect(q);
+  const rc = det ? det.color : 'var(--accent)';
+
+  function go() {
+    const d = detect(q);
+    if (d?.href) router.push(d.href);
+  }
 
   useEffect(() => {
-    setHasUnread(localStorage.getItem(CHANGELOG_READ_KEY) !== CURRENT_VERSION);
+    const root = rootRef.current;
+    if (!root) return;
+    const reduce = window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+    const finePt = window.matchMedia('(pointer:fine)').matches;
+
+    // reveal-on-scroll (enabled only after mount; hero/proof are never hidden)
+    root.classList.add('rz-anim');
+    const io = new IntersectionObserver(
+      (es) => es.forEach((en) => { if (en.isIntersecting) { en.target.classList.add('rz-in'); io.unobserve(en.target); } }),
+      { rootMargin: '0px 0px -8% 0px', threshold: 0.08 },
+    );
+    root.querySelectorAll('.rz-reveal').forEach((el) => {
+      if (el.getBoundingClientRect().top < window.innerHeight * 0.92) el.classList.add('rz-in');
+      else io.observe(el);
+    });
+
+    // progress bar
+    const setProgress = () => {
+      const h = document.documentElement.scrollHeight - window.innerHeight;
+      const p = h > 0 ? Math.min(window.scrollY / h, 1) : 0;
+      if (progressRef.current) progressRef.current.style.transform = `scaleX(${p})`;
+    };
+
+    // Lenis smooth scroll
+    let lenis: Lenis | null = null;
+    let rafId = 0;
+    if (!reduce) {
+      lenis = new Lenis({ lerp: 0.09, smoothWheel: true });
+      const raf = (t: number) => { lenis!.raf(t); rafId = requestAnimationFrame(raf); };
+      rafId = requestAnimationFrame(raf);
+      lenis.on('scroll', setProgress);
+    }
+    window.addEventListener('scroll', setProgress, { passive: true });
+    setProgress();
+
+    // in-page anchor links
+    const anchors = Array.from(root.querySelectorAll<HTMLAnchorElement>('a[href^="#"]'));
+    const onAnchor = (e: Event) => {
+      const a = e.currentTarget as HTMLAnchorElement;
+      const id = a.getAttribute('href');
+      if (!id || id.length < 2) return;
+      const t = root.querySelector(id);
+      if (!t) return;
+      e.preventDefault();
+      if (lenis) lenis.scrollTo(t as HTMLElement, { offset: -72 });
+      else (t as HTMLElement).scrollIntoView({ behavior: 'smooth' });
+    };
+    anchors.forEach((a) => a.addEventListener('click', onAnchor));
+
+    // custom lens cursor
+    const cur = cursorRef.current;
+    let curRaf = 0;
+    let tx = window.innerWidth / 2, ty = window.innerHeight / 2, cx = tx, cy = ty;
+    const onMove = (e: MouseEvent) => {
+      tx = e.clientX; ty = e.clientY;
+      if (reduce && cur) cur.style.transform = `translate(${tx}px,${ty}px)`;
+    };
+    const addHot = () => cur?.classList.add('rz-hot');
+    const rmHot = () => cur?.classList.remove('rz-hot');
+    const hideCur = () => { if (cur) { cur.style.opacity = '0'; cur.classList.remove('rz-hot'); } };
+    const showCur = () => { if (cur) cur.style.opacity = '1'; };
+    const hotEls: Element[] = [];
+    const inEls: Element[] = [];
+    if (finePt && cur) {
+      root.classList.add('rz-cursoron');
+      window.addEventListener('mousemove', onMove, { passive: true });
+      if (!reduce) {
+        const loop = () => {
+          cx += (tx - cx) * 0.32; cy += (ty - cy) * 0.32;
+          cur.style.transform = `translate(${cx}px,${cy}px)`;
+          curRaf = requestAnimationFrame(loop);
+        };
+        curRaf = requestAnimationFrame(loop);
+      }
+      root.querySelectorAll('a,button,.rz-card,.rz-ex').forEach((el) => {
+        el.addEventListener('mouseenter', addHot); el.addEventListener('mouseleave', rmHot); hotEls.push(el);
+      });
+      root.querySelectorAll('input,textarea').forEach((el) => {
+        el.addEventListener('mouseenter', hideCur); el.addEventListener('mouseleave', showCur); inEls.push(el);
+      });
+      document.addEventListener('mouseleave', hideCur);
+      document.addEventListener('mouseenter', showCur);
+    }
+
+    return () => {
+      io.disconnect();
+      window.removeEventListener('scroll', setProgress);
+      anchors.forEach((a) => a.removeEventListener('click', onAnchor));
+      lenis?.destroy();
+      if (rafId) cancelAnimationFrame(rafId);
+      if (curRaf) cancelAnimationFrame(curRaf);
+      window.removeEventListener('mousemove', onMove);
+      hotEls.forEach((el) => { el.removeEventListener('mouseenter', addHot); el.removeEventListener('mouseleave', rmHot); });
+      inEls.forEach((el) => { el.removeEventListener('mouseenter', hideCur); el.removeEventListener('mouseleave', showCur); });
+      document.removeEventListener('mouseleave', hideCur);
+      document.removeEventListener('mouseenter', showCur);
+      root.classList.remove('rz-cursoron', 'rz-anim');
+    };
   }, []);
-  const [result, setResult] = useState<TranslationResponse | null>(null);
-  const [walletTxs, setWalletTxs] = useState<WalletTx[] | null>(null);
-  const [walletAddress, setWalletAddress] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [loadingMode, setLoadingMode] = useState<'hash' | 'wallet' | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [walletTab, setWalletTab] = useState<'activity' | 'pnl'>('activity');
-  const [pnlReport, setPnlReport] = useState<PnlReport | null>(null);
-  const [pnlRange, setPnlRange] = useState<PnlRangeKey>('7d');
-  const [pnlLoading, setPnlLoading] = useState(false);
-  const [footprint, setFootprint] = useState<Footprint | null>(null);
-  const [footprintLoading, setFootprintLoading] = useState(false);
-  const [footprintError, setFootprintError] = useState(false);
-  // Tracks the wallet of the most recent scan so a slow in-flight footprint
-  // response for an earlier wallet can be discarded.
-  const walletAddressRef = useRef<string | null>(null);
-  const { recent, addRecent, clearRecent } = useRecentTxs();
-
-  function resetState(clearWallet = true) {
-    setResult(null);
-    setWalletTxs(null);
-    if (clearWallet) setWalletAddress(null);
-    setError(null);
-    setWalletTab('activity');
-    setPnlReport(null);
-    setPnlRange('7d');
-    setFootprint(null);
-    setFootprintLoading(false);
-    setFootprintError(false);
-    walletAddressRef.current = null;
-    window.history.replaceState(null, '', '/');
-  }
-
-  // Runs alongside the wallet scan rather than inside it — the tx list should
-  // render immediately instead of waiting on the multi-page fee scan. The
-  // address is captured so a slow response for a previous wallet cannot land on
-  // the current one.
-  async function loadFootprint(address: string) {
-    walletAddressRef.current = address;
-    setFootprint(null);
-    setFootprintError(false);
-    setFootprintLoading(true);
-    try {
-      const res = await fetch('/api/wallet/fees', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address }),
-      });
-      if (walletAddressRef.current !== address) return; // a newer scan started
-      if (!res.ok) {
-        setFootprintError(true);
-        return;
-      }
-      const data = await res.json();
-      setFootprint(data.footprint as Footprint);
-    } catch {
-      if (walletAddressRef.current === address) setFootprintError(true);
-    } finally {
-      if (walletAddressRef.current === address) setFootprintLoading(false);
-    }
-  }
-
-  async function loadPnl(address: string, range: PnlRangeKey) {
-    setPnlRange(range);
-    setPnlLoading(true);
-    try {
-      const res = await fetch('/api/pnl', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address, range }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? 'Could not build the PnL report.');
-        return;
-      }
-      setPnlReport(data.report as PnlReport);
-    } catch {
-      setError('Network error — check your connection and try again.');
-    } finally {
-      setPnlLoading(false);
-    }
-  }
-
-  async function handleSearch(input: string) {
-    const trimmed = input.trim();
-    setLoading(true);
-
-    if (ADDR_RE.test(trimmed)) {
-      resetState();
-      setLoadingMode('wallet');
-      await handleWalletScan(trimmed);
-    } else if (HASH_RE.test(trimmed)) {
-      resetState(false); // preserve walletAddress as viewer context
-      setLoadingMode('hash');
-      await handleHashDecode(trimmed, walletAddress ?? undefined);
-    } else {
-      setError('Enter a valid tx hash or inj1… wallet address.');
-      setLoading(false);
-    }
-  }
-
-  async function handleHashDecode(hash: string, viewerAddress?: string) {
-    try {
-      const res = await fetch('/api/translate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ hash, ...(viewerAddress ? { viewerAddress } : {}) }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? 'Something went wrong. Please try again.');
-        return;
-      }
-      const tx = data as TranslationResponse;
-      setResult(tx);
-      addRecent({
-        hash: tx.hash,
-        action: tx.action,
-        txCategory: tx.txCategory,
-        protocol: tx.protocol,
-        status: tx.status,
-      });
-      window.history.pushState(null, '', `/tx/${tx.hash}`);
-    } catch {
-      setError('Network error — check your connection and try again.');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleWalletScan(address: string) {
-    try {
-      const res = await fetch('/api/wallet', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? 'Could not fetch wallet history.');
-        return;
-      }
-      setWalletTxs(data.txs as WalletTx[]);
-      setWalletAddress(address);
-      loadFootprint(address);
-    } catch {
-      setError('Network error — check your connection and try again.');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const hasOutput = result || walletTxs !== null;
 
   return (
-    <main className="tx-main">
-      {/* ── News Ticker ── */}
-      <NewsTicker />
+    <div className="renzu" ref={rootRef}>
+      <div className="rz-progress" ref={progressRef} />
 
-      {/* ── Header ── */}
-      <header
-        className="tx-page-header"
-        style={{
-          width: '100%',
-          maxWidth: 680,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '1.25rem 0',
-          borderBottom: '1px solid var(--tx-border)',
-          marginBottom: '4rem',
-        }}
-      >
-        <div
-          className="tx-logo"
-          onClick={() => resetState(true)}
-          style={{ cursor: hasOutput ? 'pointer' : 'default' }}
-        >
-          <Image src="/logo.svg" alt="Tx·Translator logo" width={28} height={28} priority />
-          TX · TRANSLATOR
+      <div className="rz-cursor" ref={cursorRef} aria-hidden="true">
+        <div className="rz-cur-in">
+          <svg width="34" height="34" viewBox="0 0 34 34" fill="none">
+            <circle cx="17" cy="17" r="14" stroke="#35C9BE" strokeWidth="1.4" opacity=".9" />
+            <circle cx="17" cy="17" r="7.5" stroke="#9AA3B5" strokeWidth="1.1" opacity=".65" />
+            <circle cx="17" cy="17" r="2" fill="#35C9BE" />
+          </svg>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-          <span className="tx-footer">Injective Mainnet</span>
-          <button
-            className={`tx-version-btn${hasUnread ? ' tx-version-btn--unread' : ''}`}
-            onClick={() => {
-              setChangelogOpen(true);
-              setHasUnread(false);
-              localStorage.setItem(CHANGELOG_READ_KEY, CURRENT_VERSION);
-            }}
-          >
-            {CURRENT_VERSION}
-          </button>
+      </div>
+
+      {/* Injective symbol gradients */}
+      <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
+        <defs>
+          <linearGradient id="inj" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stopColor="#4D3DFF" /><stop offset="1" stopColor="#9A8CFF" />
+          </linearGradient>
+          <linearGradient id="injL" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stopColor="#8E7FFF" /><stop offset="1" stopColor="#D8D1FF" />
+          </linearGradient>
+        </defs>
+      </svg>
+
+      <header className="rz-nav">
+        <div className="rz-wrap rz-nav-in">
+          <Link href="/" className="rz-brand"><RenzuGlyph /> Renzu</Link>
+          <nav className="rz-nav-links">
+            <a href="#lenses">Lenses</a>
+            <a href="#detect">Detect</a>
+            <a href="#markets">Volume</a>
+            <a href="#" className="rz-nav-cta"><span className="rz-dot" />renzu.xyz</a>
+          </nav>
         </div>
       </header>
 
-      {changelogOpen && <Changelog onClose={() => setChangelogOpen(false)} />}
+      <section className="rz-hero">
+        <div className="rz-wrap rz-hero-grid">
+          <div>
+            <span className="rz-eyebrow"><b>Injective</b> · intelligence hub · v2.0</span>
+            <h1 className="rz-title">Every lens on <span className="rz-spectral">Injective.</span></h1>
+            <p className="rz-lede">Renzu turns raw chain activity into something you can actually read. Transactions, wallets, tokens, whales and real volume, each brought into focus through its own lens.</p>
+            <p className="rz-lineage">Formerly <b>TxTranslator</b>. Now one lens among many.</p>
 
-      {/* ── Hero ── */}
-      <section
-        className="tx-hero"
-        style={{ marginBottom: hasOutput || loading || error ? '2.5rem' : '0' }}
-      >
-        {!hasOutput && !loading && (
-          <>
-            <h1 className="tx-headline">
-              Decode any<br /><span>Injective</span> transaction
-            </h1>
-            <p className="tx-subline">
-              Paste a tx hash or a wallet address — get a plain-English breakdown in seconds
-            </p>
-          </>
-        )}
-
-        <SearchForm onSearch={handleSearch} loading={loading} />
-
-        {error && (
-          <div className="tx-error-msg" style={{ marginTop: '0.75rem' }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10" />
-              <line x1="12" y1="8" x2="12" y2="12" />
-              <line x1="12" y1="16" x2="12.01" y2="16" />
-            </svg>
-            {error}
+            <div className="rz-lensbar-shell">
+              <form className="rz-lensbar" style={{ ['--rc' as string]: rc } as React.CSSProperties} onSubmit={(e) => { e.preventDefault(); go(); }}>
+                <span className="rz-lead">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                    <circle cx="11" cy="11" r="7" /><path d="m20 20-3.2-3.2" />
+                  </svg>
+                </span>
+                <input
+                  ref={inputRef}
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  autoComplete="off"
+                  spellCheck={false}
+                  placeholder="Paste a transaction, inj1… address, or token"
+                  aria-label="Paste a transaction, address, or token"
+                />
+                <button className="rz-focus-btn" type="submit">Focus</button>
+              </form>
+              <div className="rz-route">
+                <span className="rz-kind">{det ? det.kind : 'Paste anything on-chain'}</span>
+                <span className="rz-arrow" style={{ opacity: det ? 1 : 0.5 }}>→</span>
+                <span className="rz-lens" style={{ fontStyle: det && !det.name ? 'italic' : 'normal' }}>
+                  {det ? (det.name ? `opens in ${det.name}` : 'no lens yet') : 'Renzu picks the lens'}
+                </span>
+              </div>
+              <div className="rz-examples">
+                <span className="rz-lbl">Try:</span>
+                {EXAMPLES.map((ex) => (
+                  <button key={ex.label} className="rz-ex" type="button" onClick={() => { setQ(ex.value); inputRef.current?.focus(); }}>
+                    {ex.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
-        )}
 
-        {!hasOutput && !loading && (
-          <div className="tx-cta-row">
-            <Link href="/dapps" className="tx-dapp-cta">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="3" y="3" width="7" height="7" rx="1.5" />
-                <rect x="14" y="3" width="7" height="7" rx="1.5" />
-                <rect x="3" y="14" width="7" height="7" rx="1.5" />
-                <rect x="14" y="14" width="7" height="7" rx="1.5" />
-              </svg>
-              dApp directory
-              <span aria-hidden style={{ opacity: 0.7 }}>→</span>
-            </Link>
-            <Link href="/buyback" className="tx-dapp-cta">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round">
-                <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
-              </svg>
-              BuyBack checker
-              <span aria-hidden style={{ opacity: 0.7 }}>→</span>
-            </Link>
-            <Link href="/wallet" className="tx-dapp-cta">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round">
-                <rect x="3" y="5" width="18" height="14" rx="2" />
-                <path d="M3 10h18" />
-                <circle cx="8" cy="14.5" r="1.5" />
-              </svg>
-              Wallet intelligence
-              <span aria-hidden style={{ opacity: 0.7 }}>→</span>
-            </Link>
-            <Link href="/token" className="tx-dapp-cta">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round">
-                <path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z" />
-                <path d="M9.5 12l2 2 3.5-4" />
-              </svg>
-              Token safety
-              <span aria-hidden style={{ opacity: 0.7 }}>→</span>
-            </Link>
-            <Link href="/insiders" className="tx-dapp-cta">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round">
-                <circle cx="12" cy="12" r="2.5" />
-                <circle cx="5" cy="6" r="1.8" />
-                <circle cx="19" cy="6" r="1.8" />
-                <circle cx="6" cy="18" r="1.8" />
-                <path d="M10 10.5 6.5 7M14 10.5 17.5 7M10.5 13.5 7.5 16.5" />
-              </svg>
-              Launchpad insiders
-              <span aria-hidden style={{ opacity: 0.7 }}>→</span>
-            </Link>
-            <Link href="/stats" className="tx-dapp-cta">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round">
-                <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
-              </svg>
-              Injective volume
-              <span aria-hidden style={{ opacity: 0.7 }}>→</span>
-            </Link>
+          <div className="rz-orb-stage">
+            <div className="rz-orb-float">
+              <div className="rz-inj-bg">
+                <svg viewBox="308.5 308.699 617 617" aria-hidden="true"><path fill="url(#inj)" d={INJ_PATH} /></svg>
+              </div>
+              <div className="rz-orb">
+                <div className="rz-orb-refract">
+                  <svg viewBox="308.5 308.699 617 617" aria-hidden="true"><path fill="url(#injL)" d={INJ_PATH} /></svg>
+                </div>
+                <div className="rz-orb-spec" />
+                <div className="rz-orb-glint" />
+              </div>
+            </div>
+            <span className="rz-orb-cap">borosilicate · refracting Injective</span>
           </div>
-        )}
+        </div>
+
+        <div className="rz-wrap">
+          <div className="rz-proof">
+            <div>
+              <div className="rz-n rz-teal">$457M</div>
+              <div className="rz-k">verified spot and perp volume over 7 days, <b>more than DeFiLlama can see</b></div>
+            </div>
+            <div>
+              <div className="rz-n">9 lenses</div>
+              <div className="rz-k">one hub to decode, detect and monitor Injective</div>
+            </div>
+            <div>
+              <div className="rz-n rz-amber">2 years</div>
+              <div className="rz-k">of trade history reconstructable, block by block</div>
+            </div>
+          </div>
+        </div>
       </section>
 
-      {/* ── Recent history — idle state only ── */}
-      {!hasOutput && !loading && recent.length > 0 && (
-        <div style={{ width: '100%', maxWidth: 680, marginTop: '2rem', marginBottom: '1rem' }}>
-          <RecentHistory recent={recent} onSelect={handleSearch} onClear={clearRecent} />
+      <main className="rz-wrap rz-main" id="lenses">
+        {CATS.map((cat) => (
+          <section className="rz-cat rz-reveal" id={cat.id} key={cat.id} style={{ ['--cc' as string]: cat.color } as React.CSSProperties}>
+            <div className="rz-cat-head">
+              <span className="rz-cat-tag">{cat.tag}</span>
+              <span className="rz-cat-desc">{cat.desc}</span>
+            </div>
+            <div className="rz-cards">
+              {cat.cards.map((c) => <ToolCard key={c.name} c={c} />)}
+            </div>
+          </section>
+        ))}
+      </main>
+
+      <footer className="rz-footer">
+        <div className="rz-wrap rz-foot-in">
+          <div>
+            <div className="rz-foot-brand"><RenzuGlyph size={24} /> Renzu</div>
+            <div className="rz-foot-tag"><span className="rz-spectral">Every lens on Injective.</span></div>
+          </div>
+          <div className="rz-foot-meta">
+            <a href="#lenses">renzu.xyz</a>
+            <a href="https://x.com/TxTranslator" target="_blank" rel="noopener noreferrer">TxTranslator on X</a>
+            <a href="https://x.com/SiGPRMR" target="_blank" rel="noopener noreferrer">Contact</a>
+          </div>
         </div>
-      )}
-
-      {/* ── Output ── */}
-      {loading && loadingMode === 'wallet' && <WalletSkeleton />}
-      {loading && loadingMode === 'hash' && <LoadingSkeleton />}
-
-      {result && (
-        <>
-          <div style={{ width: '100%', maxWidth: 680, marginBottom: '1.25rem' }}>
-            <button
-              className="tx-back-link"
-              onClick={() => { resetState(true); window.history.replaceState(null, '', '/'); }}
-            >
-              ← Decode another transaction
-            </button>
-          </div>
-          <TranslationResult data={result} />
-          <div style={{
-            marginTop: '0.75rem',
-            padding: '0.55rem 0.85rem',
-            borderRadius: '6px',
-            background: 'rgba(251, 146, 60, 0.08)',
-            border: '1px solid rgba(251, 146, 60, 0.25)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.45rem',
-            fontSize: '0.7rem',
-            color: 'rgba(251, 146, 60, 0.85)',
-            letterSpacing: '0.02em',
-          }}>
-            <span style={{ fontSize: '0.75rem' }}>⚠</span>
-            AI-generated insights may contain inaccuracies — this tool is in active development.
-          </div>
-        </>
-      )}
-
-      {walletTxs !== null && walletAddress && (
-        <>
-          <div className="tx-pnl-tabs">
-            <button
-              className={`tx-pnl-tab${walletTab === 'activity' ? ' tx-pnl-tab--on' : ''}`}
-              onClick={() => setWalletTab('activity')}
-            >
-              Activity
-            </button>
-            <button
-              className={`tx-pnl-tab${walletTab === 'pnl' ? ' tx-pnl-tab--on' : ''}`}
-              onClick={() => {
-                setWalletTab('pnl');
-                if (!pnlReport && !pnlLoading) loadPnl(walletAddress, pnlRange);
-              }}
-            >
-              Perp PnL
-            </button>
-          </div>
-
-          {walletTab === 'activity' && (
-            <>
-              {footprintLoading && (
-                <div className="tx-pnl-card" style={{ width: '100%', maxWidth: 680, marginBottom: '0.85rem' }}>
-                  <div className="tx-pnl-head">
-                    <span className="tx-pnl-head-title">On-chain footprint</span>
-                    <span className="tx-pnl-row-meta">
-                      <span className="tx-spinner" style={{ display: 'inline-block', verticalAlign: 'middle' }} /> scanning…
-                    </span>
-                  </div>
-                  <div style={{ padding: '0.9rem 1.2rem', fontSize: '0.72rem', color: 'var(--tx-text-muted)' }}>
-                    Reading recent transactions to compute gas paid and dApps used — a few seconds.
-                  </div>
-                </div>
-              )}
-              {footprintError && !footprintLoading && (
-                <div className="tx-pnl-card" style={{ width: '100%', maxWidth: 680, marginBottom: '0.85rem' }}>
-                  <div className="tx-pnl-head">
-                    <span className="tx-pnl-head-title">On-chain footprint</span>
-                    <button
-                      className="tx-pnl-range"
-                      onClick={() => walletAddress && loadFootprint(walletAddress)}
-                    >
-                      Retry
-                    </button>
-                  </div>
-                  <div style={{ padding: '0.9rem 1.2rem', fontSize: '0.72rem', color: 'var(--tx-text-muted)' }}>
-                    Couldn&rsquo;t load the footprint — the indexer may be busy. Retry above.
-                  </div>
-                </div>
-              )}
-              {footprint && <WalletFootprint footprint={footprint} />}
-              <WalletTxList address={walletAddress} txs={walletTxs} />
-            </>
-          )}
-
-          {walletTab === 'pnl' && (
-            pnlReport ? (
-              <PnlDashboard
-                report={pnlReport}
-                range={pnlRange}
-                loading={pnlLoading}
-                onRangeChange={r => loadPnl(walletAddress, r)}
-              />
-            ) : (
-              <WalletSkeleton />
-            )
-          )}
-        </>
-      )}
-
-      {/* ── INJ Price Chart ── */}
-      <InjChart />
-
-      {/* ── Footer ── */}
-      <footer
-        style={{
-          marginTop: 'auto',
-          padding: '2rem 0.75rem 1.5rem',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexWrap: 'wrap',
-          gap: '0.55rem 1rem',
-          textAlign: 'center',
-        }}
-      >
-        <span className="tx-footer">Made by S!G</span>
-        <span className="tx-footer" style={{ opacity: 0.4 }}>·</span>
-        <a
-          href="https://x.com/TxTranslator"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="tx-footer"
-          style={{ textDecoration: 'none', opacity: 0.7 }}
-          onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
-          onMouseLeave={e => (e.currentTarget.style.opacity = '0.7')}
-        >
-          Whale feed @TxTranslator ↗
-        </a>
-        <span className="tx-footer" style={{ opacity: 0.4 }}>·</span>
-        <a
-          href="https://x.com/SiGPRMR"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="tx-footer"
-          style={{ textDecoration: 'none', opacity: 0.7 }}
-          onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
-          onMouseLeave={e => (e.currentTarget.style.opacity = '0.7')}
-        >
-          Contact me ↗
-        </a>
       </footer>
-    </main>
+    </div>
   );
 }

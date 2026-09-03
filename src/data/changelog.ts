@@ -11,10 +11,20 @@ export interface ChangelogVersion {
   entries: ChangelogEntry[];
 }
 
-export const CURRENT_VERSION = 'v1.15.0';
+export const CURRENT_VERSION = 'v2.0.0';
 
 // Entries within each version are ordered: critical → fix → improvement → feature
 export const CHANGELOG: ChangelogVersion[] = [
+  {
+    version: 'v2.0.0',
+    date: '2026-09-03',
+    entries: [
+      {
+        type: 'feature',
+        text: 'TxTranslator is now Renzu, an Injective intelligence hub. What began as a single transaction decoder has grown into a set of tools, so it gets a home that reflects that. The new front door leads with one universal bar: paste anything on-chain and Renzu reads it, sending a transaction hash to the decoder, an address to Wallet Intelligence, and a token or denom to the safety check. Below it, every tool is grouped as a lens on the chain, understand, detect, markets and ecosystem. The idea behind the name is a lens (renzu is Japanese for lens): each tool brings one part of Injective into focus. The transaction decoder keeps its TxTranslator name and lives at /tx, and the whale feed keeps posting to X as before. Nothing was removed, everything moved under one roof.',
+      },
+    ],
+  },
   {
     version: 'v1.15.0',
     date: '2026-09-01',

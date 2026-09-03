@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, Fragment } from 'react';
+import { useState, useMemo, useEffect, Fragment } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import Changelog from '@/components/Changelog';
@@ -297,9 +297,7 @@ export default function TokenPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  function check(e: React.FormEvent) {
-    e.preventDefault();
-    const q = value.trim();
+  function runCheck(q: string) {
     if (!q) {
       setError('Enter a token denom or symbol.');
       return;
@@ -321,6 +319,22 @@ export default function TokenPage() {
       .catch(() => setError('Network error — check your connection and try again.'))
       .finally(() => setLoading(false));
   }
+
+  function check(e: React.FormEvent) {
+    e.preventDefault();
+    runCheck(value.trim());
+  }
+
+  // Deep-link support: /token?q=<denom|symbol> (e.g. from the Renzu hub) —
+  // prefill the input and check on load. Read the URL directly to avoid the
+  // useSearchParams Suspense requirement; defer the state updates out of the
+  // effect body so they don't cascade synchronously.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get('q')?.trim();
+    if (!q) return;
+    const t = setTimeout(() => { setValue(q); runCheck(q); }, 0);
+    return () => clearTimeout(t);
+  }, []);
 
   const vm = result ? VERDICT_META[result.verdict] : null;
 
