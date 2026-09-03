@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
+import LensCrumb from '@/components/LensCrumb';
 import Changelog from '@/components/Changelog';
 import { CURRENT_VERSION } from '@/data/changelog';
 
@@ -328,12 +328,7 @@ export default function MyBuybackPage() {
           borderBottom: '1px solid var(--tx-border)', marginBottom: '2rem',
         }}
       >
-        <Link href="/" style={{ textDecoration: 'none' }}>
-          <div className="tx-logo">
-            <Image src="/logo.svg" alt="Tx·Translator logo" width={28} height={28} priority />
-            TX · TRANSLATOR
-          </div>
-        </Link>
+        <LensCrumb name="BuyBack Deposits" accent="#E77BA6" />
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
           {authed && (
             <button
@@ -354,7 +349,7 @@ export default function MyBuybackPage() {
       {changelogOpen && <Changelog onClose={() => setChangelogOpen(false)} />}
 
       <div style={{ width: '100%', maxWidth: 680, marginBottom: '1.25rem' }}>
-        <Link href="/" className="tx-back-link">← Back to decoder</Link>
+        <Link href="/" className="tx-back-link">← All lenses</Link>
       </div>
 
       {/* Checking session */}

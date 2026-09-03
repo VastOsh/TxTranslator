@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import Image from 'next/image';
+import LensCrumb from '@/components/LensCrumb';
 import Link from 'next/link';
 import SearchForm from '@/components/SearchForm';
 import TranslationResult from '@/components/TranslationResult';
@@ -242,12 +242,7 @@ export default function TxTool() {
           marginBottom: '4rem',
         }}
       >
-        <Link href="/" style={{ textDecoration: 'none' }}>
-          <div className="tx-logo">
-            <Image src="/logo.svg" alt="Renzu logo" width={28} height={28} priority />
-            TX · TRANSLATOR
-          </div>
-        </Link>
+        <LensCrumb name="TxTranslator" accent="#35C9BE" />
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
           <span className="tx-footer">Injective Mainnet</span>
           <button

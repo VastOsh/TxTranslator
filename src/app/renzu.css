@@ -4,6 +4,16 @@
    existing --tx-* tool pages. Ported from the approved landing mockup.
    ═══════════════════════════════════════════════════════════════════ */
 
+/* Renzu header crumb for the tool pages (self-contained, works on the navy
+   --tx-* pages too; uses the global --font-display set on <html>). */
+.lens-crumb { display: flex; align-items: center; gap: 0.5rem; text-decoration: none; min-width: 0; }
+.lens-crumb .lens-glyph { width: 24px; height: 24px; flex: 0 0 auto; }
+.lens-crumb .lens-wordmark { font-family: var(--font-display), system-ui, sans-serif; font-weight: 700; font-size: 1.05rem; letter-spacing: -0.01em; color: #ECEFF5; transition: color 0.15s; }
+.lens-crumb:hover .lens-wordmark { color: #fff; }
+.lens-crumb .lens-sep { color: rgba(255,255,255,0.25); font-weight: 400; }
+.lens-crumb .lens-name { font-family: var(--font-display), system-ui, sans-serif; font-weight: 600; font-size: 1.02rem; letter-spacing: -0.01em; white-space: nowrap; }
+@media (max-width: 520px) { .lens-crumb .lens-wordmark, .lens-crumb .lens-sep { display: none; } }
+
 /* Lenis smooth-scroll plumbing (harmless when the classes are absent) */
 html.lenis, html.lenis body { height: auto; }
 .lenis.lenis-smooth { scroll-behavior: auto !important; }

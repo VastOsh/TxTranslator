@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
+import LensCrumb from '@/components/LensCrumb';
 import Changelog from '@/components/Changelog';
 import { CURRENT_VERSION } from '@/data/changelog';
 
@@ -103,9 +103,7 @@ export default function StatsPage() {
   return (
     <main className="tx-main">
       <header className="tx-page-header" style={{ width: '100%', maxWidth: 820, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1.25rem 0', borderBottom: '1px solid var(--tx-border)', marginBottom: '2rem' }}>
-        <Link href="/" style={{ textDecoration: 'none' }}>
-          <div className="tx-logo"><Image src="/logo.svg" alt="Tx·Translator logo" width={28} height={28} priority />TX · TRANSLATOR</div>
-        </Link>
+        <LensCrumb name="Volume" accent="#F0B24A" />
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
           <span className="tx-footer">Injective Mainnet</span>
           <button className="tx-version-btn" onClick={() => setChangelogOpen(true)}>{CURRENT_VERSION}</button>
@@ -115,7 +113,7 @@ export default function StatsPage() {
       {changelogOpen && <Changelog onClose={() => setChangelogOpen(false)} />}
 
       <div style={{ width: '100%', maxWidth: 820, marginBottom: '1.25rem' }}>
-        <Link href="/" className="tx-back-link">← Back to decoder</Link>
+        <Link href="/" className="tx-back-link">← All lenses</Link>
       </div>
 
       <section className="tx-hero" style={{ marginBottom: '1.5rem' }}>

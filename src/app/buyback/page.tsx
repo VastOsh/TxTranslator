@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
+import LensCrumb from '@/components/LensCrumb';
 import BuybackDashboard from '@/components/BuybackDashboard';
 import InjChart from '@/components/InjChart';
 import Changelog from '@/components/Changelog';
@@ -62,12 +62,7 @@ export default function BuybackPage() {
           marginBottom: '2rem',
         }}
       >
-        <Link href="/" style={{ textDecoration: 'none' }}>
-          <div className="tx-logo">
-            <Image src="/logo.svg" alt="Tx·Translator logo" width={28} height={28} priority />
-            TX · TRANSLATOR
-          </div>
-        </Link>
+        <LensCrumb name="Community BuyBack" accent="#E77BA6" />
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
           <span className="tx-footer">Injective Mainnet</span>
           <button className="tx-version-btn" onClick={() => setChangelogOpen(true)}>
@@ -79,7 +74,7 @@ export default function BuybackPage() {
       {changelogOpen && <Changelog onClose={() => setChangelogOpen(false)} />}
 
       <div style={{ width: '100%', maxWidth: 680, marginBottom: '1.25rem' }}>
-        <Link href="/" className="tx-back-link">← Back to decoder</Link>
+        <Link href="/" className="tx-back-link">← All lenses</Link>
       </div>
 
       {/* ── Intro + address input ── */}

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
+import LensCrumb from '@/components/LensCrumb';
 import Changelog from '@/components/Changelog';
 import { CURRENT_VERSION } from '@/data/changelog';
 import type { SerialFunder } from '@/lib/token/insiders';
@@ -41,12 +41,7 @@ export default function InsidersPage() {
           borderBottom: '1px solid var(--tx-border)', marginBottom: '2rem',
         }}
       >
-        <Link href="/" style={{ textDecoration: 'none' }}>
-          <div className="tx-logo">
-            <Image src="/logo.svg" alt="Tx·Translator logo" width={28} height={28} priority />
-            TX · TRANSLATOR
-          </div>
-        </Link>
+        <LensCrumb name="Insiders" accent="#9B8CFF" />
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
           <span className="tx-footer">Injective Mainnet</span>
           <button className="tx-version-btn" onClick={() => setChangelogOpen(true)}>
@@ -58,7 +53,7 @@ export default function InsidersPage() {
       {changelogOpen && <Changelog onClose={() => setChangelogOpen(false)} />}
 
       <div style={{ width: '100%', maxWidth: 680, marginBottom: '1.25rem' }}>
-        <Link href="/" className="tx-back-link">← Back to decoder</Link>
+        <Link href="/" className="tx-back-link">← All lenses</Link>
       </div>
 
       <section className="tx-hero" style={{ marginBottom: '1.75rem' }}>

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import Image from 'next/image';
+import LensCrumb from '@/components/LensCrumb';
 import TranslationResult from '@/components/TranslationResult';
 import InjChart from '@/components/InjChart';
 import Changelog from '@/components/Changelog';
@@ -91,12 +91,7 @@ export default function TxPage() {
           marginBottom: '2rem',
         }}
       >
-        <Link href="/" style={{ textDecoration: 'none' }}>
-          <div className="tx-logo">
-            <Image src="/logo.svg" alt="Tx·Translator logo" width={28} height={28} priority />
-            TX · TRANSLATOR
-          </div>
-        </Link>
+        <LensCrumb name="TxTranslator" accent="#35C9BE" />
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
           <span className="tx-footer">Injective Mainnet</span>
           <button className="tx-version-btn" onClick={() => setChangelogOpen(true)}>
