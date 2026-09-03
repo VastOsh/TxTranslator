@@ -286,7 +286,7 @@ export default function RenzuHub() {
         <Ferrofluid
           className="rz-hero-fluid"
           colors={['#35C9BE', '#9B8CFF', '#F0B24A', '#E77BA6']}
-          speed={0.4}
+          speed={0.26}
           scale={1.5}
           turbulence={1}
           fluidity={0.12}
