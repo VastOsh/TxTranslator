@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import LensCrumb from '@/components/LensCrumb';
+import LensCursor from '@/components/LensCursor';
 import BackToRenzu from '@/components/BackToRenzu';
 import Changelog from '@/components/Changelog';
 import { CURRENT_VERSION } from '@/data/changelog';
@@ -102,6 +103,7 @@ export default function StatsPage() {
 
   return (
     <main className="tx-main">
+      <LensCursor />
       <header className="tx-page-header" style={{ width: '100%', maxWidth: 820, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1.25rem 0', borderBottom: '1px solid var(--tx-border)', marginBottom: '2rem' }}>
         <LensCrumb name="Volume" accent="#F0B24A" />
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>

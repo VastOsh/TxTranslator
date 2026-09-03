@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import LensCrumb from '@/components/LensCrumb';
+import LensCursor from '@/components/LensCursor';
 import BackToRenzu from '@/components/BackToRenzu';
 import DappDirectory from '@/components/DappDirectory';
 import Changelog from '@/components/Changelog';
@@ -42,6 +43,7 @@ export default function DappsPage() {
 
   return (
     <main className="tx-main">
+      <LensCursor />
       <header
         className="tx-page-header"
         style={{

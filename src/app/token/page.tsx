@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect, Fragment } from 'react';
 import LensCrumb from '@/components/LensCrumb';
+import LensCursor from '@/components/LensCursor';
 import BackToRenzu from '@/components/BackToRenzu';
 import Changelog from '@/components/Changelog';
 import { CURRENT_VERSION } from '@/data/changelog';
@@ -340,6 +341,7 @@ export default function TokenPage() {
 
   return (
     <main className="tx-main">
+      <LensCursor />
       <header
         className="tx-page-header"
         style={{

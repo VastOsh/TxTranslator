@@ -3,6 +3,7 @@
 import { use, useState, useEffect } from 'react';
 import Link from 'next/link';
 import LensCrumb from '@/components/LensCrumb';
+import LensCursor from '@/components/LensCursor';
 import Changelog from '@/components/Changelog';
 import { CURRENT_VERSION } from '@/data/changelog';
 import type { DappDetail } from '@/lib/dapps/registry';
@@ -44,6 +45,7 @@ export default function DappDetailPage({ params }: { params: Promise<{ slug: str
 
   return (
     <main className="tx-main">
+      <LensCursor />
       <header
         className="tx-page-header"
         style={{

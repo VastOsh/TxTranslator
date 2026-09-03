@@ -14,6 +14,19 @@
 .lens-crumb .lens-name { font-family: var(--font-display), system-ui, sans-serif; font-weight: 600; font-size: 1.02rem; letter-spacing: -0.01em; white-space: nowrap; }
 @media (max-width: 520px) { .lens-crumb .lens-wordmark, .lens-crumb .lens-sep { display: none; } }
 
+/* Renzu lens cursor for the tool pages (self-contained; the hub has its own). */
+.lens-cursor { position: fixed; top: 0; left: 0; z-index: 9999; pointer-events: none;
+  transform: translate(-100px,-100px); will-change: transform; transition: opacity .2s; }
+.lens-cursor-in { transform: translate(-50%,-50%); transition: transform .16s ease; }
+.lens-cursor.is-hot .lens-cursor-in { transform: translate(-50%,-50%) scale(1.5); }
+.lens-cursor svg { display: block; }
+@media (pointer:fine) {
+  html.lens-cursoron, html.lens-cursoron *:not(input):not(textarea):not(select):not([contenteditable]) { cursor: none !important; }
+  html.lens-cursoron input, html.lens-cursoron textarea, html.lens-cursoron select { cursor: text !important; }
+}
+@media (hover:none),(pointer:coarse) { .lens-cursor { display: none; } }
+@media (prefers-reduced-motion: reduce) { .lens-cursor-in { transition: none; } }
+
 /* Lenis smooth-scroll plumbing (harmless when the classes are absent) */
 html.lenis, html.lenis body { height: auto; }
 .lenis.lenis-smooth { scroll-behavior: auto !important; }
