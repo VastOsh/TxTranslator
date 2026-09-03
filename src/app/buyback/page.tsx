@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import LensCrumb from '@/components/LensCrumb';
 import LensCursor from '@/components/LensCursor';
+import LensAurora from '@/components/LensAurora';
 import BackToRenzu from '@/components/BackToRenzu';
 import BuybackDashboard from '@/components/BuybackDashboard';
 import InjChart from '@/components/InjChart';
@@ -51,6 +52,7 @@ export default function BuybackPage() {
   return (
     <main className="tx-main">
       <LensCursor />
+      <LensAurora />
       <header
         className="tx-page-header"
         style={{

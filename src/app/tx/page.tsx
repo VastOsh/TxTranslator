@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import LensCrumb from '@/components/LensCrumb';
 import LensCursor from '@/components/LensCursor';
+import LensAurora from '@/components/LensAurora';
 import Link from 'next/link';
 import SearchForm from '@/components/SearchForm';
 import TranslationResult from '@/components/TranslationResult';
@@ -227,6 +228,7 @@ export default function TxTool() {
   return (
     <main className="tx-main">
       <LensCursor />
+      <LensAurora />
       {/* ── News Ticker ── */}
       <NewsTicker />
 

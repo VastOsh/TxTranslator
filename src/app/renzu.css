@@ -14,6 +14,27 @@
 .lens-crumb .lens-name { font-family: var(--font-display), system-ui, sans-serif; font-weight: 600; font-size: 1.02rem; letter-spacing: -0.01em; white-space: nowrap; }
 @media (max-width: 520px) { .lens-crumb .lens-wordmark, .lens-crumb .lens-sep { display: none; } }
 
+/* Spectrum aurora — ambient animated background for the tool pages. Sits behind
+   all content (z-index -1, above the body ground), so the near-black hero glows. */
+.lens-aurora { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+.lens-aurora__blob { position: absolute; border-radius: 50%; filter: blur(80px); opacity: .34; will-change: transform; }
+.lens-aurora .b1 { width: 46vw; height: 46vw; min-width: 320px; min-height: 320px; left: -8%; top: -14%;
+  background: radial-gradient(circle, #35C9BE, transparent 68%); animation: lens-aur-a 26s ease-in-out infinite; }
+.lens-aurora .b2 { width: 42vw; height: 42vw; min-width: 300px; min-height: 300px; right: -10%; top: 4%;
+  background: radial-gradient(circle, #9B8CFF, transparent 68%); animation: lens-aur-b 32s ease-in-out infinite; }
+.lens-aurora .b3 { width: 40vw; height: 40vw; min-width: 300px; min-height: 300px; left: 22%; bottom: -20%;
+  background: radial-gradient(circle, #F0B24A, transparent 70%); animation: lens-aur-c 30s ease-in-out infinite; }
+.lens-aurora .b4 { width: 30vw; height: 30vw; min-width: 240px; min-height: 240px; left: -6%; bottom: 6%;
+  background: radial-gradient(circle, #E77BA6, transparent 72%); animation: lens-aur-d 28s ease-in-out infinite; }
+.lens-aurora__grain { position: absolute; inset: -50%; opacity: .04;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 120px 120px; }
+@keyframes lens-aur-a { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(12%,10%) scale(1.18); } }
+@keyframes lens-aur-b { 0%,100% { transform: translate(0,0) scale(1.05); } 50% { transform: translate(-10%,12%) scale(.9); } }
+@keyframes lens-aur-c { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(-8%,-10%) scale(1.15); } }
+@keyframes lens-aur-d { 0%,100% { transform: translate(0,0) scale(.95); } 50% { transform: translate(10%,-8%) scale(1.1); } }
+@media (prefers-reduced-motion: reduce) { .lens-aurora__blob { animation: none !important; } }
+
 /* Renzu lens cursor for the tool pages (self-contained; the hub has its own). */
 .lens-cursor { position: fixed; top: 0; left: 0; z-index: 9999; pointer-events: none;
   transform: translate(-100px,-100px); will-change: transform; transition: opacity .2s; }

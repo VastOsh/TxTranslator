@@ -3,6 +3,7 @@
 import { use, useState, useEffect } from 'react';
 import LensCrumb from '@/components/LensCrumb';
 import LensCursor from '@/components/LensCursor';
+import LensAurora from '@/components/LensAurora';
 import BackToRenzu from '@/components/BackToRenzu';
 import PnlDashboard, { type PnlRangeKey } from '@/components/PnlDashboard';
 import InjChart from '@/components/InjChart';
@@ -81,6 +82,7 @@ export default function PnlPage({ params }: { params: Promise<{ address: string 
   return (
     <main className="tx-main">
       <LensCursor />
+      <LensAurora />
       <header
         className="tx-page-header"
         style={{
