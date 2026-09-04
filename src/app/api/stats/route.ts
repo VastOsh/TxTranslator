@@ -54,6 +54,8 @@ const buildStats = unstable_cache(
       series: r.series,
       markets: r.markets.slice(0, TOP_MARKETS),
       dapps: r.dapps,
+      dappSeries: r.dappSeries,
+      dappNames: r.dappNames,
       dappCoverage: r.dappCoverage,
       burn: {
         latestRound: burn.latest?.round ?? null,
@@ -71,7 +73,7 @@ const buildStats = unstable_cache(
       },
     };
   },
-  ['stats-api-v3'], // bumped: response now carries the per-day split + dApp breakdown
+  ['stats-api-v4'], // bumped: dApp buckets now merged/labeled + per-day dApp series
   { revalidate: 600 },
 );
 

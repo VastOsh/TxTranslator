@@ -6,14 +6,15 @@
 
 export interface DappRow {
   name: string;
-  kind: 'frontend' | 'direct' | 'unknown' | 'other';
-  addr: string | null;
+  kind: 'frontend' | 'direct' | 'mm' | 'other';
+  walletCount: number;
   volumeUsd: number;
   trades: number;
   share: number;
 }
 
-const PALETTE = ['#35C9BE', '#9B8CFF', '#F0B24A', '#E77BA6', '#4FD8CD', '#6EA8FF', '#F2C879', '#C88CE7'];
+const PALETTE = ['#35C9BE', '#9B8CFF', '#F0B24A', '#E77BA6', '#4FD8CD', '#F2C879', '#C88CE7'];
+const MM_COLOR = '#6EA8FF';
 const DIRECT_COLOR = '#7A8290';
 const OTHER_COLOR = '#464C57';
 
@@ -31,6 +32,7 @@ function colorFor(rows: DappRow[]): Map<DappRow, string> {
   for (const r of rows) {
     if (r.kind === 'direct') m.set(r, DIRECT_COLOR);
     else if (r.kind === 'other') m.set(r, OTHER_COLOR);
+    else if (r.kind === 'mm') m.set(r, MM_COLOR);
     else m.set(r, PALETTE[fi++ % PALETTE.length]);
   }
   return m;
@@ -81,7 +83,7 @@ export default function DappSplit({
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
               <i style={{ width: 9, height: 9, borderRadius: 2, background: colors.get(d), flexShrink: 0 }} />
               <span style={{ fontWeight: 600, fontSize: '0.82rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</span>
-              {d.kind === 'unknown' && <span style={{ fontSize: '0.6rem', fontWeight: 700, color: 'rgba(236,239,245,0.4)', border: '1px solid var(--tx-border)', borderRadius: 4, padding: '0 0.3rem' }}>UNVERIFIED</span>}
+              {d.kind === 'mm' && d.walletCount > 1 && <span style={{ fontSize: '0.62rem', color: 'rgba(236,239,245,0.42)', whiteSpace: 'nowrap' }}>{d.walletCount} wallets</span>}
             </span>
             <span style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 700, fontSize: '0.82rem' }}>{(d.share * 100).toFixed(d.share >= 0.1 ? 1 : 2)}%</span>
             <span style={{ fontVariantNumeric: 'tabular-nums', color: 'var(--tx-text-muted)', fontSize: '0.78rem', minWidth: 62, textAlign: 'right' }}>{fmtUsd(d.volumeUsd)}</span>

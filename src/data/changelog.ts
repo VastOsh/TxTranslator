@@ -24,6 +24,10 @@ export const CHANGELOG: ChangelogVersion[] = [
         text: 'The Volume lens gets a real chart. The old daily bars are replaced by an interactive area chart in the spirit of DeFiLlama and Mintscan: hover anywhere for a crosshair and a tooltip with that day\'s exact volume, perp and spot split, and trade count. Two views sit on top of the timeframe toggle. Total or Perp / Spot shows the two sides as stacked areas, and Daily or Cumulative switches between per-day volume and the running total climbing over the period. Alongside the preset windows there is now a Custom range: pick any start and end date and the chart, totals and market table all recompute for exactly that window. The chart is drawn straight in the browser from the same verified on-chain numbers, so it stays instant and matches the rest of Renzu exactly.',
       },
       {
+        type: 'improvement',
+        text: 'The Volume chart is now filterable. Alongside Total you can plot Perp only, Spot only, or the Perp / Spot split, flip between Daily and Cumulative, and open a By dApp view that draws one line per front-end with a clickable legend to show or hide each (Helix, automated market-makers, Choice, Mito, direct). The dApp breakdown also groups every unlabelled market-maker wallet into a single Automated MM bucket, with a wallet count, instead of listing raw addresses.',
+      },
+      {
         type: 'feature',
         text: 'The Volume lens now shows who is driving the volume. Injective is one shared order book, so a trade is attributed to a front-end by the fee-recipient wallet its order carries (relayers like Helix set their own to collect the relayer fee share). The lens sums taker volume by that wallet and shows the split by dApp: a stacked share bar plus a ranked list. Wallets we have identified are named (Helix leads by a wide margin), flow with no front-end tag is grouped honestly as Direct / API (market makers and bots), and large relayers we have not identified yet are shown by address and marked unverified rather than guessed. It is the first honest per-front-end volume breakdown for the Injective order book.',
       },

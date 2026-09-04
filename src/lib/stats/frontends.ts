@@ -5,7 +5,7 @@
 // wallet identifies who routed the flow. This maps the wallets we have
 // identified to names; every other wallet surfaces by its address until labeled.
 
-export type RecipientKind = 'frontend' | 'direct' | 'unknown' | 'other';
+export type RecipientKind = 'frontend' | 'direct' | 'mm' | 'other';
 
 export interface RecipientLabel {
   name: string;
@@ -46,9 +46,13 @@ export function shortAddr(addr: string): string {
 
 /** Resolve a fee-recipient wallet to a display label. */
 export function labelRecipient(addr: string): RecipientLabel {
-  if (addr === OTHER_ADDR) return { name: 'Other (long tail)', kind: 'other' };
+  if (addr === OTHER_ADDR) return { name: 'Other', kind: 'other' };
   if (DIRECT.has(addr)) return { name: 'Direct / API', kind: 'direct', color: '#7A8290' };
   const k = KNOWN[addr];
   if (k) return { name: k.name, kind: 'frontend', color: k.color };
-  return { name: shortAddr(addr), kind: 'unknown' };
+  // Everything else is a plain-account fee recipient with no public label. On
+  // Injective a real front-end deploys a contract (Helix/Choice/Mito are all
+  // named above); an unlabeled plain account setting its own fee recipient is an
+  // automated market-maker / trading bot. Group them all under one bucket.
+  return { name: 'Automated MM', kind: 'mm', color: '#6EA8FF' };
 }

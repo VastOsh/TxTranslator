@@ -6,7 +6,7 @@ import LensCursor from '@/components/LensCursor';
 import LensAurora from '@/components/LensAurora';
 import BackToRenzu from '@/components/BackToRenzu';
 import Changelog from '@/components/Changelog';
-import VolumeChart, { type DayPoint } from '@/components/VolumeChart';
+import VolumeChart, { type DayPoint, type DappDayPoint } from '@/components/VolumeChart';
 import DappSplit, { type DappRow } from '@/components/DappSplit';
 import { CURRENT_VERSION } from '@/data/changelog';
 
@@ -31,6 +31,8 @@ interface StatsResp {
   series: DayPoint[];
   markets: MarketRow[];
   dapps: DappRow[];
+  dappSeries: DappDayPoint[];
+  dappNames: string[];
   dappCoverage: { daysWithData: number; volumeUsd: number };
   burn: {
     latestRound: number | null; latestInj: number | null; latestUsd: number | null;
@@ -207,7 +209,7 @@ export default function StatsPage() {
             <Tile label="INJ burned" value={fmtInj(data.burn.cumulativeInj)} accent="var(--tx-purple)" sub={data.burn.latestUsd != null ? `last round ${fmtUsd(data.burn.latestUsd)}` : `${data.burn.roundsCovered} rounds`} />
           </div>
 
-          <VolumeChart data={data.series} />
+          <VolumeChart data={data.series} dappSeries={data.dappSeries} dappNames={data.dappNames} />
 
           <DappSplit dapps={data.dapps} coverage={data.dappCoverage} daysCounted={data.coverage.daysCounted} />
 

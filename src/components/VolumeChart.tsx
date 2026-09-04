@@ -3,9 +3,9 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 
 // Interactive on-chain volume chart for the Volume lens — DeFiLlama/Mintscan
-// style: gradient area, crosshair, floating tooltip, real axes, and view
-// toggles (daily vs cumulative, total vs perp/spot split). Pure SVG, no chart
-// dependency, so it inherits the Renzu optical-dark theme exactly.
+// style: gradient stacked areas, crosshair, floating tooltip, real axes. View
+// modes let you pick the composition: total, perp only, spot only, perp/spot
+// split, or a selectable per-front-end (dApp) breakdown. Pure SVG, no chart lib.
 
 export interface DayPoint {
   date: string;
@@ -15,14 +15,33 @@ export interface DayPoint {
   trades: number;
 }
 
-type View = 'total' | 'split';
+export interface DappDayPoint {
+  date: string;
+  values: Record<string, number>;
+}
+
+type View = 'total' | 'perp' | 'spot' | 'split' | 'dapps';
 type Scale = 'daily' | 'cumulative';
 
-const PERP = '#F0B24A'; // amber — perps dominate, so amber is the lead
-const SPOT = '#9B8CFF'; // violet — matches the markets table SPOT pill
+const PERP = '#F0B24A';
+const SPOT = '#9B8CFF';
 const TOTAL = '#F0B24A';
 const GRID = 'rgba(236,239,245,0.07)';
 const AXIS = 'rgba(236,239,245,0.42)';
+
+// Keep dApp colours in sync with DappSplit.
+const DAPP_COLORS: Record<string, string> = {
+  Helix: '#35C9BE',
+  'Automated MM': '#6EA8FF',
+  Choice: '#9B8CFF',
+  Mito: '#F0B24A',
+  'Direct / API': '#7A8290',
+  Other: '#464C57',
+};
+const FALLBACK = ['#E77BA6', '#4FD8CD', '#F2C879', '#C88CE7'];
+function dappColor(name: string, i: number): string {
+  return DAPP_COLORS[name] ?? FALLBACK[i % FALLBACK.length];
+}
 
 function fmtUsd(n: number): string {
   const a = Math.abs(n);
@@ -36,7 +55,7 @@ function fmtInt(n: number): string {
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-function parse(d: string): { y: number; m: number; day: number } {
+function parse(d: string) {
   const [y, m, day] = d.split('-').map(Number);
   return { y, m, day };
 }
@@ -49,13 +68,30 @@ function fmtDateAxis(d: string, longSpan: boolean): string {
   return longSpan ? `${MONTHS[m - 1]} '${String(y).slice(2)}` : `${MONTHS[m - 1]} ${day}`;
 }
 
-export default function VolumeChart({ data, height = 300 }: { data: DayPoint[]; height?: number }) {
+interface Layer {
+  key: string;
+  label: string;
+  color: string;
+}
+
+export default function VolumeChart({
+  data,
+  dappSeries,
+  dappNames,
+  height = 300,
+}: {
+  data: DayPoint[];
+  dappSeries?: DappDayPoint[];
+  dappNames?: string[];
+  height?: number;
+}) {
   const uid = useId().replace(/[:]/g, '');
   const wrapRef = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(820);
   const [view, setView] = useState<View>('total');
   const [scale, setScale] = useState<Scale>('daily');
   const [hover, setHover] = useState<number | null>(null);
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -74,6 +110,57 @@ export default function VolumeChart({ data, height = 300 }: { data: DayPoint[]; 
     };
   }, []);
 
+  const hasDapps = (dappSeries?.length ?? 0) >= 2 && (dappNames?.length ?? 0) > 0;
+  const isDapp = view === 'dapps' && hasDapps;
+
+  const names = useMemo(() => dappNames ?? [], [dappNames]);
+  const layers: Layer[] = useMemo(() => {
+    if (isDapp) {
+      return names
+        .filter((nm) => !hidden.has(nm))
+        .map((nm, i) => ({ key: nm, label: nm, color: dappColor(nm, i) }));
+    }
+    if (view === 'perp') return [{ key: 'deriv', label: 'Perp', color: PERP }];
+    if (view === 'spot') return [{ key: 'spot', label: 'Spot', color: SPOT }];
+    if (view === 'split')
+      return [
+        { key: 'deriv', label: 'Perp', color: PERP },
+        { key: 'spot', label: 'Spot', color: SPOT },
+      ];
+    return [{ key: 'total', label: 'Volume', color: TOTAL }];
+  }, [isDapp, names, hidden, view]);
+
+  // Build plotted rows (daily or cumulative) with per-layer values.
+  const rows = useMemo(() => {
+    const src: Array<{ date: string; get: (k: string) => number; trades: number }> = isDapp
+      ? (dappSeries ?? []).map((p) => ({ date: p.date, get: (k) => p.values[k] ?? 0, trades: 0 }))
+      : data.map((p) => ({
+          date: p.date,
+          trades: p.trades ?? 0,
+          get: (k) =>
+            k === 'deriv' ? p.derivUsd ?? 0 : k === 'spot' ? p.spotUsd ?? 0 : p.volumeUsd ?? (p.derivUsd ?? 0) + (p.spotUsd ?? 0),
+        }));
+    const acc: Record<string, number> = {};
+    return src.map((p) => {
+      const vals: Record<string, number> = {};
+      let tot = 0;
+      for (const L of layers) {
+        let v = p.get(L.key);
+        if (scale === 'cumulative') {
+          acc[L.key] = (acc[L.key] ?? 0) + v;
+          v = acc[L.key];
+        }
+        vals[L.key] = v;
+        tot += v;
+      }
+      return { date: p.date, vals, tot, trades: p.trades };
+    });
+  }, [isDapp, dappSeries, data, layers, scale]);
+
+  const n = rows.length;
+  const maxY = useMemo(() => Math.max(1, ...rows.map((r) => r.tot)), [rows]);
+  const longSpan = n > 70;
+
   const padL = 6;
   const padR = 12;
   const padT = 14;
@@ -81,59 +168,26 @@ export default function VolumeChart({ data, height = 300 }: { data: DayPoint[]; 
   const H = height;
   const innerW = Math.max(1, w - padL - padR);
   const innerH = Math.max(1, H - padT - padB);
-
-  // Build the plotted series (daily or running cumulative).
-  const pts = useMemo(() => {
-    let cd = 0;
-    let cs = 0;
-    return data.map((p) => {
-      // Guard against a stale cached response that predates the perp/spot split.
-      const deriv = p.derivUsd ?? 0;
-      const spot = p.spotUsd ?? 0;
-      const total = p.volumeUsd ?? deriv + spot;
-      if (scale === 'cumulative') {
-        cd += deriv;
-        cs += spot;
-        return { date: p.date, deriv: cd, spot: cs, total: cd + cs, trades: p.trades ?? 0 };
-      }
-      return { date: p.date, deriv, spot, total, trades: p.trades ?? 0 };
-    });
-  }, [data, scale]);
-
-  const n = pts.length;
-  const maxY = useMemo(() => Math.max(1, ...pts.map((p) => p.total)), [pts]);
-  const longSpan = n > 70;
-
   const x = (i: number) => padL + (n <= 1 ? innerW / 2 : (i / (n - 1)) * innerW);
   const y = (v: number) => padT + (1 - v / maxY) * innerH;
   const baseY = y(0);
 
-  // Y gridlines / labels (~4).
-  const yTicks = useMemo(() => {
-    const steps = 4;
-    return Array.from({ length: steps + 1 }, (_, i) => (maxY / steps) * i);
-  }, [maxY]);
-
-  // X ticks (~5, evenly spaced by index).
+  const yTicks = useMemo(() => Array.from({ length: 5 }, (_, i) => (maxY / 4) * i), [maxY]);
   const xTicks = useMemo(() => {
     if (n <= 1) return [0];
     const count = Math.min(5, n);
     return Array.from({ length: count }, (_, i) => Math.round((i / (count - 1)) * (n - 1)));
   }, [n]);
 
-  // Path builders.
-  const linePath = (sel: (p: (typeof pts)[number]) => number) =>
-    pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(sel(p)).toFixed(1)}`).join(' ');
-
-  const areaPath = (sel: (p: (typeof pts)[number]) => number) =>
-    `${linePath(sel)} L${x(n - 1).toFixed(1)},${baseY.toFixed(1)} L${x(0).toFixed(1)},${baseY.toFixed(1)} Z`;
-
-  // Stacked band for spot (sits on top of the perp line).
-  const spotBand = () => {
-    const top = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(p.total).toFixed(1)}`).join(' ');
-    const bottom = pts
-      .map((p, i) => `L${x(n - 1 - i).toFixed(1)},${y(pts[n - 1 - i].deriv).toFixed(1)}`)
-      .join(' ');
+  const sumUpTo = (r: (typeof rows)[number], count: number) => {
+    let s = 0;
+    for (let k = 0; k < count && k < layers.length; k++) s += r.vals[layers[k].key] ?? 0;
+    return s;
+  };
+  const lineAt = (li: number) => rows.map((r, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(sumUpTo(r, li + 1)).toFixed(1)}`).join(' ');
+  const bandAt = (li: number) => {
+    const top = rows.map((r, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(sumUpTo(r, li + 1)).toFixed(1)}`).join(' ');
+    const bottom = rows.map((_, i) => `L${x(n - 1 - i).toFixed(1)},${y(sumUpTo(rows[n - 1 - i], li)).toFixed(1)}`).join(' ');
     return `${top} ${bottom} Z`;
   };
 
@@ -144,118 +198,120 @@ export default function VolumeChart({ data, height = 300 }: { data: DayPoint[]; 
     setHover(Math.max(0, Math.min(n - 1, i)));
   };
 
-  if (n < 2) {
-    return (
-      <div className="tx-pnl-card" style={{ padding: '1.4rem 1.2rem', color: 'var(--tx-text-muted)', fontSize: '0.8rem' }}>
-        Pick a longer timeframe to see the volume chart. Daily history needs at least two stored days.
-      </div>
-    );
-  }
+  const toggle = (nm: string) =>
+    setHidden((prev) => {
+      const next = new Set(prev);
+      if (next.has(nm)) next.delete(nm);
+      else next.add(nm);
+      return next;
+    });
 
-  const hp = hover != null ? pts[hover] : null;
+  const viewOpts: Array<[View, string]> = [
+    ['total', 'Total'],
+    ['perp', 'Perp'],
+    ['spot', 'Spot'],
+    ['split', 'Split'],
+  ];
+  if (hasDapps) viewOpts.push(['dapps', 'By dApp']);
+
+  const hp = hover != null && rows[hover] ? rows[hover] : null;
   const tipLeft = hover != null ? x(hover) : 0;
   const flip = tipLeft > w * 0.62;
+  const tooShort = n < 2;
 
   return (
     <div className="tx-pnl-card" style={{ padding: '0.9rem 1.1rem 0.6rem' }}>
-      {/* Header: title + view toggles */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.6rem', marginBottom: '0.4rem' }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.6rem' }}>
-          <span style={{ fontSize: '0.64rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'rgba(236,239,245,0.5)' }}>
-            {scale === 'cumulative' ? 'Cumulative volume' : 'Daily volume'}
-          </span>
-          {view === 'split' && (
-            <span style={{ display: 'inline-flex', gap: '0.7rem', fontSize: '0.62rem', color: 'rgba(236,239,245,0.6)' }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><i style={{ width: 8, height: 8, borderRadius: 2, background: PERP }} />Perp</span>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><i style={{ width: 8, height: 8, borderRadius: 2, background: SPOT }} />Spot</span>
-            </span>
-          )}
-        </div>
-        <div style={{ display: 'flex', gap: '0.4rem' }}>
-          <Seg options={[['total', 'Total'], ['split', 'Perp / Spot']]} value={view} onChange={(v) => setView(v as View)} />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.6rem', marginBottom: '0.5rem' }}>
+        <span style={{ fontSize: '0.64rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'rgba(236,239,245,0.5)' }}>
+          {scale === 'cumulative' ? 'Cumulative' : 'Daily'} {isDapp ? 'volume by dApp' : 'volume'}
+        </span>
+        <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+          <Seg options={viewOpts} value={view} onChange={(v) => setView(v as View)} />
           <Seg options={[['daily', 'Daily'], ['cumulative', 'Cumulative']]} value={scale} onChange={(v) => setScale(v as Scale)} />
         </div>
       </div>
 
+      {/* dApp legend (clickable to toggle) */}
+      {isDapp && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem 0.6rem', marginBottom: '0.5rem' }}>
+          {names.map((nm, i) => {
+            const off = hidden.has(nm);
+            return (
+              <button
+                key={nm}
+                onClick={() => toggle(nm)}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', cursor: 'pointer', padding: '2px 0', opacity: off ? 0.4 : 1 }}
+              >
+                <i style={{ width: 9, height: 9, borderRadius: 2, background: dappColor(nm, i), textDecoration: off ? 'line-through' : 'none' }} />
+                <span style={{ fontSize: '0.68rem', color: 'rgba(236,239,245,0.75)', textDecoration: off ? 'line-through' : 'none' }}>{nm}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <div ref={wrapRef} style={{ position: 'relative', width: '100%' }}>
-        <svg
-          width={w}
-          height={H}
-          viewBox={`0 0 ${w} ${H}`}
-          style={{ display: 'block', width: '100%', height: H, opacity: mounted ? 1 : 0, transition: 'opacity .5s ease' }}
-          onMouseMove={onMove}
-          onMouseLeave={() => setHover(null)}
-        >
-          <defs>
-            <linearGradient id={`g-total-${uid}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={TOTAL} stopOpacity="0.32" />
-              <stop offset="100%" stopColor={TOTAL} stopOpacity="0" />
-            </linearGradient>
-            <linearGradient id={`g-perp-${uid}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={PERP} stopOpacity="0.34" />
-              <stop offset="100%" stopColor={PERP} stopOpacity="0.02" />
-            </linearGradient>
-            <linearGradient id={`g-spot-${uid}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={SPOT} stopOpacity="0.42" />
-              <stop offset="100%" stopColor={SPOT} stopOpacity="0.04" />
-            </linearGradient>
-          </defs>
+        {tooShort ? (
+          <div style={{ height: H, display: 'flex', alignItems: 'center', color: 'var(--tx-text-muted)', fontSize: '0.8rem' }}>
+            {isDapp ? 'The per-dApp split needs at least two days of attributed data.' : 'Pick a longer timeframe to see the chart.'}
+          </div>
+        ) : (
+          <svg
+            width={w}
+            height={H}
+            viewBox={`0 0 ${w} ${H}`}
+            style={{ display: 'block', width: '100%', height: H, opacity: mounted ? 1 : 0, transition: 'opacity .5s ease' }}
+            onMouseMove={onMove}
+            onMouseLeave={() => setHover(null)}
+          >
+            <defs>
+              {layers.map((L, li) => (
+                <linearGradient key={li} id={`g-${uid}-${li}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={L.color} stopOpacity={layers.length > 1 ? 0.42 : 0.32} />
+                  <stop offset="100%" stopColor={L.color} stopOpacity={layers.length > 1 ? 0.04 : 0} />
+                </linearGradient>
+              ))}
+            </defs>
 
-          {/* Y gridlines + labels */}
-          {yTicks.map((v, i) => (
-            <g key={i}>
-              <line x1={padL} y1={y(v)} x2={w - padR} y2={y(v)} stroke={GRID} strokeWidth={1} />
-              {i > 0 && (
-                <text x={padL + 2} y={y(v) - 4} fill={AXIS} fontSize={10} style={{ fontFamily: 'var(--font-mono, monospace)' }}>
-                  {fmtUsd(v)}
-                </text>
-              )}
-            </g>
-          ))}
+            {yTicks.map((v, i) => (
+              <g key={i}>
+                <line x1={padL} y1={y(v)} x2={w - padR} y2={y(v)} stroke={GRID} strokeWidth={1} />
+                {i > 0 && (
+                  <text x={padL + 2} y={y(v) - 4} fill={AXIS} fontSize={10} style={{ fontFamily: 'var(--font-mono, monospace)' }}>
+                    {fmtUsd(v)}
+                  </text>
+                )}
+              </g>
+            ))}
 
-          {/* Areas */}
-          {view === 'total' ? (
-            <>
-              <path d={areaPath((p) => p.total)} fill={`url(#g-total-${uid})`} />
-              <path d={linePath((p) => p.total)} fill="none" stroke={TOTAL} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
-            </>
-          ) : (
-            <>
-              <path d={areaPath((p) => p.deriv)} fill={`url(#g-perp-${uid})`} />
-              <path d={spotBand()} fill={`url(#g-spot-${uid})`} />
-              <path d={linePath((p) => p.deriv)} fill="none" stroke={PERP} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
-              <path d={linePath((p) => p.total)} fill="none" stroke={SPOT} strokeWidth={1.6} strokeLinejoin="round" strokeLinecap="round" opacity={0.9} />
-            </>
-          )}
+            {/* Stacked bands + top lines, bottom layer first */}
+            {layers.map((L, li) => (
+              <path key={`b${li}`} d={bandAt(li)} fill={`url(#g-${uid}-${li})`} />
+            ))}
+            {layers.map((L, li) => (
+              <path key={`l${li}`} d={lineAt(li)} fill="none" stroke={L.color} strokeWidth={li === layers.length - 1 ? 2 : 1.6} strokeLinejoin="round" strokeLinecap="round" opacity={0.95} />
+            ))}
 
-          {/* Endpoint dot (total) */}
-          <circle cx={x(n - 1)} cy={y(pts[n - 1].total)} r={3} fill={TOTAL} />
+            <circle cx={x(n - 1)} cy={y(rows[n - 1].tot)} r={3} fill={layers[layers.length - 1]?.color ?? TOTAL} />
 
-          {/* X axis labels */}
-          {xTicks.map((i) => (
-            <text key={i} x={x(i)} y={H - 7} fill={AXIS} fontSize={10} textAnchor={i === 0 ? 'start' : i === n - 1 ? 'end' : 'middle'} style={{ fontFamily: 'var(--font-mono, monospace)' }}>
-              {fmtDateAxis(pts[i].date, longSpan)}
-            </text>
-          ))}
+            {xTicks.map((i) => (
+              <text key={i} x={x(i)} y={H - 7} fill={AXIS} fontSize={10} textAnchor={i === 0 ? 'start' : i === n - 1 ? 'end' : 'middle'} style={{ fontFamily: 'var(--font-mono, monospace)' }}>
+                {fmtDateAxis(rows[i].date, longSpan)}
+              </text>
+            ))}
 
-          {/* Crosshair */}
-          {hp && hover != null && (
-            <g pointerEvents="none">
-              <line x1={x(hover)} y1={padT} x2={x(hover)} y2={baseY} stroke="rgba(236,239,245,0.28)" strokeWidth={1} strokeDasharray="3 3" />
-              {view === 'split' ? (
-                <>
-                  <circle cx={x(hover)} cy={y(hp.deriv)} r={3.5} fill={PERP} stroke="#0A0B0F" strokeWidth={1.5} />
-                  <circle cx={x(hover)} cy={y(hp.total)} r={3.5} fill={SPOT} stroke="#0A0B0F" strokeWidth={1.5} />
-                </>
-              ) : (
-                <circle cx={x(hover)} cy={y(hp.total)} r={4} fill={TOTAL} stroke="#0A0B0F" strokeWidth={1.5} />
-              )}
-            </g>
-          )}
-        </svg>
+            {hp && hover != null && (
+              <g pointerEvents="none">
+                <line x1={x(hover)} y1={padT} x2={x(hover)} y2={baseY} stroke="rgba(236,239,245,0.28)" strokeWidth={1} strokeDasharray="3 3" />
+                {layers.map((L, li) => (
+                  <circle key={li} cx={x(hover)} cy={y(sumUpTo(hp, li + 1))} r={3.5} fill={L.color} stroke="#0A0B0F" strokeWidth={1.5} />
+                ))}
+              </g>
+            )}
+          </svg>
+        )}
 
-        {/* Tooltip */}
-        {hp && (
+        {hp && !tooShort && (
           <div
             style={{
               position: 'absolute',
@@ -267,19 +323,28 @@ export default function VolumeChart({ data, height = 300 }: { data: DayPoint[]; 
               border: '1px solid var(--tx-border)',
               borderRadius: 10,
               padding: '0.55rem 0.7rem',
-              minWidth: 148,
+              minWidth: 150,
               boxShadow: '0 8px 24px rgba(0,0,0,0.45)',
               backdropFilter: 'blur(6px)',
             }}
           >
             <div style={{ fontSize: '0.68rem', color: 'rgba(236,239,245,0.6)', marginBottom: 5 }}>{fmtDateFull(hp.date)}</div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, fontSize: '0.82rem', fontWeight: 700 }}>
-              <span style={{ color: 'rgba(236,239,245,0.7)' }}>{scale === 'cumulative' ? 'Total' : 'Volume'}</span>
-              <span style={{ color: TOTAL, fontVariantNumeric: 'tabular-nums' }}>{fmtUsd(hp.total)}</span>
-            </div>
-            <Row color={PERP} label="Perp" value={fmtUsd(hp.deriv)} />
-            <Row color={SPOT} label="Spot" value={fmtUsd(hp.spot)} />
-            {scale === 'daily' && (
+            {layers.length > 1 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, fontSize: '0.82rem', fontWeight: 700, marginBottom: 3 }}>
+                <span style={{ color: 'rgba(236,239,245,0.7)' }}>Total</span>
+                <span style={{ color: 'var(--tx-text)', fontVariantNumeric: 'tabular-nums' }}>{fmtUsd(hp.tot)}</span>
+              </div>
+            )}
+            {[...layers].reverse().map((L) => (
+              <div key={L.key} style={{ display: 'flex', justifyContent: 'space-between', gap: 14, fontSize: '0.74rem', marginTop: 2 }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: 'rgba(236,239,245,0.65)' }}>
+                  <i style={{ width: 7, height: 7, borderRadius: 2, background: L.color }} />
+                  {L.label}
+                </span>
+                <span style={{ fontVariantNumeric: 'tabular-nums', color: 'rgba(236,239,245,0.92)' }}>{fmtUsd(hp.vals[L.key] ?? 0)}</span>
+              </div>
+            ))}
+            {!isDapp && scale === 'daily' && (
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, fontSize: '0.68rem', marginTop: 4, color: 'rgba(236,239,245,0.5)' }}>
                 <span>Trades</span>
                 <span style={{ fontVariantNumeric: 'tabular-nums' }}>{fmtInt(hp.trades)}</span>
@@ -292,18 +357,6 @@ export default function VolumeChart({ data, height = 300 }: { data: DayPoint[]; 
   );
 }
 
-function Row({ color, label, value }: { color: string; label: string; value: string }) {
-  return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, fontSize: '0.72rem', marginTop: 3 }}>
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: 'rgba(236,239,245,0.62)' }}>
-        <i style={{ width: 7, height: 7, borderRadius: 2, background: color }} />
-        {label}
-      </span>
-      <span style={{ fontVariantNumeric: 'tabular-nums', color: 'rgba(236,239,245,0.9)' }}>{value}</span>
-    </div>
-  );
-}
-
 function Seg({ options, value, onChange }: { options: Array<[string, string]>; value: string; onChange: (v: string) => void }) {
   return (
     <div style={{ display: 'inline-flex', background: 'rgba(236,239,245,0.05)', border: '1px solid var(--tx-border)', borderRadius: 8, padding: 2 }}>
@@ -312,7 +365,7 @@ function Seg({ options, value, onChange }: { options: Array<[string, string]>; v
           key={id}
           onClick={() => onChange(id)}
           style={{
-            padding: '0.28rem 0.6rem',
+            padding: '0.28rem 0.55rem',
             borderRadius: 6,
             border: 'none',
             cursor: 'pointer',
