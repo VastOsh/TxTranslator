@@ -39,6 +39,33 @@ export interface MarketDayVolume {
   trades: number; // taker-side trade count
 }
 
+/** Per-front-end attribution: taker volume grouped by the trade's feeRecipient. */
+export interface RecipientVolume {
+  addr: string;
+  volumeUsd: number;
+  trades: number;
+}
+
+// Cap the per-day recipient list so the blob stays small; the long tail of
+// one-off market-maker addresses is folded into a single "other" bucket that
+// keeps the day's recipient total exact.
+const TOP_RECIPIENTS = 60;
+const OTHER_ADDR = '__other__';
+
+type RecipMap = Map<string, { vol: number; n: number }>;
+
+function mergeRecip(into: RecipMap, from: RecipMap): void {
+  for (const [addr, e] of from) {
+    const cur = into.get(addr);
+    if (cur) {
+      cur.vol += e.vol;
+      cur.n += e.n;
+    } else {
+      into.set(addr, { vol: e.vol, n: e.n });
+    }
+  }
+}
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 async function idx(path: string): Promise<any | null> {
@@ -115,26 +142,39 @@ async function windowSum(
   end: number,
   total: number,
   qUsd: number,
-): Promise<{ vol: number; n: number }> {
+): Promise<{ vol: number; n: number; byRecip: RecipMap }> {
   let vol = 0;
   let n = 0;
+  const byRecip: RecipMap = new Map();
   for (let skip = 0; skip < total; skip += PAGE) {
     const d = await idx(
       `/api/exchange/${m.type}/v1/trades?marketId=${m.marketId}&startTime=${start}&endTime=${end}&limit=${PAGE}&skip=${skip}`,
     );
     for (const t of d?.trades ?? []) {
       if (t.executionSide !== 'taker') continue; // count each match once
+      let dv: number;
       if (m.type === 'derivative') {
         const pd = t.positionDelta;
-        vol += (Number(pd.executionPrice) / 10 ** m.quoteDec) * Number(pd.executionQuantity);
+        dv = (Number(pd.executionPrice) / 10 ** m.quoteDec) * Number(pd.executionQuantity);
       } else {
         const p = t.price;
-        vol += (Number(p.price) * Number(p.quantity)) / 10 ** m.quoteDec * qUsd;
+        dv = ((Number(p.price) * Number(p.quantity)) / 10 ** m.quoteDec) * qUsd;
       }
+      vol += dv;
       n++;
+      // Attribute to the order's fee recipient (the front-end that relayed it).
+      // An unset recipient stays '' so it groups as direct/API downstream.
+      const fr: string = t.feeRecipient || '';
+      const e = byRecip.get(fr);
+      if (e) {
+        e.vol += dv;
+        e.n++;
+      } else {
+        byRecip.set(fr, { vol: dv, n: 1 });
+      }
     }
   }
-  return { vol, n };
+  return { vol, n, byRecip };
 }
 
 async function marketVolume(
@@ -142,16 +182,18 @@ async function marketVolume(
   start: number,
   end: number,
   qUsd: number,
-): Promise<{ vol: number; n: number }> {
+): Promise<{ vol: number; n: number; byRecip: RecipMap }> {
   const total = await windowCount(m, start, end);
-  if (total === 0) return { vol: 0, n: 0 };
+  if (total === 0) return { vol: 0, n: 0, byRecip: new Map() };
   // Under the cap, or a ~2s window we cannot usefully split further: page it.
   if (total < CAP || end - start <= 2000) {
     return windowSum(m, start, end, Math.min(total, CAP), qUsd);
   }
   const mid = Math.floor((start + end) / 2);
-  const [a, b] = [await marketVolume(m, start, mid, qUsd), await marketVolume(m, mid, end, qUsd)];
-  return { vol: a.vol + b.vol, n: a.n + b.n };
+  const a = await marketVolume(m, start, mid, qUsd);
+  const b = await marketVolume(m, mid, end, qUsd);
+  mergeRecip(a.byRecip, b.byRecip);
+  return { vol: a.vol + b.vol, n: a.n + b.n, byRecip: a.byRecip };
 }
 
 /** Bounded-concurrency map over an array. */
@@ -176,16 +218,19 @@ export async function fetchDayVolume(
   dayStartMs: number,
   dayEndMs: number,
   opts: { markets?: MarketMeta[]; injPrice?: number; concurrency?: number } = {},
-): Promise<{ rows: MarketDayVolume[]; injPrice: number }> {
+): Promise<{ rows: MarketDayVolume[]; injPrice: number; recipients: RecipientVolume[] }> {
   const markets = opts.markets ?? (await fetchMarkets());
   const injPrice = opts.injPrice ?? (await fetchInjPrice(markets));
   const workers = opts.concurrency ?? 12;
+  const globalRecip: RecipMap = new Map();
 
   const results = await pool(markets, workers, async (m) => {
     const qUsd = quoteUsd(m, injPrice);
     if (qUsd === null) return null; // unknown quote — skip
-    const { vol, n } = await marketVolume(m, dayStartMs, dayEndMs, qUsd);
+    const { vol, n, byRecip } = await marketVolume(m, dayStartMs, dayEndMs, qUsd);
     if (n === 0) return null;
+    // Sync merge into the shared map — safe, single-threaded, no await inside.
+    mergeRecip(globalRecip, byRecip);
     return {
       marketId: m.marketId,
       ticker: m.ticker,
@@ -198,7 +243,24 @@ export async function fetchDayVolume(
 
   const rows = results.filter((r): r is MarketDayVolume => r !== null);
   rows.sort((a, b) => b.volumeUsd - a.volumeUsd);
-  return { rows, injPrice };
+
+  // Cap the recipient list: keep the top N by USD, fold the long MM tail into a
+  // single "other" bucket so the day's recipient total stays exact.
+  const sorted = [...globalRecip.entries()].sort((a, b) => b[1].vol - a[1].vol);
+  const recipients: RecipientVolume[] = [];
+  let otherVol = 0;
+  let otherN = 0;
+  sorted.forEach(([addr, e], i) => {
+    if (i < TOP_RECIPIENTS && addr !== OTHER_ADDR) {
+      recipients.push({ addr, volumeUsd: e.vol, trades: e.n });
+    } else {
+      otherVol += e.vol;
+      otherN += e.n;
+    }
+  });
+  if (otherN > 0) recipients.push({ addr: OTHER_ADDR, volumeUsd: otherVol, trades: otherN });
+
+  return { rows, injPrice, recipients };
 }
 
 /* eslint-enable @typescript-eslint/no-explicit-any */

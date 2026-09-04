@@ -25,6 +25,10 @@ export const CHANGELOG: ChangelogVersion[] = [
       },
       {
         type: 'feature',
+        text: 'The Volume lens now shows who is driving the volume. Injective is one shared order book, so a trade is attributed to a front-end by the fee-recipient wallet its order carries (relayers like Helix set their own to collect the relayer fee share). The lens sums taker volume by that wallet and shows the split by dApp: a stacked share bar plus a ranked list. Wallets we have identified are named (Helix leads by a wide margin), flow with no front-end tag is grouped honestly as Direct / API (market makers and bots), and large relayers we have not identified yet are shown by address and marked unverified rather than guessed. It is the first honest per-front-end volume breakdown for the Injective order book.',
+      },
+      {
+        type: 'feature',
         text: 'TxTranslator is now Renzu, an Injective intelligence hub. What began as a single transaction decoder has grown into a set of tools, so it gets a home that reflects that. The new front door leads with one universal bar: paste anything on-chain and Renzu reads it, sending a transaction hash to the decoder, an address to Wallet Intelligence, and a token or denom to the safety check. Below it, every tool is grouped as a lens on the chain, understand, detect, markets and ecosystem. The idea behind the name is a lens (renzu is Japanese for lens): each tool brings one part of Injective into focus. The transaction decoder keeps its TxTranslator name and lives at /tx, and the whale feed keeps posting to X as before. Nothing was removed, everything moved under one roof.',
       },
     ],

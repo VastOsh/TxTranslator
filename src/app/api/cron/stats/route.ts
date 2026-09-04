@@ -23,11 +23,11 @@ export const maxDuration = 300;
 async function ingestDay(date: string, dry: boolean) {
   const { start, end } = dayBoundsUtc(date);
   const t0 = Date.now();
-  const { rows, injPrice } = await fetchDayVolume(start, end);
+  const { rows, injPrice, recipients } = await fetchDayVolume(start, end);
   const volumeUsd = rows.reduce((s, r) => s + r.volumeUsd, 0);
   const trades = rows.reduce((s, r) => s + r.trades, 0);
-  if (!dry) await upsertDay(date, { rows, injPrice });
-  return { date, markets: rows.length, volumeUsd, trades, injPrice, elapsedMs: Date.now() - t0 };
+  if (!dry) await upsertDay(date, { rows, injPrice, recipients });
+  return { date, markets: rows.length, recipients: recipients.length, volumeUsd, trades, injPrice, elapsedMs: Date.now() - t0 };
 }
 
 export async function GET(req: NextRequest) {

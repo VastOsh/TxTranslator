@@ -1,5 +1,6 @@
 import type { StatsBlob } from './store';
 import type { MarketType } from './reconstruct';
+import { labelRecipient, type RecipientKind } from './frontends';
 
 // ── Rollups ─────────────────────────────────────────────────────────────────
 // Turn the stored per-day rows into the totals a given timeframe needs. Every
@@ -30,15 +31,29 @@ export interface DayPoint {
   trades: number;
 }
 
+export interface DappBreakdown {
+  name: string;
+  kind: RecipientKind;
+  addr: string | null; // set for unlabeled single-wallet buckets
+  volumeUsd: number;
+  trades: number;
+  share: number; // fraction of front-end-attributed volume
+}
+
 export interface Rollup {
   period: Period;
   totals: { volumeUsd: number; trades: number; derivUsd: number; spotUsd: number };
   series: DayPoint[];
   markets: MarketRollup[];
+  dapps: DappBreakdown[];
+  // Front-end attribution only covers days ingested with recipient data.
+  dappCoverage: { daysWithData: number; volumeUsd: number };
   daysAvailable: number;
   daysCounted: number;
   updatedAt: number;
 }
+
+const TOP_DAPPS = 9;
 
 export function rollup(blob: StatsBlob, period: Period): Rollup {
   const dates = Object.keys(blob.days).sort(); // ascending
@@ -91,11 +106,68 @@ function build(blob: StatsBlob, chosen: string[], period: Period): Rollup {
   }
 
   const markets = [...byMarket.values()].sort((a, b) => b.volumeUsd - a.volumeUsd);
+
+  // ── Front-end (dApp) attribution ──────────────────────────────────────────
+  // Sum each day's per-recipient volume, label the wallets, and group: known
+  // front-ends and the direct/API bucket merge by name; unidentified wallets
+  // stay separate (by address) so a big unlabeled relayer is still visible.
+  const bucket = new Map<
+    string,
+    { name: string; kind: RecipientKind; addr: string | null; vol: number; n: number }
+  >();
+  let dappVolume = 0;
+  let daysWithData = 0;
+  for (const date of chosen) {
+    const recips = blob.days[date].recipients;
+    if (!recips) continue;
+    daysWithData++;
+    for (const r of recips) {
+      dappVolume += r.volumeUsd;
+      const lbl = labelRecipient(r.addr);
+      const key = lbl.kind === 'unknown' ? `addr:${r.addr}` : `name:${lbl.name}`;
+      const cur = bucket.get(key);
+      if (cur) {
+        cur.vol += r.volumeUsd;
+        cur.n += r.trades;
+      } else {
+        bucket.set(key, {
+          name: lbl.name,
+          kind: lbl.kind,
+          addr: lbl.kind === 'unknown' ? r.addr : null,
+          vol: r.volumeUsd,
+          n: r.trades,
+        });
+      }
+    }
+  }
+
+  const ranked = [...bucket.values()].sort((a, b) => b.vol - a.vol);
+  const dapps: DappBreakdown[] = [];
+  let restVol = 0;
+  let restN = 0;
+  ranked.forEach((b, i) => {
+    if (i < TOP_DAPPS && b.kind !== 'other') {
+      dapps.push({ name: b.name, kind: b.kind, addr: b.addr, volumeUsd: b.vol, trades: b.n, share: 0 });
+    } else {
+      restVol += b.vol;
+      restN += b.n;
+    }
+  });
+  if (restN > 0) dapps.push({ name: 'Other', kind: 'other', addr: null, volumeUsd: restVol, trades: restN, share: 0 });
+  for (const d of dapps) d.share = dappVolume > 0 ? d.volumeUsd / dappVolume : 0;
+  dapps.sort((a, b) => {
+    if (a.kind === 'other') return 1; // Other always last
+    if (b.kind === 'other') return -1;
+    return b.volumeUsd - a.volumeUsd;
+  });
+
   return {
     period,
     totals: { volumeUsd: derivUsd + spotUsd, trades, derivUsd, spotUsd },
     series,
     markets,
+    dapps,
+    dappCoverage: { daysWithData, volumeUsd: dappVolume },
     daysAvailable: dates.length,
     daysCounted: chosen.length,
     updatedAt: blob.updatedAt,

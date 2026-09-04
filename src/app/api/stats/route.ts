@@ -53,6 +53,8 @@ const buildStats = unstable_cache(
       totals: r.totals,
       series: r.series,
       markets: r.markets.slice(0, TOP_MARKETS),
+      dapps: r.dapps,
+      dappCoverage: r.dappCoverage,
       burn: {
         latestRound: burn.latest?.round ?? null,
         latestInj: burn.latest?.injBurned ?? null,
@@ -69,7 +71,7 @@ const buildStats = unstable_cache(
       },
     };
   },
-  ['stats-api-v2'], // bumped: series now carries the per-day perp/spot split
+  ['stats-api-v3'], // bumped: response now carries the per-day split + dApp breakdown
   { revalidate: 600 },
 );
 

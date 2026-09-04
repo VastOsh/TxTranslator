@@ -109,6 +109,15 @@ async function idx(path) {
 // ── reconstruction (verbatim math from src/lib/stats/reconstruct.ts) ─────────
 const PAGE = 100;
 const CAP = 1000;
+const TOP_RECIPIENTS = 60;
+const OTHER_ADDR = '__other__';
+
+function mergeRecip(into, from) {
+  for (const [addr, e] of from) {
+    const c = into.get(addr);
+    if (c) { c.vol += e.vol; c.n += e.n; } else into.set(addr, { vol: e.vol, n: e.n });
+  }
+}
 
 function stableUsd(sym) {
   const s = sym.toUpperCase();
@@ -169,37 +178,42 @@ async function windowCount(m, start, end) {
 async function windowSum(m, start, end, total, qUsd) {
   let vol = 0;
   let n = 0;
+  const byRecip = new Map();
   for (let skip = 0; skip < total; skip += PAGE) {
     const d = await idx(
       `/api/exchange/${m.type}/v1/trades?marketId=${m.marketId}&startTime=${start}&endTime=${end}&limit=${PAGE}&skip=${skip}`,
     );
     for (const t of d?.trades ?? []) {
       if (t.executionSide !== 'taker') continue;
+      let dv;
       if (m.type === 'derivative') {
         const pd = t.positionDelta;
-        vol += (Number(pd.executionPrice) / 10 ** m.quoteDec) * Number(pd.executionQuantity);
+        dv = (Number(pd.executionPrice) / 10 ** m.quoteDec) * Number(pd.executionQuantity);
       } else {
         const p = t.price;
-        vol += ((Number(p.price) * Number(p.quantity)) / 10 ** m.quoteDec) * qUsd;
+        dv = ((Number(p.price) * Number(p.quantity)) / 10 ** m.quoteDec) * qUsd;
       }
+      vol += dv;
       n++;
+      const fr = t.feeRecipient || '';
+      const e = byRecip.get(fr);
+      if (e) { e.vol += dv; e.n++; } else byRecip.set(fr, { vol: dv, n: 1 });
     }
   }
-  return { vol, n };
+  return { vol, n, byRecip };
 }
 
 async function marketVolume(m, start, end, qUsd) {
   const total = await windowCount(m, start, end);
-  if (total === 0) return { vol: 0, n: 0 };
+  if (total === 0) return { vol: 0, n: 0, byRecip: new Map() };
   if (total < CAP || end - start <= 2000) {
     return windowSum(m, start, end, Math.min(total, CAP), qUsd);
   }
   const mid = Math.floor((start + end) / 2);
-  const [a, b] = [
-    await marketVolume(m, start, mid, qUsd),
-    await marketVolume(m, mid, end, qUsd),
-  ];
-  return { vol: a.vol + b.vol, n: a.n + b.n };
+  const a = await marketVolume(m, start, mid, qUsd);
+  const b = await marketVolume(m, mid, end, qUsd);
+  mergeRecip(a.byRecip, b.byRecip);
+  return { vol: a.vol + b.vol, n: a.n + b.n, byRecip: a.byRecip };
 }
 
 async function pool(items, workers, fn) {
@@ -218,11 +232,13 @@ async function pool(items, workers, fn) {
 async function fetchDayVolume(dayStartMs, dayEndMs) {
   const markets = await fetchMarkets();
   const injPrice = await fetchInjPrice(markets);
+  const globalRecip = new Map();
   const results = await pool(markets, CONCURRENCY, async (m) => {
     const qUsd = quoteUsd(m, injPrice);
     if (qUsd === null) return null;
-    const { vol, n } = await marketVolume(m, dayStartMs, dayEndMs, qUsd);
+    const { vol, n, byRecip } = await marketVolume(m, dayStartMs, dayEndMs, qUsd);
     if (n === 0) return null;
+    mergeRecip(globalRecip, byRecip);
     return {
       marketId: m.marketId,
       ticker: m.ticker,
@@ -234,7 +250,17 @@ async function fetchDayVolume(dayStartMs, dayEndMs) {
   });
   const rows = results.filter((r) => r !== null);
   rows.sort((a, b) => b.volumeUsd - a.volumeUsd);
-  return { rows, injPrice };
+
+  const sorted = [...globalRecip.entries()].sort((a, b) => b[1].vol - a[1].vol);
+  const recipients = [];
+  let otherVol = 0, otherN = 0;
+  sorted.forEach(([addr, e], i) => {
+    if (i < TOP_RECIPIENTS && addr !== OTHER_ADDR) recipients.push({ addr, volumeUsd: e.vol, trades: e.n });
+    else { otherVol += e.vol; otherN += e.n; }
+  });
+  if (otherN > 0) recipients.push({ addr: OTHER_ADDR, volumeUsd: otherVol, trades: otherN });
+
+  return { rows, injPrice, recipients };
 }
 
 function dayBoundsUtc(date) {
@@ -299,14 +325,14 @@ for (const date of dates) {
   const t0 = Date.now();
   try {
     const { start, end } = dayBoundsUtc(date);
-    const { rows, injPrice } = await fetchDayVolume(start, end);
+    const { rows, injPrice, recipients } = await fetchDayVolume(start, end);
     const volumeUsd = rows.reduce((s, r) => s + r.volumeUsd, 0);
     const trades = rows.reduce((s, r) => s + r.trades, 0);
     if (rows.length === 0) {
       console.warn(`  ${date}  NO ROWS (skipped, not stored)`);
       continue;
     }
-    await upsertDay(date, { rows, injPrice });
+    await upsertDay(date, { rows, injPrice, recipients });
     okDays++;
     totalVol += volumeUsd;
     console.log(

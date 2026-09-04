@@ -1,5 +1,5 @@
 import { put, get } from '@vercel/blob';
-import type { MarketDayVolume } from './reconstruct';
+import type { MarketDayVolume, RecipientVolume } from './reconstruct';
 
 // ── Aggregate storage (Vercel Blob) ─────────────────────────────────────────
 // The whole dataset is one JSON blob: per-UTC-day, the per-market volume rows.
@@ -13,6 +13,9 @@ const BLOB_PATH = 'stats/aggregates-v1.json';
 export interface DayEntry {
   rows: MarketDayVolume[];
   injPrice: number;
+  // Per-front-end taker volume (top wallets + a folded "other"). Optional: days
+  // ingested before front-end attribution existed simply omit it.
+  recipients?: RecipientVolume[];
 }
 
 export interface StatsBlob {

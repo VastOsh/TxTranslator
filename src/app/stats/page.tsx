@@ -7,6 +7,7 @@ import LensAurora from '@/components/LensAurora';
 import BackToRenzu from '@/components/BackToRenzu';
 import Changelog from '@/components/Changelog';
 import VolumeChart, { type DayPoint } from '@/components/VolumeChart';
+import DappSplit, { type DappRow } from '@/components/DappSplit';
 import { CURRENT_VERSION } from '@/data/changelog';
 
 type Period = '1d' | '7d' | '30d' | '1y' | 'all' | 'custom';
@@ -29,6 +30,8 @@ interface StatsResp {
   totals: { volumeUsd: number; trades: number; derivUsd: number; spotUsd: number };
   series: DayPoint[];
   markets: MarketRow[];
+  dapps: DappRow[];
+  dappCoverage: { daysWithData: number; volumeUsd: number };
   burn: {
     latestRound: number | null; latestInj: number | null; latestUsd: number | null;
     cumulativeInj: number; roundsCovered: number;
@@ -205,6 +208,8 @@ export default function StatsPage() {
           </div>
 
           <VolumeChart data={data.series} />
+
+          <DappSplit dapps={data.dapps} coverage={data.dappCoverage} daysCounted={data.coverage.daysCounted} />
 
           {/* DeFiLlama gap panel */}
           <div className="tx-pnl-card" style={{ padding: '1rem 1.2rem' }}>
