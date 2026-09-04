@@ -22,10 +22,18 @@ export interface MarketRollup {
   trades: number;
 }
 
+export interface DayPoint {
+  date: string;
+  volumeUsd: number;
+  derivUsd: number;
+  spotUsd: number;
+  trades: number;
+}
+
 export interface Rollup {
   period: Period;
   totals: { volumeUsd: number; trades: number; derivUsd: number; spotUsd: number };
-  series: Array<{ date: string; volumeUsd: number }>;
+  series: DayPoint[];
   markets: MarketRollup[];
   daysAvailable: number;
   daysCounted: number;
@@ -41,16 +49,17 @@ export function rollup(blob: StatsBlob, period: Period): Rollup {
   let spotUsd = 0;
   let trades = 0;
   const byMarket = new Map<string, MarketRollup>();
-  const series: Array<{ date: string; volumeUsd: number }> = [];
+  const series: DayPoint[] = [];
 
   for (const date of chosen) {
     const entry = blob.days[date];
-    let dayVol = 0;
+    let dayDeriv = 0;
+    let daySpot = 0;
+    let dayTrades = 0;
     for (const r of entry.rows) {
-      if (r.type === 'derivative') derivUsd += r.volumeUsd;
-      else spotUsd += r.volumeUsd;
-      trades += r.trades;
-      dayVol += r.volumeUsd;
+      if (r.type === 'derivative') dayDeriv += r.volumeUsd;
+      else daySpot += r.volumeUsd;
+      dayTrades += r.trades;
       const key = r.ticker + '|' + r.type;
       const m = byMarket.get(key);
       if (m) {
@@ -60,7 +69,10 @@ export function rollup(blob: StatsBlob, period: Period): Rollup {
         byMarket.set(key, { ticker: r.ticker, type: r.type, volumeUsd: r.volumeUsd, trades: r.trades });
       }
     }
-    series.push({ date, volumeUsd: dayVol });
+    derivUsd += dayDeriv;
+    spotUsd += daySpot;
+    trades += dayTrades;
+    series.push({ date, volumeUsd: dayDeriv + daySpot, derivUsd: dayDeriv, spotUsd: daySpot, trades: dayTrades });
   }
 
   const markets = [...byMarket.values()].sort((a, b) => b.volumeUsd - a.volumeUsd);

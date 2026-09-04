@@ -6,6 +6,7 @@ import LensCursor from '@/components/LensCursor';
 import LensAurora from '@/components/LensAurora';
 import BackToRenzu from '@/components/BackToRenzu';
 import Changelog from '@/components/Changelog';
+import VolumeChart, { type DayPoint } from '@/components/VolumeChart';
 import { CURRENT_VERSION } from '@/data/changelog';
 
 type Period = '1d' | '7d' | '30d' | '1y' | 'all';
@@ -24,7 +25,7 @@ interface StatsResp {
   injPrice: number;
   coverage: { daysAvailable: number; daysCounted: number };
   totals: { volumeUsd: number; trades: number; derivUsd: number; spotUsd: number };
-  series: Array<{ date: string; volumeUsd: number }>;
+  series: DayPoint[];
   markets: MarketRow[];
   burn: {
     latestRound: number | null; latestInj: number | null; latestUsd: number | null;
@@ -56,22 +57,6 @@ function Tile({ label, value, sub, accent }: { label: string; value: string; sub
       <div style={{ fontSize: '0.64rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'rgba(244,241,233,0.5)' }}>{label}</div>
       <div style={{ fontSize: '1.5rem', fontWeight: 700, color: accent ?? 'var(--tx-text)', marginTop: '0.25rem', lineHeight: 1.1 }}>{value}</div>
       {sub && <div style={{ fontSize: '0.7rem', color: 'rgba(244,241,233,0.55)', marginTop: '0.2rem' }}>{sub}</div>}
-    </div>
-  );
-}
-
-function Series({ data }: { data: Array<{ date: string; volumeUsd: number }> }) {
-  if (data.length < 2) return null;
-  const max = Math.max(...data.map(d => d.volumeUsd), 1);
-  return (
-    <div className="tx-pnl-card" style={{ padding: '0.9rem 1.1rem' }}>
-      <div style={{ fontSize: '0.64rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'rgba(244,241,233,0.5)', marginBottom: '0.6rem' }}>Daily volume</div>
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 80 }}>
-        {data.map((d) => (
-          <div key={d.date} title={`${d.date}: ${fmtUsd(d.volumeUsd)}`}
-            style={{ flex: 1, minWidth: 2, height: `${Math.max(2, (d.volumeUsd / max) * 100)}%`, background: AMBER, opacity: 0.75, borderRadius: '2px 2px 0 0' }} />
-        ))}
-      </div>
     </div>
   );
 }
@@ -158,7 +143,7 @@ export default function StatsPage() {
             <Tile label="INJ burned" value={fmtInj(data.burn.cumulativeInj)} accent="var(--tx-purple)" sub={data.burn.latestUsd != null ? `last round ${fmtUsd(data.burn.latestUsd)}` : `${data.burn.roundsCovered} rounds`} />
           </div>
 
-          <Series data={data.series} />
+          <VolumeChart data={data.series} />
 
           {/* DeFiLlama gap panel */}
           <div className="tx-pnl-card" style={{ padding: '1rem 1.2rem' }}>

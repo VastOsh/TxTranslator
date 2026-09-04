@@ -20,6 +20,10 @@ export const CHANGELOG: ChangelogVersion[] = [
     date: '2026-09-03',
     entries: [
       {
+        type: 'improvement',
+        text: 'The Volume lens gets a real chart. The old daily bars are replaced by an interactive area chart in the spirit of DeFiLlama and Mintscan: hover anywhere for a crosshair and a tooltip with that day\'s exact volume, perp and spot split, and trade count. Two views sit on top of the timeframe toggle. Total or Perp / Spot shows the two sides as stacked areas, and Daily or Cumulative switches between per-day volume and the running total climbing over the period. The chart is drawn straight in the browser from the same verified on-chain numbers, so it stays instant and matches the rest of Renzu exactly.',
+      },
+      {
         type: 'feature',
         text: 'TxTranslator is now Renzu, an Injective intelligence hub. What began as a single transaction decoder has grown into a set of tools, so it gets a home that reflects that. The new front door leads with one universal bar: paste anything on-chain and Renzu reads it, sending a transaction hash to the decoder, an address to Wallet Intelligence, and a token or denom to the safety check. Below it, every tool is grouped as a lens on the chain, understand, detect, markets and ecosystem. The idea behind the name is a lens (renzu is Japanese for lens): each tool brings one part of Injective into focus. The transaction decoder keeps its TxTranslator name and lives at /tx, and the whale feed keeps posting to X as before. Nothing was removed, everything moved under one roof.',
       },
