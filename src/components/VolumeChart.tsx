@@ -87,12 +87,16 @@ export default function VolumeChart({ data, height = 300 }: { data: DayPoint[]; 
     let cd = 0;
     let cs = 0;
     return data.map((p) => {
+      // Guard against a stale cached response that predates the perp/spot split.
+      const deriv = p.derivUsd ?? 0;
+      const spot = p.spotUsd ?? 0;
+      const total = p.volumeUsd ?? deriv + spot;
       if (scale === 'cumulative') {
-        cd += p.derivUsd;
-        cs += p.spotUsd;
-        return { date: p.date, deriv: cd, spot: cs, total: cd + cs, trades: p.trades };
+        cd += deriv;
+        cs += spot;
+        return { date: p.date, deriv: cd, spot: cs, total: cd + cs, trades: p.trades ?? 0 };
       }
-      return { date: p.date, deriv: p.derivUsd, spot: p.spotUsd, total: p.volumeUsd, trades: p.trades };
+      return { date: p.date, deriv, spot, total, trades: p.trades ?? 0 };
     });
   }, [data, scale]);
 

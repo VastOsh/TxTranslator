@@ -21,7 +21,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     entries: [
       {
         type: 'improvement',
-        text: 'The Volume lens gets a real chart. The old daily bars are replaced by an interactive area chart in the spirit of DeFiLlama and Mintscan: hover anywhere for a crosshair and a tooltip with that day\'s exact volume, perp and spot split, and trade count. Two views sit on top of the timeframe toggle. Total or Perp / Spot shows the two sides as stacked areas, and Daily or Cumulative switches between per-day volume and the running total climbing over the period. The chart is drawn straight in the browser from the same verified on-chain numbers, so it stays instant and matches the rest of Renzu exactly.',
+        text: 'The Volume lens gets a real chart. The old daily bars are replaced by an interactive area chart in the spirit of DeFiLlama and Mintscan: hover anywhere for a crosshair and a tooltip with that day\'s exact volume, perp and spot split, and trade count. Two views sit on top of the timeframe toggle. Total or Perp / Spot shows the two sides as stacked areas, and Daily or Cumulative switches between per-day volume and the running total climbing over the period. Alongside the preset windows there is now a Custom range: pick any start and end date and the chart, totals and market table all recompute for exactly that window. The chart is drawn straight in the browser from the same verified on-chain numbers, so it stays instant and matches the rest of Renzu exactly.',
       },
       {
         type: 'feature',

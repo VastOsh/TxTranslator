@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, type CSSProperties } from 'react';
 import LensCrumb from '@/components/LensCrumb';
 import LensCursor from '@/components/LensCursor';
 import LensAurora from '@/components/LensAurora';
@@ -9,7 +9,7 @@ import Changelog from '@/components/Changelog';
 import VolumeChart, { type DayPoint } from '@/components/VolumeChart';
 import { CURRENT_VERSION } from '@/data/changelog';
 
-type Period = '1d' | '7d' | '30d' | '1y' | 'all';
+type Period = '1d' | '7d' | '30d' | '1y' | 'all' | 'custom';
 const PERIODS: Array<{ id: Period; label: string }> = [
   { id: '1d', label: '24H' },
   { id: '7d', label: '7D' },
@@ -21,6 +21,8 @@ const PERIODS: Array<{ id: Period; label: string }> = [
 interface MarketRow { ticker: string; type: 'derivative' | 'spot'; volumeUsd: number; trades: number }
 interface StatsResp {
   period: Period;
+  range: { from: string; to: string } | null;
+  bounds: { first: string; last: string } | null;
   updatedAt: number;
   injPrice: number;
   coverage: { daysAvailable: number; daysCounted: number };
@@ -36,6 +38,17 @@ interface StatsResp {
 }
 
 const AMBER = '#f0a020';
+
+const dateInput: CSSProperties = {
+  padding: '0.35rem 0.6rem',
+  borderRadius: 8,
+  border: '1px solid var(--tx-border)',
+  background: 'rgba(236,239,245,0.04)',
+  color: 'var(--tx-text)',
+  fontSize: '0.8rem',
+  fontWeight: 600,
+  colorScheme: 'dark',
+};
 
 function fmtUsd(n: number | null | undefined): string {
   if (n == null) return '—';
@@ -67,25 +80,48 @@ export default function StatsPage() {
   const [data, setData] = useState<StatsResp | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [bounds, setBounds] = useState<{ first: string; last: string } | null>(null);
+  const [cFrom, setCFrom] = useState('');
+  const [cTo, setCTo] = useState('');
 
-  const load = useCallback((p: Period) => {
+  const load = useCallback((query: string) => {
     setLoading(true);
     setError(null);
-    fetch(`/api/stats?period=${p}`)
+    fetch(`/api/stats?${query}`)
       .then(r => r.json().then(d => ({ ok: r.ok, d })))
-      .then(({ ok, d }) => { if (ok) setData(d as StatsResp); else setError(d.error ?? 'Failed to load.'); })
+      .then(({ ok, d }) => {
+        if (ok) { setData(d as StatsResp); if (d.bounds) setBounds(d.bounds); }
+        else setError(d.error ?? 'Failed to load.');
+      })
       .catch(() => setError('Network error.'))
       .finally(() => setLoading(false));
   }, []);
 
-  // Defer the fetch (and its setState) out of the effect body to satisfy
-  // react-hooks/set-state-in-effect.
+  // Fixed periods fetch on change; the custom window is driven by Apply below.
   useEffect(() => {
-    const t = setTimeout(() => load(period), 0);
+    if (period === 'custom') return;
+    const t = setTimeout(() => load(`period=${period}`), 0);
     return () => clearTimeout(t);
   }, [period, load]);
 
+  // Seed the custom inputs from real data bounds (default: last 30 days).
+  useEffect(() => {
+    if (!bounds || cFrom || cTo) return;
+    const back = new Date(`${bounds.last}T00:00:00Z`);
+    back.setUTCDate(back.getUTCDate() - 29);
+    const from = back.toISOString().slice(0, 10);
+    setCFrom(from < bounds.first ? bounds.first : from);
+    setCTo(bounds.last);
+  }, [bounds, cFrom, cTo]);
+
+  const applyCustom = useCallback(() => {
+    if (!cFrom || !cTo) return;
+    setPeriod('custom');
+    load(`from=${cFrom}&to=${cTo}`);
+  }, [cFrom, cTo, load]);
+
   const empty = data && data.coverage.daysAvailable === 0;
+  const winLabel = period === 'custom' ? `${data?.coverage.daysCounted ?? 0}D` : period.toUpperCase();
 
   return (
     <main className="tx-main">
@@ -111,7 +147,7 @@ export default function StatsPage() {
       </section>
 
       {/* Timeframe toggle */}
-      <div style={{ width: '100%', maxWidth: 820, display: 'flex', gap: '0.4rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+      <div style={{ width: '100%', maxWidth: 820, display: 'flex', gap: '0.4rem', marginBottom: period === 'custom' ? '0.6rem' : '1.25rem', flexWrap: 'wrap' }}>
         {PERIODS.map(p => (
           <button key={p.id} onClick={() => setPeriod(p.id)}
             style={{
@@ -121,7 +157,32 @@ export default function StatsPage() {
               color: period === p.id ? AMBER : 'var(--tx-text-muted)',
             }}>{p.label}</button>
         ))}
+        <button onClick={() => { setPeriod('custom'); if (cFrom && cTo) load(`from=${cFrom}&to=${cTo}`); }}
+          style={{
+            padding: '0.4rem 0.9rem', borderRadius: 8, cursor: 'pointer', fontSize: '0.8rem', fontWeight: 700,
+            border: `1px solid ${period === 'custom' ? AMBER : 'var(--tx-border)'}`,
+            background: period === 'custom' ? 'rgba(240,160,32,0.12)' : 'transparent',
+            color: period === 'custom' ? AMBER : 'var(--tx-text-muted)',
+          }}>Custom</button>
       </div>
+
+      {/* Custom range picker */}
+      {period === 'custom' && (
+        <div style={{ width: '100%', maxWidth: 820, display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '1.25rem' }}>
+          <input type="date" value={cFrom} min={bounds?.first} max={cTo || bounds?.last}
+            onChange={e => setCFrom(e.target.value)} style={dateInput} />
+          <span style={{ color: 'var(--tx-text-muted)', fontSize: '0.8rem' }}>to</span>
+          <input type="date" value={cTo} min={cFrom || bounds?.first} max={bounds?.last}
+            onChange={e => setCTo(e.target.value)} style={dateInput} />
+          <button onClick={applyCustom} disabled={!cFrom || !cTo}
+            style={{
+              padding: '0.4rem 1rem', borderRadius: 8, cursor: cFrom && cTo ? 'pointer' : 'not-allowed',
+              fontSize: '0.8rem', fontWeight: 700, border: 'none',
+              background: AMBER, color: '#04130F', opacity: cFrom && cTo ? 1 : 0.5,
+            }}>Apply</button>
+          {bounds && <span style={{ color: 'rgba(236,239,245,0.4)', fontSize: '0.68rem' }}>data {bounds.first} to {bounds.last}</span>}
+        </div>
+      )}
 
       {loading && <div className="tx-pnl-card" style={{ width: '100%', maxWidth: 820, padding: '1.2rem', color: 'var(--tx-text-muted)', fontSize: '0.8rem' }}><span className="tx-spinner" style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: 8 }} />Loading on-chain volume…</div>}
 
@@ -137,7 +198,7 @@ export default function StatsPage() {
 
           {/* Headline tiles */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
-            <Tile label={`Volume (${period.toUpperCase()})`} value={fmtUsd(data.totals.volumeUsd)} accent={AMBER} sub={`${fmtInt(data.totals.trades)} trades`} />
+            <Tile label={`Volume (${winLabel})`} value={fmtUsd(data.totals.volumeUsd)} accent={AMBER} sub={`${fmtInt(data.totals.trades)} trades`} />
             <Tile label="Perps" value={fmtUsd(data.totals.derivUsd)} sub={data.totals.volumeUsd ? `${((data.totals.derivUsd / data.totals.volumeUsd) * 100).toFixed(0)}% of volume` : undefined} />
             <Tile label="Spot" value={fmtUsd(data.totals.spotUsd)} sub={data.totals.volumeUsd ? `${((data.totals.spotUsd / data.totals.volumeUsd) * 100).toFixed(0)}% of volume` : undefined} />
             <Tile label="INJ burned" value={fmtInj(data.burn.cumulativeInj)} accent="var(--tx-purple)" sub={data.burn.latestUsd != null ? `last round ${fmtUsd(data.burn.latestUsd)}` : `${data.burn.roundsCovered} rounds`} />
@@ -169,7 +230,7 @@ export default function StatsPage() {
 
           {/* Per-market table */}
           <div className="tx-pnl-card" style={{ padding: '0.4rem 0' }}>
-            <div className="tx-pnl-head"><span className="tx-pnl-head-title">Markets</span><span className="tx-pnl-row-meta">{period.toUpperCase()} volume</span></div>
+            <div className="tx-pnl-head"><span className="tx-pnl-head-title">Markets</span><span className="tx-pnl-row-meta">{winLabel} volume</span></div>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
                 <thead>

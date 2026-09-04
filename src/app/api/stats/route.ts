@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { unstable_cache } from 'next/cache';
 import { readStats } from '@/lib/stats/store';
-import { rollup, fetchLlamaComparison, type Period } from '@/lib/stats/rollup';
+import { rollup, rollupRange, fetchLlamaComparison, type Period, type Rollup } from '@/lib/stats/rollup';
 import { fetchBurnSummary } from '@/lib/stats/burn';
 
 // Public read model for the /stats page. Everything is served from stored daily
@@ -12,27 +12,41 @@ export const maxDuration = 30;
 const PERIODS: Period[] = ['1d', '7d', '30d', '1y', 'all'];
 const TOP_MARKETS = 50;
 
+// `sel` names the window: a fixed period id, or "custom:<from>:<to>". Passing it
+// as the cache argument gives every window its own cache entry.
 const buildStats = unstable_cache(
-  async (period: Period) => {
+  async (sel: string) => {
     const [blob, burn, defillama] = await Promise.all([
       readStats(),
       fetchBurnSummary(),
       fetchLlamaComparison(),
     ]);
-    const r = rollup(blob, period);
+
+    let r: Rollup;
+    if (sel.startsWith('custom:')) {
+      const [, from, to] = sel.split(':');
+      r = rollupRange(blob, from, to);
+    } else {
+      r = rollup(blob, sel as Period);
+    }
 
     // Fixed bases for the DeFiLlama gap panel — always valid regardless of the
     // timeframe the user is viewing.
     const own7d = rollup(blob, '7d').totals.volumeUsd;
     const ownAll = rollup(blob, 'all').totals.volumeUsd;
 
-    // INJ price from the most recent stored day (for burn USD valuation).
+    // Full stored span, so the UI can bound a custom range to real data.
     const dates = Object.keys(blob.days).sort();
+    const bounds = dates.length ? { first: dates[0], last: dates[dates.length - 1] } : null;
+
+    // INJ price from the most recent stored day (for burn USD valuation).
     const injPrice = dates.length ? blob.days[dates[dates.length - 1]].injPrice : 0;
     const latestUsd = burn.latest ? burn.latest.injBurned * injPrice : null;
 
     return {
       period: r.period,
+      range: r.series.length ? { from: r.series[0].date, to: r.series[r.series.length - 1].date } : null,
+      bounds,
       updatedAt: r.updatedAt,
       injPrice,
       coverage: { daysAvailable: r.daysAvailable, daysCounted: r.daysCounted },
@@ -55,15 +69,27 @@ const buildStats = unstable_cache(
       },
     };
   },
-  ['stats-api-v1'],
+  ['stats-api-v2'], // bumped: series now carries the per-day perp/spot split
   { revalidate: 600 },
 );
 
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
 export async function GET(req: NextRequest) {
-  const p = (req.nextUrl.searchParams.get('period') ?? '7d') as Period;
-  const period = PERIODS.includes(p) ? p : '7d';
+  const sp = req.nextUrl.searchParams;
+  const from = sp.get('from');
+  const to = sp.get('to');
+
+  let sel: string;
+  if (from && to && DATE_RE.test(from) && DATE_RE.test(to)) {
+    sel = `custom:${from}:${to}`;
+  } else {
+    const p = (sp.get('period') ?? '7d') as Period;
+    sel = PERIODS.includes(p) ? p : '7d';
+  }
+
   try {
-    return NextResponse.json(await buildStats(period));
+    return NextResponse.json(await buildStats(sel));
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unexpected error.';
     return NextResponse.json({ error: msg }, { status: 500 });

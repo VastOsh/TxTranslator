@@ -5,9 +5,9 @@ import type { MarketType } from './reconstruct';
 // Turn the stored per-day rows into the totals a given timeframe needs. Every
 // period is just "sum the most recent N complete days".
 
-export type Period = '1d' | '7d' | '30d' | '1y' | 'all';
+export type Period = '1d' | '7d' | '30d' | '1y' | 'all' | 'custom';
 
-const PERIOD_DAYS: Record<Period, number> = {
+const PERIOD_DAYS: Record<Exclude<Period, 'custom'>, number> = {
   '1d': 1,
   '7d': 7,
   '30d': 30,
@@ -42,8 +42,23 @@ export interface Rollup {
 
 export function rollup(blob: StatsBlob, period: Period): Rollup {
   const dates = Object.keys(blob.days).sort(); // ascending
+  if (period === 'custom') return build(blob, dates, 'custom'); // full range fallback
   const n = PERIOD_DAYS[period];
   const chosen = Number.isFinite(n) ? dates.slice(-n) : dates;
+  return build(blob, chosen, period);
+}
+
+/** Rollup over an inclusive [from, to] UTC-date window (YYYY-MM-DD strings). */
+export function rollupRange(blob: StatsBlob, from: string, to: string): Rollup {
+  const [lo, hi] = from <= to ? [from, to] : [to, from];
+  const chosen = Object.keys(blob.days)
+    .sort()
+    .filter((d) => d >= lo && d <= hi); // date strings sort chronologically
+  return build(blob, chosen, 'custom');
+}
+
+function build(blob: StatsBlob, chosen: string[], period: Period): Rollup {
+  const dates = Object.keys(blob.days);
 
   let derivUsd = 0;
   let spotUsd = 0;
