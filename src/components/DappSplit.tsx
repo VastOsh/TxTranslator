@@ -90,7 +90,7 @@ export default function DappSplit({
       </div>
 
       <div style={{ fontSize: '0.64rem', color: 'rgba(236,239,245,0.45)', lineHeight: 1.5, marginTop: '0.7rem' }}>
-        Share of order-book taker volume by the fee recipient set on each order. Direct / API is flow with no front-end tag (market makers, bots). Unverified wallets are large relayers we have not yet identified.
+        Share of order-book taker volume by the fee recipient set on each order. Direct / API is flow with no front-end tag. Unverified wallets are large automated market-maker operations (authz bots, some running their own price relayers) not tied to a public dApp.
         {partial && ` Covers ${coverage.daysWithData} of ${daysCounted} days in range (${fmtUsd(coverage.volumeUsd)} attributed).`}
       </div>
     </div>

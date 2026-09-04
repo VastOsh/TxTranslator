@@ -24,6 +24,10 @@ const KNOWN: Record<string, { name: string; color: string }> = {
   // market (240+), which matches Helix being the primary Injective order-book
   // front-end. High confidence.
   inj1tnf9wk2yuu32xj4unhkh8d3nflacnhq8n0u7kp: { name: 'Helix', color: '#35C9BE' },
+  // Confirmed from real txs: both tag orders with their own contract, whose
+  // on-chain wasm label names them ("Choice DEX Aggregator v2.0" / "Mito Master 1").
+  inj1520rsss9aykhkfmuf89nh5hp2jww770z4u3eu0: { name: 'Choice', color: '#9B8CFF' },
+  inj1vcqkkvqs7prqu70dpddfj7kqeqfdz5gg662qs3: { name: 'Mito', color: '#F0B24A' },
 };
 
 // Unset / default fee recipient: orders with no front-end tag. These are direct
