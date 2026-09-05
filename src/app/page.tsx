@@ -5,6 +5,9 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Lenis from 'lenis';
 import Ferrofluid from '@/components/Ferrofluid';
+import Changelog from '@/components/Changelog';
+import { CURRENT_VERSION } from '@/data/changelog';
+import { NEWS, type NewsItem } from '@/data/news';
 
 // Official Injective symbol path (viewBox 308.5 308.699 617 617).
 const INJ_PATH =
@@ -116,6 +119,32 @@ function ToolCard({ c }: { c: CardDef }) {
   );
 }
 
+function NewsCard({ n }: { n: NewsItem }) {
+  const inner = (
+    <>
+      <div className="rz-news-top">
+        <span className="rz-news-kind">{n.kind}</span>
+        <span className="rz-news-date">{n.date}</span>
+      </div>
+      <h3 className="rz-news-title">{n.title}</h3>
+      <p className="rz-news-blurb">{n.blurb}</p>
+      {n.angle && (
+        <div className="rz-news-angle">
+          <span className="rz-news-angle-tag">Angle</span>
+          <span>{n.angle}</span>
+        </div>
+      )}
+      <span className="rz-news-go">{n.cta ?? 'Open lens'} →</span>
+    </>
+  );
+  const style = { ['--cc' as string]: n.accent } as React.CSSProperties;
+  return n.external ? (
+    <a className="rz-news-card" style={style} href={n.href} target="_blank" rel="noopener noreferrer">{inner}</a>
+  ) : (
+    <Link className="rz-news-card" style={style} href={n.href}>{inner}</Link>
+  );
+}
+
 function RenzuGlyph({ size = 26 }: { size?: number }) {
   return (
     <svg className="rz-glyph" width={size} height={size} viewBox="0 0 32 32" fill="none" aria-hidden="true">
@@ -141,6 +170,7 @@ export default function RenzuHub() {
   const [q, setQ] = useState('');
   const [fluidPaused, setFluidPaused] = useState(false);
   const [summary, setSummary] = useState<Summary | null>(null);
+  const [changelogOpen, setChangelogOpen] = useState(false);
 
   const det = detect(q);
   const rc = det ? det.color : 'var(--accent)';
@@ -305,8 +335,10 @@ export default function RenzuHub() {
           <Link href="/" className="rz-brand"><RenzuGlyph /> Renzu</Link>
           <nav className="rz-nav-links">
             <a href="#lenses">Lenses</a>
-            <a href="#detect">Detect</a>
-            <a href="#markets">Volume</a>
+            <a href="#news">News</a>
+            <button type="button" className="rz-nav-whatsnew" onClick={() => setChangelogOpen(true)}>
+              What&apos;s new <span className="rz-nav-ver">{CURRENT_VERSION}</span>
+            </button>
             <a href="#" className="rz-nav-cta"><span className="rz-dot" />renzu.xyz</a>
           </nav>
         </div>
@@ -425,7 +457,19 @@ export default function RenzuHub() {
             </div>
           </section>
         ))}
+
+        <section className="rz-news rz-reveal" id="news" style={{ ['--cc' as string]: 'var(--teal)' } as React.CSSProperties}>
+          <div className="rz-cat-head">
+            <span className="rz-cat-tag">News</span>
+            <span className="rz-cat-desc">What&apos;s new on Renzu, and what&apos;s worth sharing.</span>
+          </div>
+          <div className="rz-news-grid">
+            {NEWS.map((n) => <NewsCard key={n.id} n={n} />)}
+          </div>
+        </section>
       </main>
+
+      {changelogOpen && <Changelog onClose={() => setChangelogOpen(false)} />}
 
       <footer className="rz-footer">
         <div className="rz-wrap rz-foot-in">
