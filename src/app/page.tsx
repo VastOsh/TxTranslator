@@ -294,6 +294,13 @@ export default function RenzuHub() {
     };
   }, []);
 
+  // While the changelog modal is open, hand the pointer back to the native cursor
+  // (the modal overlay sits above the custom lens cursor) and stop the hub's
+  // hover-hotspot styling from forcing cursor:none over it.
+  useEffect(() => {
+    rootRef.current?.classList.toggle('rz-modal-open', changelogOpen);
+  }, [changelogOpen]);
+
   // Pause the hero fluid when it scrolls out of view or for reduced-motion.
   useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion:reduce)').matches) { setFluidPaused(true); return; }

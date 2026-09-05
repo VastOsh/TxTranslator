@@ -34,6 +34,7 @@ export default function Changelog({ onClose }: Props) {
       role="dialog"
       aria-modal="true"
       aria-label="Changelog"
+      data-lenis-prevent
     >
       <div className="tx-cl-panel" ref={panelRef}>
         {/* Header */}

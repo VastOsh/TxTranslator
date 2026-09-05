@@ -102,6 +102,16 @@ html.lenis, html.lenis body { height: auto; }
 .rz-cursor svg { display: block; }
 @media (hover:none),(pointer:coarse) { .rz-cursor { display: none; } }
 
+/* Modal open (e.g. changelog): hide the custom lens cursor and restore the
+   native pointer, since the overlay sits above the custom cursor's layer. */
+.renzu.rz-modal-open .rz-cursor { display: none; }
+@media (pointer:fine) {
+  .renzu.rz-modal-open.rz-cursoron,
+  .renzu.rz-modal-open.rz-cursoron * { cursor: auto; }
+  .renzu.rz-modal-open.rz-cursoron a,
+  .renzu.rz-modal-open.rz-cursoron button { cursor: pointer; }
+}
+
 /* scroll progress */
 .rz-progress { position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 80;
   transform-origin: 0 50%; transform: scaleX(0);
