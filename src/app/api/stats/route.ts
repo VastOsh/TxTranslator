@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { unstable_cache } from 'next/cache';
 import { readStats } from '@/lib/stats/store';
-import { rollup, rollupRange, fetchLlamaComparison, type Period, type Rollup } from '@/lib/stats/rollup';
+import { rollup, rollupRange, type Period, type Rollup } from '@/lib/stats/rollup';
 import { fetchBurnSummary } from '@/lib/stats/burn';
 
 // Public read model for the /stats page. Everything is served from stored daily
-// aggregates (no chain re-scan), plus the live burn summary and the DeFiLlama
-// comparison. Cached 10 min — the underlying data only changes once a day.
+// aggregates (no chain re-scan), plus the live burn summary. Cached 10 min — the
+// underlying data only changes once a day.
 export const maxDuration = 30;
 
 const PERIODS: Period[] = ['1d', '7d', '30d', '1y', 'all'];
@@ -16,10 +16,9 @@ const TOP_MARKETS = 50;
 // as the cache argument gives every window its own cache entry.
 const buildStats = unstable_cache(
   async (sel: string) => {
-    const [blob, burn, defillama] = await Promise.all([
+    const [blob, burn] = await Promise.all([
       readStats(),
       fetchBurnSummary(),
-      fetchLlamaComparison(),
     ]);
 
     let r: Rollup;
@@ -29,11 +28,6 @@ const buildStats = unstable_cache(
     } else {
       r = rollup(blob, sel as Period);
     }
-
-    // Fixed bases for the DeFiLlama gap panel — always valid regardless of the
-    // timeframe the user is viewing.
-    const own7d = rollup(blob, '7d').totals.volumeUsd;
-    const ownAll = rollup(blob, 'all').totals.volumeUsd;
 
     // Full stored span, so the UI can bound a custom range to real data.
     const dates = Object.keys(blob.days).sort();
@@ -64,16 +58,9 @@ const buildStats = unstable_cache(
         cumulativeInj: burn.cumulativeInj,
         roundsCovered: burn.roundsCovered,
       },
-      defillama,
-      compare: {
-        own7d,
-        ownAll,
-        llamaSpot7d: defillama.spot7d,
-        llamaSpotAll: defillama.spotAllTime,
-      },
     };
   },
-  ['stats-api-v4'], // bumped: dApp buckets now merged/labeled + per-day dApp series
+  ['stats-api-v5'], // bumped: removed DeFiLlama comparison from the response shape
   { revalidate: 600 },
 );
 

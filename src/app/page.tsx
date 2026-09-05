@@ -34,6 +34,22 @@ const EXAMPLES = [
   { label: 'token', value: 'INJ' },
 ];
 
+type Summary = { vol7d: number | null; injSupply: number | null };
+
+function fmtUsdCompact(n: number | null | undefined): string {
+  if (n == null) return '—';
+  const a = Math.abs(n);
+  if (a >= 1e9) return `$${(n / 1e9).toFixed(2)}B`;
+  if (a >= 1e6) return `$${Math.round(n / 1e6)}M`;
+  if (a >= 1e3) return `$${(n / 1e3).toFixed(0)}K`;
+  return `$${Math.round(n)}`;
+}
+
+function fmtSupply(n: number | null | undefined): string {
+  if (n == null) return '—';
+  return `${(n / 1e6).toFixed(2)}M INJ`;
+}
+
 type CardDef = { href: string; external?: boolean; name: string; chip: string; desc: string; stat: string };
 type CatDef = { id: string; tag: string; desc: string; color: string; cards: CardDef[] };
 
@@ -55,7 +71,7 @@ const CATS: CatDef[] = [
   {
     id: 'markets', tag: 'Markets', desc: 'Real numbers, reconstructed from the chain.', color: 'var(--amber)',
     cards: [
-      { href: '/stats', name: 'Volume', chip: 'on-chain', desc: 'Spot and perp volume rebuilt trade by trade, plus the INJ burn auction. Daily, weekly, monthly, all time.', stat: '$457M / 7d verified' },
+      { href: '/stats', name: 'Volume', chip: 'on-chain', desc: 'Spot and perp volume rebuilt trade by trade, plus the INJ burn auction. Daily, weekly, monthly, all time.', stat: 'spot · perp · INJ burn' },
       { href: 'https://x.com/TxTranslator', external: true, name: 'Whale Feed', chip: 'live · on X', desc: 'Large trades and transfers the moment they settle, streamed and auto-posted to X.', stat: 'thresholded · real time' },
     ],
   },
@@ -124,9 +140,23 @@ export default function RenzuHub() {
   const heroRef = useRef<HTMLElement>(null);
   const [q, setQ] = useState('');
   const [fluidPaused, setFluidPaused] = useState(false);
+  const [summary, setSummary] = useState<Summary | null>(null);
 
   const det = detect(q);
   const rc = det ? det.color : 'var(--accent)';
+
+  // Live headline numbers (7d verified volume, INJ supply). Fails soft.
+  useEffect(() => {
+    let alive = true;
+    fetch('/api/summary')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (alive && d && !d.error) setSummary({ vol7d: d.vol7d ?? null, injSupply: d.injSupply ?? null }); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
+  const vol7d = summary?.vol7d ?? null;
+  const vol7dLabel = vol7d != null ? `${fmtUsdCompact(vol7d)} / 7d verified` : null;
 
   function go() {
     const d = detect(q);
@@ -364,8 +394,12 @@ export default function RenzuHub() {
         <div className="rz-wrap">
           <div className="rz-proof">
             <div>
-              <div className="rz-n rz-teal">$457M</div>
-              <div className="rz-k">verified spot and perp volume over 7 days, <b>more than DeFiLlama can see</b></div>
+              <div className="rz-n rz-teal">{vol7d != null ? fmtUsdCompact(vol7d) : '···'}</div>
+              <div className="rz-k">verified spot and perp volume over 7 days, rebuilt trade by trade</div>
+            </div>
+            <div>
+              <div className="rz-n">{summary ? fmtSupply(summary.injSupply) : '···'}</div>
+              <div className="rz-k">live INJ total supply. <b>No fixed max cap</b>, it moves with staking inflation and the weekly burn</div>
             </div>
             <div>
               <div className="rz-n">9 lenses</div>
@@ -387,7 +421,7 @@ export default function RenzuHub() {
               <span className="rz-cat-desc">{cat.desc}</span>
             </div>
             <div className="rz-cards">
-              {cat.cards.map((c) => <ToolCard key={c.name} c={c} />)}
+              {cat.cards.map((c) => <ToolCard key={c.name} c={c.href === '/stats' && vol7dLabel ? { ...c, stat: vol7dLabel } : c} />)}
             </div>
           </section>
         ))}

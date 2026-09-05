@@ -204,7 +204,7 @@ html.lenis, html.lenis body { height: auto; }
 }
 
 /* ── proof strip ── */
-.rz-proof { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line-soft);
+.rz-proof { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--line-soft);
   border: 1px solid var(--line-soft); border-radius: 12px; overflow: hidden; margin: 6px 0 10px; }
 .rz-proof > div { background: var(--bg-2); padding: 18px 22px; }
 .rz-proof .rz-n { font-family: var(--ff-display); font-weight: 700; font-size: 1.65rem; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
@@ -212,7 +212,8 @@ html.lenis, html.lenis body { height: auto; }
 .rz-proof .rz-n.rz-amber { color: var(--amber); }
 .rz-proof .rz-k { color: var(--dim); font-size: 13px; margin-top: 2px; }
 .rz-proof .rz-k b { color: var(--good); font-weight: 600; }
-@media (max-width:640px) { .rz-proof { grid-template-columns: 1fr; } }
+@media (max-width:900px) { .rz-proof { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width:520px) { .rz-proof { grid-template-columns: 1fr; } }
 
 /* ── sections / cards ── */
 .rz-main { padding: 24px 0 20px; }

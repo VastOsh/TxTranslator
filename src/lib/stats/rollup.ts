@@ -195,33 +195,3 @@ function build(blob: StatsBlob, chosen: string[], period: Period): Rollup {
     updatedAt: blob.updatedAt,
   };
 }
-
-// ── DeFiLlama comparison ────────────────────────────────────────────────────
-// The whole point of the tracker: DeFiLlama's free API exposes only Helix's
-// SPOT adapter (perps are paywalled), and even that captures a tiny fraction of
-// real on-chain activity. We surface their number next to ours, honestly.
-
-export interface LlamaComparison {
-  spot7d: number | null;
-  spotAllTime: number | null;
-  note: string;
-}
-
-export async function fetchLlamaComparison(): Promise<LlamaComparison> {
-  const note =
-    'DeFiLlama free API exposes only Helix spot volume; perps (~99% of Helix) are paywalled.';
-  try {
-    const res = await fetch('https://api.llama.fi/summary/dexs/helix?dataType=dailyVolume', {
-      signal: AbortSignal.timeout(8000),
-    });
-    if (!res.ok) return { spot7d: null, spotAllTime: null, note };
-    const d = await res.json();
-    return {
-      spot7d: typeof d.total7d === 'number' ? d.total7d : null,
-      spotAllTime: typeof d.totalAllTime === 'number' ? d.totalAllTime : null,
-      note,
-    };
-  } catch {
-    return { spot7d: null, spotAllTime: null, note };
-  }
-}

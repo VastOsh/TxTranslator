@@ -38,8 +38,6 @@ interface StatsResp {
     latestRound: number | null; latestInj: number | null; latestUsd: number | null;
     cumulativeInj: number; roundsCovered: number;
   };
-  defillama: { spot7d: number | null; spotAllTime: number | null; note: string };
-  compare: { own7d: number; ownAll: number; llamaSpot7d: number | null; llamaSpotAll: number | null };
 }
 
 const AMBER = '#f0a020';
@@ -148,7 +146,7 @@ export default function StatsPage() {
 
       <section className="tx-hero" style={{ marginBottom: '1.5rem' }}>
         <h1 className="tx-headline">Injective <span>volume</span></h1>
-        <p className="tx-subline">Real spot + perp volume, reconstructed trade-by-trade from the chain, the numbers DeFiLlama misses.</p>
+        <p className="tx-subline">Real spot and perp volume, reconstructed trade by trade from the chain, including the perps most trackers leave out.</p>
       </section>
 
       {/* Timeframe toggle */}
@@ -212,28 +210,6 @@ export default function StatsPage() {
           <VolumeChart data={data.series} dappSeries={data.dappSeries} dappNames={data.dappNames} />
 
           <DappSplit dapps={data.dapps} coverage={data.dappCoverage} daysCounted={data.coverage.daysCounted} />
-
-          {/* DeFiLlama gap panel */}
-          <div className="tx-pnl-card" style={{ padding: '1rem 1.2rem' }}>
-            <div className="tx-pnl-head-title" style={{ marginBottom: '0.7rem' }}>The DeFiLlama gap</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.2rem' }}>
-              <div>
-                <div style={{ fontSize: '0.64rem', textTransform: 'uppercase', color: 'rgba(244,241,233,0.5)' }}>On-chain 7D (this tracker)</div>
-                <div style={{ fontSize: '1.15rem', fontWeight: 700, color: AMBER }}>{fmtUsd(data.compare.own7d)}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: '0.64rem', textTransform: 'uppercase', color: 'rgba(244,241,233,0.5)' }}>DeFiLlama 7D (spot only)</div>
-                <div style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--tx-red)' }}>{fmtUsd(data.compare.llamaSpot7d)}</div>
-              </div>
-              {data.compare.llamaSpot7d ? (
-                <div>
-                  <div style={{ fontSize: '0.64rem', textTransform: 'uppercase', color: 'rgba(244,241,233,0.5)' }}>Undercount</div>
-                  <div style={{ fontSize: '1.15rem', fontWeight: 700 }}>{data.compare.own7d && data.compare.llamaSpot7d ? `${Math.round(data.compare.own7d / data.compare.llamaSpot7d)}×` : '—'}</div>
-                </div>
-              ) : null}
-            </div>
-            <div style={{ fontSize: '0.68rem', color: 'rgba(244,241,233,0.55)', marginTop: '0.7rem', lineHeight: 1.5 }}>{data.defillama.note}</div>
-          </div>
 
           {/* Per-market table */}
           <div className="tx-pnl-card" style={{ padding: '0.4rem 0' }}>
