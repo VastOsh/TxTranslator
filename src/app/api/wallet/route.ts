@@ -1,24 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ACTION_LABELS, MESSAGE_TYPE_PROTOCOLS } from '@/constants/contracts';
 import { HELIX_ROUTER_CONTRACTS } from '@/constants/markets';
+import { INDEXER_BASE, fetchJsonOverHttps } from '@/lib/injective';
 
-const INDEXER_BASE = 'https://sentry.exchange.grpc-web.injective.network';
 const ADDR_RE = /^inj1[a-z0-9]{38}$/;
 
+// fetchJsonOverHttps fails over between the two indexer mirror hosts, so a 504
+// on one host no longer surfaces as "Could not reach Injective indexer".
 async function fetchIndexer(url: string): Promise<any> {
-  try {
-    const res = await fetch(url, {
-      headers: {
-        Accept: 'application/json',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-      },
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (!res.ok) return null;
-    return await res.json();
-  } catch {
-    return null;
-  }
+  const res = await fetchJsonOverHttps(url);
+  if (!res || res.status < 200 || res.status >= 300) return null;
+  return res.body;
 }
 
 function detectProtocol(messages: Array<{ type: string; value: any }>): string | null {
