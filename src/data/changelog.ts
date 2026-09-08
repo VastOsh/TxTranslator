@@ -37,6 +37,10 @@ export const CHANGELOG: ChangelogVersion[] = [
       },
       {
         type: 'feature',
+        text: 'The hub has a live News section. It surfaces the latest from across Injective rather than from Renzu itself: recent posts from the official Injective blog alongside live on-chain governance, the newest proposals and any scheduled chain upgrade, each linking straight to the source. It refreshes on its own and falls back gracefully when a source is briefly unreachable, so the front page reflects what is actually happening on the chain. Renzu\'s own updates stay here in the changelog.',
+      },
+      {
+        type: 'feature',
         text: 'TxTranslator is now Renzu, an Injective intelligence hub. What began as a single transaction decoder has grown into a set of tools, so it gets a home that reflects that. The new front door leads with one universal bar: paste anything on-chain and Renzu reads it, sending a transaction hash to the decoder, an address to Wallet Intelligence, and a token or denom to the safety check. Below it, every tool is grouped as a lens on the chain, understand, detect, markets and ecosystem. The idea behind the name is a lens (renzu is Japanese for lens): each tool brings one part of Injective into focus. The transaction decoder keeps its TxTranslator name and lives at /tx, and the whale feed keeps posting to X as before. Nothing was removed, everything moved under one roof.',
       },
     ],

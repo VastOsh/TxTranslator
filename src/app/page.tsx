@@ -7,7 +7,18 @@ import Lenis from 'lenis';
 import Ferrofluid from '@/components/Ferrofluid';
 import Changelog from '@/components/Changelog';
 import { CURRENT_VERSION } from '@/data/changelog';
-import { NEWS, type NewsItem } from '@/data/news';
+
+interface InjNewsItem {
+  id: string;
+  kind: 'Blog' | 'Governance' | 'Upgrade';
+  accent: string;
+  date: string;
+  title: string;
+  blurb: string;
+  href: string;
+  external: boolean;
+  cta: string;
+}
 
 // Official Injective symbol path (viewBox 308.5 308.699 617 617).
 const INJ_PATH =
@@ -119,29 +130,18 @@ function ToolCard({ c }: { c: CardDef }) {
   );
 }
 
-function NewsCard({ n }: { n: NewsItem }) {
-  const inner = (
-    <>
+function InjNewsCard({ n }: { n: InjNewsItem }) {
+  const style = { ['--cc' as string]: n.accent } as React.CSSProperties;
+  return (
+    <a className="rz-news-card" style={style} href={n.href} target="_blank" rel="noopener noreferrer">
       <div className="rz-news-top">
         <span className="rz-news-kind">{n.kind}</span>
         <span className="rz-news-date">{n.date}</span>
       </div>
       <h3 className="rz-news-title">{n.title}</h3>
-      <p className="rz-news-blurb">{n.blurb}</p>
-      {n.angle && (
-        <div className="rz-news-angle">
-          <span className="rz-news-angle-tag">Angle</span>
-          <span>{n.angle}</span>
-        </div>
-      )}
-      <span className="rz-news-go">{n.cta ?? 'Open lens'} →</span>
-    </>
-  );
-  const style = { ['--cc' as string]: n.accent } as React.CSSProperties;
-  return n.external ? (
-    <a className="rz-news-card" style={style} href={n.href} target="_blank" rel="noopener noreferrer">{inner}</a>
-  ) : (
-    <Link className="rz-news-card" style={style} href={n.href}>{inner}</Link>
+      {n.blurb && <p className="rz-news-blurb">{n.blurb}</p>}
+      <span className="rz-news-go">{n.cta} →</span>
+    </a>
   );
 }
 
@@ -171,6 +171,8 @@ export default function RenzuHub() {
   const [fluidPaused, setFluidPaused] = useState(false);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [changelogOpen, setChangelogOpen] = useState(false);
+  const [news, setNews] = useState<InjNewsItem[]>([]);
+  const [newsLoaded, setNewsLoaded] = useState(false);
 
   const det = detect(q);
   const rc = det ? det.color : 'var(--accent)';
@@ -182,6 +184,17 @@ export default function RenzuHub() {
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => { if (alive && d && !d.error) setSummary({ vol7d: d.vol7d ?? null, injSupply: d.injSupply ?? null }); })
       .catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
+  // Live Injective ecosystem news (blog + on-chain governance). Fails soft.
+  useEffect(() => {
+    let alive = true;
+    fetch('/api/inj-news')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (alive) setNews(Array.isArray(d?.items) ? d.items : []); })
+      .catch(() => {})
+      .finally(() => { if (alive) setNewsLoaded(true); });
     return () => { alive = false; };
   }, []);
 
@@ -468,11 +481,21 @@ export default function RenzuHub() {
         <section className="rz-news rz-reveal" id="news" style={{ ['--cc' as string]: 'var(--teal)' } as React.CSSProperties}>
           <div className="rz-cat-head">
             <span className="rz-cat-tag">News</span>
-            <span className="rz-cat-desc">What&apos;s new on Renzu, and what&apos;s worth sharing.</span>
+            <span className="rz-cat-desc">Latest from across Injective, straight from the chain and the blog.</span>
           </div>
-          <div className="rz-news-grid">
-            {NEWS.map((n) => <NewsCard key={n.id} n={n} />)}
-          </div>
+          {news.length > 0 ? (
+            <div className="rz-news-grid">
+              {news.map((n) => <InjNewsCard key={n.id} n={n} />)}
+            </div>
+          ) : (
+            <p className="rz-news-empty">
+              {newsLoaded ? (
+                <>Couldn&apos;t reach the news feed right now. <a href="https://injective.com/blog" target="_blank" rel="noopener noreferrer">Read the Injective blog</a> or <a href="https://hub.injective.network/governance" target="_blank" rel="noopener noreferrer">browse governance</a>.</>
+              ) : (
+                'Loading the latest from Injective…'
+              )}
+            </p>
+          )}
         </section>
       </main>
 

@@ -297,6 +297,8 @@ html.lenis, html.lenis body { height: auto; }
 .rz-news-go { margin-top: auto; padding-top: 15px; font-family: var(--ff-mono); font-size: 12px; color: var(--cc);
   opacity: .82; transition: opacity .18s, transform .18s; }
 .rz-news-card:hover .rz-news-go { opacity: 1; transform: translateX(2px); }
+.rz-news-empty { color: var(--dim); font-size: 13.5px; line-height: 1.6; margin: 4px 0 0; }
+.rz-news-empty a { color: var(--teal); text-decoration: underline; text-underline-offset: 2px; }
 
 /* reveal on scroll (only enabled after mount; hero/proof never hidden) */
 .renzu.rz-anim .rz-reveal { opacity: 0; transform: translateY(20px); }
