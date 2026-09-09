@@ -77,6 +77,11 @@ function compactInj(n: number | null | undefined): string {
   if (n >= 1e3) return `${(n / 1e3).toFixed(2)}K INJ`;
   return `${Math.round(n)} INJ`;
 }
+// EVM gas price in raw INJ (e.g. 0.00000000016 INJ), matching explorer panels.
+function fmtGasInj(inj: number): string {
+  const s = inj.toFixed(12).replace(/0+$/, '').replace(/\.$/, '');
+  return `${s} INJ`;
+}
 
 function Tile({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: string }) {
   // Scale the value down for long numbers (block height, tx count) so they never
@@ -193,8 +198,8 @@ export default function StatsPage() {
             <Tile label="Supply" value={compactInj(metrics.supplyInj)} sub="dynamic, no fixed cap" />
             <Tile label="Community pool" value={compactInj(metrics.communityPoolInj)}
               sub={metrics.communityPoolUsd != null ? fmtUsd(metrics.communityPoolUsd) : undefined} />
-            <Tile label="EVM gas" value={metrics.evmGasPriceInj != null ? `${(metrics.evmGasPriceInj * 1e9).toFixed(2)} Gwei` : '—'}
-              sub={metrics.injPrice != null ? `INJ $${metrics.injPrice.toFixed(2)}` : undefined} />
+            <Tile label="EVM gas" value={metrics.evmGasPriceInj != null ? fmtGasInj(metrics.evmGasPriceInj) : '—'}
+              sub={metrics.evmGasPriceInj != null ? `${(metrics.evmGasPriceInj * 1e9).toFixed(2)} Gwei` : undefined} />
           </div>
         </section>
       )}
