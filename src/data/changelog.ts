@@ -37,6 +37,10 @@ export const CHANGELOG: ChangelogVersion[] = [
       },
       {
         type: 'feature',
+        text: 'The Volume lens gains a Key Metrics panel: INJ price, market cap, and 24h / 7d / 30d volume with the week-over-week change, all from Renzu\'s own verified reconstruction. The market cap is the honest one, price times the live circulating supply (about 122.8M INJ), not the stale 100M figure most trackers still use, so it reads correctly rather than a fifth too low. Because INJ carries no locked overhang and no fixed max, fully diluted value equals market cap. It is deliberately built without the DeFi-wide rows other dashboards show (total value locked, bridged, stablecoin cap) that can only be estimated: the lens shows numbers it can stand behind.',
+      },
+      {
+        type: 'feature',
         text: 'The Volume lens now leads with a live Onchain Metrics panel, the same figures an explorer like Mintscan shows, computed straight from the chain: block height and real measured block time, lifetime transaction count and transactions per block, staking APR, inflation, the bonded ratio, total INJ supply, the community pool with its dollar value, and the native EVM average gas price. Every number is read live from Injective (the LCD, the explorer index and the EVM RPC) and refreshes on its own. The staking APR matches the Hub because it applies the same block-time correction most people miss: Injective mints per block against a blocks-per-year that assumes faster blocks than the chain actually runs, so the naive formula overstates the yield.',
       },
       {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, type CSSProperties } from 'react';
+import { useState, useEffect, useCallback, type CSSProperties, type ReactNode } from 'react';
 import LensCrumb from '@/components/LensCrumb';
 import LensCursor from '@/components/LensCursor';
 import LensAurora from '@/components/LensAurora';
@@ -10,6 +10,7 @@ import VolumeChart, { type DayPoint, type DappDayPoint } from '@/components/Volu
 import DappSplit, { type DappRow } from '@/components/DappSplit';
 import { CURRENT_VERSION } from '@/data/changelog';
 import type { ChainMetrics } from '@/lib/stats/chain';
+import type { KeyMetrics } from '@/lib/stats/keymetrics';
 
 type Period = '1d' | '7d' | '30d' | '1y' | 'all' | 'custom';
 const PERIODS: Array<{ id: Period; label: string }> = [
@@ -82,8 +83,19 @@ function fmtGasInj(inj: number): string {
   const s = inj.toFixed(12).replace(/0+$/, '').replace(/\.$/, '');
   return `${s} INJ`;
 }
+function fmtPrice(n: number | null | undefined): string {
+  return n == null ? '—' : `$${n.toFixed(2)}`;
+}
+const GREEN = '#0ee29b';
+const RED = '#f64772';
+// Coloured signed-percent change (fraction in → "+12.3%" green / "-4.5%" red).
+function changeEl(frac: number | null | undefined): ReactNode {
+  if (frac == null) return undefined;
+  const pctStr = `${frac >= 0 ? '+' : ''}${(frac * 100).toFixed(1)}%`;
+  return <span style={{ color: frac >= 0 ? GREEN : RED, fontWeight: 700 }}>{pctStr}</span>;
+}
 
-function Tile({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: string }) {
+function Tile({ label, value, sub, accent }: { label: string; value: string; sub?: ReactNode; accent?: string }) {
   // Scale the value down for long numbers (block height, tx count) so they never
   // clip against the tile edge; short values (%, prices) keep the full size.
   const valueFont = value.length > 12 ? '1.05rem' : value.length > 9 ? '1.2rem' : '1.5rem';
@@ -106,6 +118,7 @@ export default function StatsPage() {
   const [cFrom, setCFrom] = useState('');
   const [cTo, setCTo] = useState('');
   const [metrics, setMetrics] = useState<ChainMetrics | null>(null);
+  const [summary, setSummary] = useState<{ injPrice: number | null; marketCap: number | null; keyMetrics: KeyMetrics | null } | null>(null);
 
   // Live onchain metrics (block height, tx count, inflation, staking APR, bonded,
   // community pool, EVM gas). Independent of the volume window. Fails soft.
@@ -114,6 +127,17 @@ export default function StatsPage() {
     fetch('/api/chain-metrics')
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => { if (alive && d && !d.error) setMetrics(d as ChainMetrics); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
+  // Window-independent key metrics (INJ price / market cap, 24h/7d/30d volume +
+  // weekly change). Fails soft.
+  useEffect(() => {
+    let alive = true;
+    fetch('/api/summary')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (alive && d && !d.error) setSummary({ injPrice: d.injPrice ?? null, marketCap: d.marketCap ?? null, keyMetrics: d.keyMetrics ?? null }); })
       .catch(() => {});
     return () => { alive = false; };
   }, []);
@@ -179,6 +203,28 @@ export default function StatsPage() {
         <h1 className="tx-headline">Injective <span>volume</span></h1>
         <p className="tx-subline">Real spot and perp volume, reconstructed trade by trade from the chain, including the perps most trackers leave out.</p>
       </section>
+
+      {/* Key metrics — accurate volume + INJ market data, independent of the window */}
+      {summary?.keyMetrics && (
+        <section style={{ width: '100%', maxWidth: 820, marginBottom: '1.75rem' }}>
+          <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--tx-text-muted)', fontWeight: 700, marginBottom: '0.6rem' }}>
+            Key metrics
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
+            <Tile label="INJ price" value={fmtPrice(summary.injPrice)} />
+            <Tile label="INJ market cap" value={fmtUsd(summary.marketCap)} accent="var(--tx-purple)"
+              sub="FDV equal, no max supply" />
+            <Tile label="Volume 24h" value={fmtUsd(summary.keyMetrics.vol24h)} accent={AMBER} sub="spot + perp" />
+            <Tile label="Volume 7d" value={fmtUsd(summary.keyMetrics.vol7d)}
+              sub={summary.keyMetrics.weeklyChange != null ? <>{changeEl(summary.keyMetrics.weeklyChange)} vs prior 7d</> : undefined} />
+            <Tile label="Volume 30d" value={fmtUsd(summary.keyMetrics.vol30d)} />
+            <Tile label="Perps 24h" value={fmtUsd(summary.keyMetrics.deriv24h)}
+              sub={summary.keyMetrics.vol24h ? `${((summary.keyMetrics.deriv24h / summary.keyMetrics.vol24h) * 100).toFixed(0)}% of volume` : undefined} />
+            <Tile label="Spot 24h" value={fmtUsd(summary.keyMetrics.spot24h)}
+              sub={summary.keyMetrics.vol24h ? `${((summary.keyMetrics.spot24h / summary.keyMetrics.vol24h) * 100).toFixed(0)}% of volume` : undefined} />
+          </div>
+        </section>
+      )}
 
       {/* Onchain metrics — live from the chain, independent of the volume window */}
       {metrics && (
