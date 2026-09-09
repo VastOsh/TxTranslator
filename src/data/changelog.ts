@@ -37,6 +37,10 @@ export const CHANGELOG: ChangelogVersion[] = [
       },
       {
         type: 'feature',
+        text: 'The Volume lens now leads with a live Onchain Metrics panel, the same figures an explorer like Mintscan shows, computed straight from the chain: block height and real measured block time, lifetime transaction count and transactions per block, staking APR, inflation, the bonded ratio, total INJ supply, the community pool with its dollar value, and the native EVM average gas price. Every number is read live from Injective (the LCD, the explorer index and the EVM RPC) and refreshes on its own. The staking APR matches the Hub because it applies the same block-time correction most people miss: Injective mints per block against a blocks-per-year that assumes faster blocks than the chain actually runs, so the naive formula overstates the yield.',
+      },
+      {
+        type: 'feature',
         text: 'The hub has a live News section. It surfaces the latest from across Injective rather than from Renzu itself: recent posts from the official Injective blog alongside live on-chain governance, the newest proposals and any scheduled chain upgrade, each linking straight to the source. It refreshes on its own and falls back gracefully when a source is briefly unreachable, so the front page reflects what is actually happening on the chain. Renzu\'s own updates stay here in the changelog.',
       },
       {

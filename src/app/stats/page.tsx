@@ -9,6 +9,7 @@ import Changelog from '@/components/Changelog';
 import VolumeChart, { type DayPoint, type DappDayPoint } from '@/components/VolumeChart';
 import DappSplit, { type DappRow } from '@/components/DappSplit';
 import { CURRENT_VERSION } from '@/data/changelog';
+import type { ChainMetrics } from '@/lib/stats/chain';
 
 type Period = '1d' | '7d' | '30d' | '1y' | 'all' | 'custom';
 const PERIODS: Array<{ id: Period; label: string }> = [
@@ -66,6 +67,16 @@ function fmtInj(n: number | null): string {
   if (n == null) return '—';
   return `${Math.round(n).toLocaleString('en-US')} INJ`;
 }
+function pct(x: number | null | undefined, dp = 2): string {
+  return x == null ? '—' : `${(x * 100).toFixed(dp)}%`;
+}
+// Compact INJ magnitude (122.81M / 58.17M / 20.68K), matching explorer panels.
+function compactInj(n: number | null | undefined): string {
+  if (n == null) return '—';
+  if (n >= 1e6) return `${(n / 1e6).toFixed(2)}M INJ`;
+  if (n >= 1e3) return `${(n / 1e3).toFixed(2)}K INJ`;
+  return `${Math.round(n)} INJ`;
+}
 
 function Tile({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: string }) {
   return (
@@ -86,6 +97,18 @@ export default function StatsPage() {
   const [bounds, setBounds] = useState<{ first: string; last: string } | null>(null);
   const [cFrom, setCFrom] = useState('');
   const [cTo, setCTo] = useState('');
+  const [metrics, setMetrics] = useState<ChainMetrics | null>(null);
+
+  // Live onchain metrics (block height, tx count, inflation, staking APR, bonded,
+  // community pool, EVM gas). Independent of the volume window. Fails soft.
+  useEffect(() => {
+    let alive = true;
+    fetch('/api/chain-metrics')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (alive && d && !d.error) setMetrics(d as ChainMetrics); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
 
   const load = useCallback((query: string) => {
     setLoading(true);
@@ -148,6 +171,30 @@ export default function StatsPage() {
         <h1 className="tx-headline">Injective <span>volume</span></h1>
         <p className="tx-subline">Real spot and perp volume, reconstructed trade by trade from the chain, including the perps most trackers leave out.</p>
       </section>
+
+      {/* Onchain metrics — live from the chain, independent of the volume window */}
+      {metrics && (
+        <section style={{ width: '100%', maxWidth: 820, marginBottom: '1.75rem' }}>
+          <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--tx-text-muted)', fontWeight: 700, marginBottom: '0.6rem' }}>
+            Onchain metrics
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
+            <Tile label="Block height" value={metrics.blockHeight != null ? fmtInt(metrics.blockHeight) : '—'}
+              sub={metrics.blockTimeSec != null ? `${metrics.blockTimeSec.toFixed(2)}s block time` : undefined} />
+            <Tile label="Transactions" value={metrics.totalTxs != null ? fmtInt(metrics.totalTxs) : '—'}
+              sub={metrics.txPerBlock != null ? `${metrics.txPerBlock.toFixed(2)} / block` : undefined} />
+            <Tile label="Staking APR" value={pct(metrics.stakingApr)} accent={AMBER}
+              sub={metrics.inflation != null ? `${pct(metrics.inflation)} inflation` : undefined} />
+            <Tile label="Bonded" value={pct(metrics.bondedRatio, 1)} accent="var(--tx-purple)"
+              sub={compactInj(metrics.bondedInj)} />
+            <Tile label="Supply" value={compactInj(metrics.supplyInj)} sub="dynamic, no fixed cap" />
+            <Tile label="Community pool" value={compactInj(metrics.communityPoolInj)}
+              sub={metrics.communityPoolUsd != null ? fmtUsd(metrics.communityPoolUsd) : undefined} />
+            <Tile label="EVM gas" value={metrics.evmGasPriceInj != null ? `${(metrics.evmGasPriceInj * 1e9).toFixed(2)} Gwei` : '—'}
+              sub={metrics.injPrice != null ? `INJ $${metrics.injPrice.toFixed(2)}` : undefined} />
+          </div>
+        </section>
+      )}
 
       {/* Timeframe toggle */}
       <div style={{ width: '100%', maxWidth: 820, display: 'flex', gap: '0.4rem', marginBottom: period === 'custom' ? '0.6rem' : '1.25rem', flexWrap: 'wrap' }}>
