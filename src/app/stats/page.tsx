@@ -11,6 +11,7 @@ import DappSplit, { type DappRow } from '@/components/DappSplit';
 import { CURRENT_VERSION } from '@/data/changelog';
 import type { ChainMetrics } from '@/lib/stats/chain';
 import type { KeyMetrics } from '@/lib/stats/keymetrics';
+import type { StablecoinStats } from '@/lib/stats/stablecoins';
 
 type Period = '1d' | '7d' | '30d' | '1y' | 'all' | 'custom';
 const PERIODS: Array<{ id: Period; label: string }> = [
@@ -118,7 +119,7 @@ export default function StatsPage() {
   const [cFrom, setCFrom] = useState('');
   const [cTo, setCTo] = useState('');
   const [metrics, setMetrics] = useState<ChainMetrics | null>(null);
-  const [summary, setSummary] = useState<{ injPrice: number | null; marketCap: number | null; keyMetrics: KeyMetrics | null } | null>(null);
+  const [summary, setSummary] = useState<{ injPrice: number | null; marketCap: number | null; keyMetrics: KeyMetrics | null; stablecoins: StablecoinStats | null } | null>(null);
 
   // Live onchain metrics (block height, tx count, inflation, staking APR, bonded,
   // community pool, EVM gas). Independent of the volume window. Fails soft.
@@ -137,7 +138,7 @@ export default function StatsPage() {
     let alive = true;
     fetch('/api/summary')
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { if (alive && d && !d.error) setSummary({ injPrice: d.injPrice ?? null, marketCap: d.marketCap ?? null, keyMetrics: d.keyMetrics ?? null }); })
+      .then((d) => { if (alive && d && !d.error) setSummary({ injPrice: d.injPrice ?? null, marketCap: d.marketCap ?? null, keyMetrics: d.keyMetrics ?? null, stablecoins: d.stablecoins ?? null }); })
       .catch(() => {});
     return () => { alive = false; };
   }, []);
@@ -214,6 +215,10 @@ export default function StatsPage() {
             <Tile label="INJ price" value={fmtPrice(summary.injPrice)} />
             <Tile label="INJ market cap" value={fmtUsd(summary.marketCap)} accent="var(--tx-purple)"
               sub="FDV equal, no max supply" />
+            {summary.stablecoins && (
+              <Tile label="Stablecoins" value={fmtUsd(summary.stablecoins.totalUsd)}
+                sub={summary.stablecoins.usdcDominance != null ? `USDC ${(summary.stablecoins.usdcDominance * 100).toFixed(0)}% dominance` : undefined} />
+            )}
             <Tile label="Volume 24h" value={fmtUsd(summary.keyMetrics.vol24h)} accent={AMBER} sub="spot + perp" />
             <Tile label="Volume 7d" value={fmtUsd(summary.keyMetrics.vol7d)}
               sub={summary.keyMetrics.weeklyChange != null ? <>{changeEl(summary.keyMetrics.weeklyChange)} vs prior 7d</> : undefined} />

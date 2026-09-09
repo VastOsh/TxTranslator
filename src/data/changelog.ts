@@ -37,7 +37,7 @@ export const CHANGELOG: ChangelogVersion[] = [
       },
       {
         type: 'feature',
-        text: 'The Volume lens gains a Key Metrics panel: INJ price, market cap, and 24h / 7d / 30d volume with the week-over-week change, all from Renzu\'s own verified reconstruction. The market cap is the honest one, price times the live circulating supply (about 122.8M INJ), not the stale 100M figure most trackers still use, so it reads correctly rather than a fifth too low. Because INJ carries no locked overhang and no fixed max, fully diluted value equals market cap. It is deliberately built without the DeFi-wide rows other dashboards show (total value locked, bridged, stablecoin cap) that can only be estimated: the lens shows numbers it can stand behind.',
+        text: 'The Volume lens gains a Key Metrics panel: INJ price, market cap, 24h / 7d / 30d volume with the week-over-week change, and the on-chain stablecoin market cap with USDC dominance, all from Renzu\'s own verified data and the chain. The market cap is the honest one, price times the live circulating supply (about 122.8M INJ), not the stale 100M figure most trackers still use, so it reads correctly rather than a fifth too low. Because INJ carries no locked overhang and no fixed max, fully diluted value equals market cap. The stablecoin figure sums the real supply of every major dollar token on Injective (USDT, native-EVM and Noble USDC, USDe) straight from the bank module, no estimate. The rows that genuinely need per-protocol adapters (total value locked, bridged TVL, RWAs) are left out rather than guessed: the lens shows numbers it can stand behind.',
       },
       {
         type: 'feature',

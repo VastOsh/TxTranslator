@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { unstable_cache } from 'next/cache';
 import { readStats } from '@/lib/stats/store';
 import { computeKeyMetrics } from '@/lib/stats/keymetrics';
+import { fetchStablecoinStats } from '@/lib/stats/stablecoins';
 import { fetchInjSupply } from '@/lib/stats/supply';
 import { fetchTokenPrices } from '@/lib/prices';
 
@@ -14,7 +15,12 @@ export const maxDuration = 15;
 
 const buildSummary = unstable_cache(
   async () => {
-    const [blob, supply, prices] = await Promise.all([readStats(), fetchInjSupply(), fetchTokenPrices()]);
+    const [blob, supply, prices, stablecoins] = await Promise.all([
+      readStats(),
+      fetchInjSupply(),
+      fetchTokenPrices(),
+      fetchStablecoinStats().catch(() => null),
+    ]);
     const km = computeKeyMetrics(blob);
     const injPrice = typeof prices.INJ === 'number' ? prices.INJ : null;
     // INJ has no locked/unvested overhang and no fixed max, so circulating ≈ total
@@ -28,9 +34,10 @@ const buildSummary = unstable_cache(
       injPrice,
       marketCap,
       keyMetrics: km,
+      stablecoins,
     };
   },
-  ['summary-api-v2'],
+  ['summary-api-v3'],
   { revalidate: 600 },
 );
 
