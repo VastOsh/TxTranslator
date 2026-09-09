@@ -79,10 +79,13 @@ function compactInj(n: number | null | undefined): string {
 }
 
 function Tile({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: string }) {
+  // Scale the value down for long numbers (block height, tx count) so they never
+  // clip against the tile edge; short values (%, prices) keep the full size.
+  const valueFont = value.length > 12 ? '1.05rem' : value.length > 9 ? '1.2rem' : '1.5rem';
   return (
     <div className="tx-pnl-card" style={{ padding: '0.9rem 1.1rem', flex: '1 1 150px', minWidth: 150 }}>
       <div style={{ fontSize: '0.64rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'rgba(244,241,233,0.5)' }}>{label}</div>
-      <div style={{ fontSize: '1.5rem', fontWeight: 700, color: accent ?? 'var(--tx-text)', marginTop: '0.25rem', lineHeight: 1.1 }}>{value}</div>
+      <div style={{ fontSize: valueFont, fontWeight: 700, color: accent ?? 'var(--tx-text)', marginTop: '0.25rem', lineHeight: 1.1, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{value}</div>
       {sub && <div style={{ fontSize: '0.7rem', color: 'rgba(244,241,233,0.55)', marginTop: '0.2rem' }}>{sub}</div>}
     </div>
   );
