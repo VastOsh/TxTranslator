@@ -31,6 +31,7 @@ export interface BridgedAssetValue {
   denom: string;
   supply: number; // human units
   usd: number;
+  stable: boolean; // $1-pegged (so a snapshot alone yields the stablecoin mcap)
 }
 
 export interface BridgedSnapshot {
@@ -60,6 +61,6 @@ export async function fetchBridgedSnapshot(prices: Record<string, number>): Prom
   return {
     totalUsd,
     stableUsd,
-    assets: values.map(({ symbol, denom, supply, usd }) => ({ symbol, denom, supply, usd })),
+    assets: values.map(({ symbol, denom, supply, usd, stable }) => ({ symbol, denom, supply, usd, stable })),
   };
 }
