@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse, after } from 'next/server';
 import { fetchDayVolume, dayBoundsUtc, utcDate } from '@/lib/stats/reconstruct';
 import { upsertDay } from '@/lib/stats/store';
+import { fetchTokenPrices } from '@/lib/prices';
+import { fetchBridgedSnapshot } from '@/lib/stats/bridged';
+import { upsertBridgedSnapshot } from '@/lib/stats/bridgedStore';
 
 // Daily ingestion: reconstruct one completed UTC day of on-chain volume and
 // store it. One day of all markets is ~200-250s of windowed indexer calls.
@@ -30,6 +33,18 @@ async function ingestDay(date: string, dry: boolean) {
   return { date, markets: rows.length, recipients: recipients.length, volumeUsd, trades, injPrice, elapsedMs: Date.now() - t0 };
 }
 
+// Snapshot today's bridged-asset value and append it to the time series. Fast
+// (a handful of bank queries), keyed to the current UTC date so the daily run
+// builds a clean day-over-day series regardless of which volume day it ingests.
+async function snapshotBridged(): Promise<{ date: string; totalUsd: number } | null> {
+  const prices = await fetchTokenPrices();
+  const snap = await fetchBridgedSnapshot(prices);
+  if (!snap) return null;
+  const date = utcDate(Date.now());
+  await upsertBridgedSnapshot(date, snap);
+  return { date, totalUsd: snap.totalUsd };
+}
+
 export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
   const dry = sp.get('dry') === '1';
@@ -45,6 +60,18 @@ export async function GET(req: NextRequest) {
       { error: 'CRON_SECRET not configured — only ?dry=1 is available' },
       { status: 403 },
     );
+  }
+
+  // Bridged-only snapshot (fast, synchronous): seed or manually refresh the
+  // bridged time series without running the heavy volume reconstruction.
+  if (sp.get('bridged') === '1') {
+    try {
+      const bridged = await snapshotBridged();
+      return NextResponse.json({ ok: true, bridged });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unexpected error.';
+      return NextResponse.json({ error: msg }, { status: 500 });
+    }
   }
 
   const date = sp.get('date') ?? utcDate(Date.now() - 24 * 3600 * 1000);
@@ -65,6 +92,12 @@ export async function GET(req: NextRequest) {
 
   // Default fire-and-forget path: return fast, keep working via after().
   after(async () => {
+    try {
+      const bridged = await snapshotBridged();
+      if (bridged) console.log('[cron/stats] bridged snapshot', JSON.stringify(bridged));
+    } catch (err) {
+      console.error('[cron/stats] bridged snapshot failed', err);
+    }
     try {
       const result = await ingestDay(date, false);
       console.log('[cron/stats] ingested', JSON.stringify(result));

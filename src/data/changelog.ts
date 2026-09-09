@@ -37,6 +37,10 @@ export const CHANGELOG: ChangelogVersion[] = [
       },
       {
         type: 'feature',
+        text: 'Bridged capital is now tracked over time. A daily job records the real on-chain supply of the major bridged assets on Injective (the stablecoins plus bridged ETH, BTC and ATOM), and the Key Metrics panel shows the total bridged value and, once two days are on record, the net 24h inflow, capital arriving on or leaving the chain, coloured green or red. It is the honest version of a number other dashboards estimate: the day-over-day change in actual on-chain supply, not a guess.',
+      },
+      {
+        type: 'feature',
         text: 'The Volume lens gains a Key Metrics panel: INJ price, market cap, 24h / 7d / 30d volume with the week-over-week change, and the on-chain stablecoin market cap with USDC dominance, all from Renzu\'s own verified data and the chain. The market cap is the honest one, price times the live circulating supply (about 122.8M INJ), not the stale 100M figure most trackers still use, so it reads correctly rather than a fifth too low. Because INJ carries no locked overhang and no fixed max, fully diluted value equals market cap. The stablecoin figure sums the real supply of every major dollar token on Injective (USDT, native-EVM and Noble USDC, USDe) straight from the bank module, no estimate. The rows that genuinely need per-protocol adapters (total value locked, bridged TVL, RWAs) are left out rather than guessed: the lens shows numbers it can stand behind.',
       },
       {

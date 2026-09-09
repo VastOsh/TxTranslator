@@ -1,4 +1,4 @@
-import { LCD_ENDPOINTS, fetchJsonOverHttps } from '../injective';
+import { bankSupplyRaw } from './supply';
 
 // ── Stablecoin market cap ────────────────────────────────────────────────────
 // Every stablecoin on Injective is a bank denom with a public total supply, so
@@ -26,24 +26,10 @@ export interface StablecoinStats {
   bySymbol: Array<{ symbol: string; usd: number }>;
 }
 
-async function supplyOf(denom: string): Promise<number | null> {
-  const enc = encodeURIComponent(denom); // erc20:/ibc denoms contain ':' and '/'
-  for (const base of LCD_ENDPOINTS) {
-    if (!base) continue;
-    const r = await fetchJsonOverHttps(`${base}/cosmos/bank/v1beta1/supply/by_denom?denom=${enc}`);
-    if (r && r.status === 200) {
-      const amt = r.body?.amount?.amount;
-      const n = amt != null ? Number(amt) : NaN;
-      if (Number.isFinite(n)) return n;
-    }
-  }
-  return null;
-}
-
 export async function fetchStablecoinStats(): Promise<StablecoinStats | null> {
   const usds = await Promise.all(
     STABLES.map(async (s) => {
-      const raw = await supplyOf(s.denom);
+      const raw = await bankSupplyRaw(s.denom);
       return raw == null ? 0 : raw / 10 ** s.decimals; // price pegged to $1
     }),
   );

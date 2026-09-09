@@ -87,6 +87,10 @@ function fmtGasInj(inj: number): string {
 function fmtPrice(n: number | null | undefined): string {
   return n == null ? '—' : `$${n.toFixed(2)}`;
 }
+function fmtUsdSigned(n: number | null | undefined): string {
+  if (n == null) return '—';
+  return `${n >= 0 ? '+' : '-'}${fmtUsd(Math.abs(n))}`;
+}
 const GREEN = '#0ee29b';
 const RED = '#f64772';
 // Coloured signed-percent change (fraction in → "+12.3%" green / "-4.5%" red).
@@ -119,7 +123,7 @@ export default function StatsPage() {
   const [cFrom, setCFrom] = useState('');
   const [cTo, setCTo] = useState('');
   const [metrics, setMetrics] = useState<ChainMetrics | null>(null);
-  const [summary, setSummary] = useState<{ injPrice: number | null; marketCap: number | null; keyMetrics: KeyMetrics | null; stablecoins: StablecoinStats | null } | null>(null);
+  const [summary, setSummary] = useState<{ injPrice: number | null; marketCap: number | null; keyMetrics: KeyMetrics | null; stablecoins: StablecoinStats | null; bridgedTvl: number | null; inflows24h: number | null } | null>(null);
 
   // Live onchain metrics (block height, tx count, inflation, staking APR, bonded,
   // community pool, EVM gas). Independent of the volume window. Fails soft.
@@ -138,7 +142,7 @@ export default function StatsPage() {
     let alive = true;
     fetch('/api/summary')
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { if (alive && d && !d.error) setSummary({ injPrice: d.injPrice ?? null, marketCap: d.marketCap ?? null, keyMetrics: d.keyMetrics ?? null, stablecoins: d.stablecoins ?? null }); })
+      .then((d) => { if (alive && d && !d.error) setSummary({ injPrice: d.injPrice ?? null, marketCap: d.marketCap ?? null, keyMetrics: d.keyMetrics ?? null, stablecoins: d.stablecoins ?? null, bridgedTvl: d.bridgedTvl ?? null, inflows24h: d.inflows24h ?? null }); })
       .catch(() => {});
     return () => { alive = false; };
   }, []);
@@ -218,6 +222,13 @@ export default function StatsPage() {
             {summary.stablecoins && (
               <Tile label="Stablecoins" value={fmtUsd(summary.stablecoins.totalUsd)}
                 sub={summary.stablecoins.usdcDominance != null ? `USDC ${(summary.stablecoins.usdcDominance * 100).toFixed(0)}% dominance` : undefined} />
+            )}
+            {summary.bridgedTvl != null && (
+              <Tile label="Bridged assets" value={fmtUsd(summary.bridgedTvl)} sub="major tracked assets" />
+            )}
+            {summary.inflows24h != null && (
+              <Tile label="Inflows 24h" value={fmtUsdSigned(summary.inflows24h)}
+                accent={summary.inflows24h >= 0 ? GREEN : RED} sub="net bridged flow" />
             )}
             <Tile label="Volume 24h" value={fmtUsd(summary.keyMetrics.vol24h)} accent={AMBER} sub="spot + perp" />
             <Tile label="Volume 7d" value={fmtUsd(summary.keyMetrics.vol7d)}

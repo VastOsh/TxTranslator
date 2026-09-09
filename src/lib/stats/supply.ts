@@ -28,3 +28,19 @@ export async function fetchInjSupply(): Promise<InjSupply> {
   }
   return { totalSupply: null, source: null };
 }
+
+// Raw on-chain total supply of any bank denom (base units, not human-scaled).
+// erc20:/ibc denoms contain ':' and '/', so the denom is URL-encoded.
+export async function bankSupplyRaw(denom: string): Promise<number | null> {
+  const enc = encodeURIComponent(denom);
+  for (const base of LCD_ENDPOINTS) {
+    if (!base) continue;
+    const r = await fetchJsonOverHttps(`${base}/cosmos/bank/v1beta1/supply/by_denom?denom=${enc}`);
+    if (r && r.status === 200) {
+      const amt = r.body?.amount?.amount;
+      const n = amt != null ? Number(amt) : NaN;
+      if (Number.isFinite(n)) return n;
+    }
+  }
+  return null;
+}
