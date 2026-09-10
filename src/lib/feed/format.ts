@@ -21,8 +21,10 @@ function fmtQty(n: number): string {
 }
 
 // Deterministic "what it means" line — the fallback when the Groq call
-// fails, stalls, or produces junk. Never blocks, never surprises.
-function fallbackContextLine(c: FeedCandidate): string {
+// fails, stalls, or produces junk. Never blocks, never surprises. Exported
+// because the /feed backfill uses it directly: filling a page in one request
+// is not worth one LLM call per historical event.
+export function fallbackContextLine(c: FeedCandidate): string {
   if (c.kind === 'liquidation') {
     if (c.pnlUsd && c.pnlUsd < 0) {
       return `${fmtUsd(Math.abs(c.pnlUsd))} gone. This is why you set a stop-loss.`;

@@ -86,7 +86,7 @@ const CATS: CatDef[] = [
     id: 'markets', tag: 'Markets', desc: 'Real numbers, reconstructed from the chain.', color: 'var(--amber)',
     cards: [
       { href: '/stats', name: 'Volume', chip: 'on-chain', desc: 'Spot and perp volume rebuilt trade by trade, plus the INJ burn auction. Daily, weekly, monthly, all time.', stat: 'spot · perp · INJ burn' },
-      { href: 'https://x.com/TxTranslator', external: true, name: 'Whale Feed', chip: 'live · on X', desc: 'Large trades and transfers the moment they settle, streamed and auto-posted to X.', stat: 'thresholded · real time' },
+      { href: '/feed', name: 'Whale Feed', chip: 'live', desc: 'Large positions, liquidations and closes the moment they settle, each one decoded and mirrored to X.', stat: 'thresholded · real time' },
     ],
   },
   {
