@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse, after } from 'next/server';
 import { fetchDayVolume, dayBoundsUtc, utcDate } from '@/lib/stats/reconstruct';
 import { upsertDay } from '@/lib/stats/store';
+import { upsertTraderDay, rebuildRollup } from '@/lib/leaderboard/store';
 import { fetchTokenPrices } from '@/lib/prices';
 import { fetchBridgedSnapshot } from '@/lib/stats/bridged';
 import { upsertBridgedSnapshot } from '@/lib/stats/bridgedStore';
@@ -26,11 +27,17 @@ export const maxDuration = 300;
 async function ingestDay(date: string, dry: boolean) {
   const { start, end } = dayBoundsUtc(date);
   const t0 = Date.now();
-  const { rows, injPrice, recipients } = await fetchDayVolume(start, end);
+  const { rows, injPrice, recipients, traders } = await fetchDayVolume(start, end);
   const volumeUsd = rows.reduce((s, r) => s + r.volumeUsd, 0);
   const trades = rows.reduce((s, r) => s + r.trades, 0);
-  if (!dry) await upsertDay(date, { rows, injPrice, recipients });
-  return { date, markets: rows.length, recipients: recipients.length, volumeUsd, trades, injPrice, elapsedMs: Date.now() - t0 };
+  if (!dry) {
+    await upsertDay(date, { rows, injPrice, recipients });
+    // Store this day's trader rows, then rebuild the 7d/30d leaderboard rollup
+    // so /api/leaderboard stays a single blob read. Piggybacks the same scan.
+    await upsertTraderDay(date, traders);
+    await rebuildRollup();
+  }
+  return { date, markets: rows.length, recipients: recipients.length, traders: traders.length, volumeUsd, trades, injPrice, elapsedMs: Date.now() - t0 };
 }
 
 // Snapshot today's bridged-asset value and append it to the time series. Fast

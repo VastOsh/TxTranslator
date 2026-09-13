@@ -46,11 +46,48 @@ export interface RecipientVolume {
   trades: number;
 }
 
+/**
+ * Per-trader perp track record for one day, keyed by raw subaccount id. Built
+ * from the SAME derivative-trade rows the volume scan already fetches, so it
+ * costs no extra indexer calls. netPnlUsd is the sum of each fill's own chain
+ * `pnl` minus `fee` (maker and taker alike, since realized PnL lands on both
+ * sides); the owner inj1 address is resolved later, at rollup time.
+ */
+export interface TraderDayRow {
+  subaccountId: string;
+  netPnlUsd: number;
+  volumeUsd: number;
+  fills: number;
+}
+
+type TraderMap = Map<string, { pnl: number; vol: number; n: number }>;
+
+function mergeTraders(into: TraderMap, from: TraderMap): void {
+  for (const [sub, e] of from) {
+    const cur = into.get(sub);
+    if (cur) {
+      cur.pnl += e.pnl;
+      cur.vol += e.vol;
+      cur.n += e.n;
+    } else {
+      into.set(sub, { pnl: e.pnl, vol: e.vol, n: e.n });
+    }
+  }
+}
+
 // Cap the per-day recipient list so the blob stays small; the long tail of
 // one-off market-maker addresses is folded into a single "other" bucket that
 // keeps the day's recipient total exact.
 const TOP_RECIPIENTS = 60;
 const OTHER_ADDR = '__other__';
+
+// Bound the stored per-day trader list: keep the day's top movers by realized
+// PnL and, unioned in, its highest-volume traders (a consistent whale can lead
+// on volume without topping the daily PnL swing). The rollup sums these days,
+// so mid-tier traders outside both caps every single day are not ranked; the
+// /leaderboard UI states this coverage plainly.
+const TOP_TRADERS_PNL = 600;
+const TOP_TRADERS_VOL = 300;
 
 type RecipMap = Map<string, { vol: number; n: number }>;
 
@@ -142,15 +179,42 @@ async function windowSum(
   end: number,
   total: number,
   qUsd: number,
-): Promise<{ vol: number; n: number; byRecip: RecipMap }> {
+): Promise<{ vol: number; n: number; byRecip: RecipMap; byTrader: TraderMap }> {
   let vol = 0;
   let n = 0;
   const byRecip: RecipMap = new Map();
+  const byTrader: TraderMap = new Map();
   for (let skip = 0; skip < total; skip += PAGE) {
     const d = await idx(
       `/api/exchange/${m.type}/v1/trades?marketId=${m.marketId}&startTime=${start}&endTime=${end}&limit=${PAGE}&skip=${skip}`,
     );
     for (const t of d?.trades ?? []) {
+      // ── Per-trader PnL (derivatives only) ──
+      // Every fill, maker or taker, carries its own realized `pnl` and `fee`;
+      // both rows of a match belong to different subaccounts, so grouping by
+      // subaccount counts each trader's fill exactly once. Synthetic RFQ rows
+      // (the contract shuffling a fill between its own subaccounts) are excluded,
+      // same as the per-address PnL engine.
+      if (
+        m.type === 'derivative' &&
+        t.tradeExecutionType !== 'synthetic' &&
+        t.positionDelta &&
+        t.subaccountId
+      ) {
+        const pd = t.positionDelta;
+        const notional = (Number(pd.executionPrice) / 10 ** m.quoteDec) * Number(pd.executionQuantity);
+        const pnl = (Number(t.pnl ?? 0) || 0) / 10 ** m.quoteDec;
+        const fee = (Number(t.fee ?? 0) || 0) / 10 ** m.quoteDec;
+        const te = byTrader.get(t.subaccountId);
+        if (te) {
+          te.pnl += pnl - fee;
+          te.vol += notional;
+          te.n++;
+        } else {
+          byTrader.set(t.subaccountId, { pnl: pnl - fee, vol: notional, n: 1 });
+        }
+      }
+
       if (t.executionSide !== 'taker') continue; // count each match once
       let dv: number;
       if (m.type === 'derivative') {
@@ -174,7 +238,7 @@ async function windowSum(
       }
     }
   }
-  return { vol, n, byRecip };
+  return { vol, n, byRecip, byTrader };
 }
 
 async function marketVolume(
@@ -182,9 +246,9 @@ async function marketVolume(
   start: number,
   end: number,
   qUsd: number,
-): Promise<{ vol: number; n: number; byRecip: RecipMap }> {
+): Promise<{ vol: number; n: number; byRecip: RecipMap; byTrader: TraderMap }> {
   const total = await windowCount(m, start, end);
-  if (total === 0) return { vol: 0, n: 0, byRecip: new Map() };
+  if (total === 0) return { vol: 0, n: 0, byRecip: new Map(), byTrader: new Map() };
   // Under the cap, or a ~2s window we cannot usefully split further: page it.
   if (total < CAP || end - start <= 2000) {
     return windowSum(m, start, end, Math.min(total, CAP), qUsd);
@@ -193,7 +257,8 @@ async function marketVolume(
   const a = await marketVolume(m, start, mid, qUsd);
   const b = await marketVolume(m, mid, end, qUsd);
   mergeRecip(a.byRecip, b.byRecip);
-  return { vol: a.vol + b.vol, n: a.n + b.n, byRecip: a.byRecip };
+  mergeTraders(a.byTrader, b.byTrader);
+  return { vol: a.vol + b.vol, n: a.n + b.n, byRecip: a.byRecip, byTrader: a.byTrader };
 }
 
 /** Bounded-concurrency map over an array. */
@@ -218,18 +283,22 @@ export async function fetchDayVolume(
   dayStartMs: number,
   dayEndMs: number,
   opts: { markets?: MarketMeta[]; injPrice?: number; concurrency?: number } = {},
-): Promise<{ rows: MarketDayVolume[]; injPrice: number; recipients: RecipientVolume[] }> {
+): Promise<{ rows: MarketDayVolume[]; injPrice: number; recipients: RecipientVolume[]; traders: TraderDayRow[] }> {
   const markets = opts.markets ?? (await fetchMarkets());
   const injPrice = opts.injPrice ?? (await fetchInjPrice(markets));
   const workers = opts.concurrency ?? 12;
   const globalRecip: RecipMap = new Map();
+  const globalTraders: TraderMap = new Map();
 
   const results = await pool(markets, workers, async (m) => {
     const qUsd = quoteUsd(m, injPrice);
     if (qUsd === null) return null; // unknown quote — skip
-    const { vol, n, byRecip } = await marketVolume(m, dayStartMs, dayEndMs, qUsd);
+    const { vol, n, byRecip, byTrader } = await marketVolume(m, dayStartMs, dayEndMs, qUsd);
+    // Sync merges into the shared maps — safe, single-threaded, no await inside.
+    // Traders merge even for a zero-volume market row: a fill can realize PnL on
+    // a quote we skip for USD volume, and the merge is cheap.
+    mergeTraders(globalTraders, byTrader);
     if (n === 0) return null;
-    // Sync merge into the shared map — safe, single-threaded, no await inside.
     mergeRecip(globalRecip, byRecip);
     return {
       marketId: m.marketId,
@@ -260,7 +329,23 @@ export async function fetchDayVolume(
   });
   if (otherN > 0) recipients.push({ addr: OTHER_ADDR, volumeUsd: otherVol, trades: otherN });
 
-  return { rows, injPrice, recipients };
+  // Cap the trader list: union of the top movers by |netPnl| and the top by
+  // volume, deduped by subaccount. Every stored byte is a blob byte.
+  const traderEntries = [...globalTraders.entries()];
+  const keep = new Set<string>();
+  [...traderEntries]
+    .sort((a, b) => Math.abs(b[1].pnl) - Math.abs(a[1].pnl))
+    .slice(0, TOP_TRADERS_PNL)
+    .forEach(([sub]) => keep.add(sub));
+  [...traderEntries]
+    .sort((a, b) => b[1].vol - a[1].vol)
+    .slice(0, TOP_TRADERS_VOL)
+    .forEach(([sub]) => keep.add(sub));
+  const traders: TraderDayRow[] = traderEntries
+    .filter(([sub]) => keep.has(sub))
+    .map(([sub, e]) => ({ subaccountId: sub, netPnlUsd: e.pnl, volumeUsd: e.vol, fills: e.n }));
+
+  return { rows, injPrice, recipients, traders };
 }
 
 /* eslint-enable @typescript-eslint/no-explicit-any */

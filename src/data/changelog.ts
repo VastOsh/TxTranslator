@@ -20,6 +20,14 @@ export const CHANGELOG: ChangelogVersion[] = [
     date: '2026-09-03',
     entries: [
       {
+        type: 'feature',
+        text: 'New Perp Markets lens at /perps, a live read on every active perpetual on Injective. For each market it shows the last realized hourly funding rate and its annualized pace (positive means longs pay shorts), open interest and the long/short skew as a bar, the max leverage the market allows, and whether it is a tokenized real-world asset. Funding and market terms are read live from the chain on every load; open interest and skew, which need a full scan of open positions, come from a recent snapshot the app refreshes on a schedule and are timestamped so you can see how fresh they are. Sortable by open interest, funding or skew. Numbers are read straight from the exchange module, nothing is estimated.',
+      },
+      {
+        type: 'feature',
+        text: 'New Smart Money leaderboard at /leaderboard, ranking the most profitable perpetual traders on Injective. It is built the honest way, from the chain\'s own realized per-fill PnL (the same numbers behind the Perp PnL lens), summed across each trader\'s subaccounts over the last 7 or 30 days, and sortable by net PnL or by volume. There is no cost-basis guesswork: every figure is a number the chain recorded on a fill. It rides on the same daily trade scan the Volume lens already runs, so it costs no extra load, and each row opens straight into that trader\'s full round-trip breakdown and wallet. The board surfaces the top traders recorded each day rather than a complete ranking, and says so.',
+      },
+      {
         type: 'improvement',
         text: 'The Volume lens gets a real chart. The old daily bars are replaced by an interactive area chart in the spirit of a proper analytics dashboard: hover anywhere for a crosshair and a tooltip with that day\'s exact volume, perp and spot split, and trade count. Two views sit on top of the timeframe toggle. Total or Perp / Spot shows the two sides as stacked areas, and Daily or Cumulative switches between per-day volume and the running total climbing over the period. Alongside the preset windows there is now a Custom range: pick any start and end date and the chart, totals and market table all recompute for exactly that window. The chart is drawn straight in the browser from the same verified on-chain numbers, so it stays instant and matches the rest of Renzu exactly.',
       },

@@ -50,7 +50,7 @@ const FIAT_CODES = 'USD|EUR|GBP|AUD|NZD|CHF|CAD|JPY|NOK|SEK';
 const FX_BASE_RE = new RegExp(`^(?:${FIAT_CODES})(?:${FIAT_CODES})$`);
 const METAL_BASES = new Set(['XAU', 'XAG']);
 
-function isTradFiMarket(oracleType: string, baseSymbol: string): boolean {
+export function isTradFiMarket(oracleType: string, baseSymbol: string): boolean {
   if (oracleType === 'sedafast') return true;
   return FX_BASE_RE.test(baseSymbol) || METAL_BASES.has(baseSymbol);
 }
