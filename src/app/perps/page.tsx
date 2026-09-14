@@ -192,9 +192,11 @@ export default function PerpsPage() {
         )}
 
         <p style={{ margin: '1rem 0 0', color: 'var(--tx-text-dim)', fontSize: '0.75rem', lineHeight: 1.55 }}>
-          Positive funding means longs pay shorts. Open interest and skew are the one-sided notional of every
-          open position at the current mark, read from the latest snapshot. A * marks a market whose position
-          scan was capped.
+          Positive funding means longs pay shorts. Open interest is the one-sided notional of every open
+          position at the current mark. Long / short is the share of open positions on each side, counted by
+          position: aggregate long and short notional always match on a cleared book, so the position count is
+          what shows the crowd lean. Both read from the latest snapshot. A * marks a market whose position scan
+          was capped.
         </p>
       </div>
 

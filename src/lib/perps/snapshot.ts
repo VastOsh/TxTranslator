@@ -20,7 +20,12 @@ export interface PerpSnapRow {
   marketId: string;
   /** One-sided open interest in quote units (USD for stable-quoted perps). */
   oiUsd: number;
-  /** Share of notional that is long, 0-100, or null when no positions. */
+  /**
+   * Share of open positions that are long, 0-100, or null when no positions.
+   * Counted by position, not notional: on a cleared book aggregate long
+   * notional always equals aggregate short notional, so a notional split is a
+   * constant 50% and says nothing. The count split is the real crowd lean.
+   */
   skewLongPct: number | null;
   positionCount: number;
   markPrice: number;
@@ -53,6 +58,8 @@ async function scanMarket(marketId: string, quoteDec: number): Promise<PerpSnapR
   const scale = 10 ** quoteDec;
   let longN = 0;
   let shortN = 0;
+  let longCount = 0;
+  let shortCount = 0;
   let count = 0;
   let mark = 0;
   let truncated = false;
@@ -70,8 +77,8 @@ async function scanMarket(marketId: string, quoteDec: number): Promise<PerpSnapR
       const mp = (Number(p.markPrice) || 0) / scale;
       if (mp > 0) mark = mp;
       const notional = qty * mp;
-      if (p.direction === 'short') shortN += notional;
-      else longN += notional;
+      if (p.direction === 'short') { shortN += notional; shortCount++; }
+      else { longN += notional; longCount++; }
     }
 
     if (ps.length < PAGE) break;
@@ -79,11 +86,11 @@ async function scanMarket(marketId: string, quoteDec: number): Promise<PerpSnapR
   }
 
   if (count === 0 && longN === 0 && shortN === 0) return null;
-  const tot = longN + shortN;
+  const sides = longCount + shortCount;
   return {
     marketId,
     oiUsd: longN,
-    skewLongPct: tot > 0 ? (longN / tot) * 100 : null,
+    skewLongPct: sides > 0 ? (longCount / sides) * 100 : null,
     positionCount: count,
     markPrice: mark,
     truncated,
