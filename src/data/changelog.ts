@@ -21,6 +21,10 @@ export const CHANGELOG: ChangelogVersion[] = [
     entries: [
       {
         type: 'feature',
+        text: 'The Wallet lens can now spot linked wallets, the many addresses one operator runs. Injective has no record of who owns what, and none can be, but it does record who first funded whom, so the panel traces that seed relationship in both directions: the wallet that sent this one its first funds, other wallets that same seed wallet funded (siblings), and wallets this one seeded itself. The honest hard part is telling an operator\'s own seed wallet from a shared exchange withdrawal address, so every link is graded strong, possible or weak by how active the connecting wallet is, an exchange funds thousands and never goes quiet, and the reasoning is spelled out on each row. A very active address is flagged as an exchange or contract rather than clustered. It is a strong signal of one operator, never a claim of identity, and each link opens straight into that wallet.',
+      },
+      {
+        type: 'feature',
         text: 'New Perp Markets lens at /perps, a live read on every active perpetual on Injective. For each market it shows the last realized hourly funding rate and its annualized pace (positive means longs pay shorts), open interest and the long/short skew as a bar, the max leverage the market allows, and whether it is a tokenized real-world asset. Funding and market terms are read live from the chain on every load; open interest and skew, which need a full scan of open positions, come from a recent snapshot the app refreshes on a schedule and are timestamped so you can see how fresh they are. Sortable by open interest, funding or skew. Numbers are read straight from the exchange module, nothing is estimated.',
       },
       {

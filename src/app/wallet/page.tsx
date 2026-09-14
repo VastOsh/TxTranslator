@@ -11,6 +11,7 @@ import Changelog from '@/components/Changelog';
 import { CURRENT_VERSION } from '@/data/changelog';
 import type { Portfolio } from '@/lib/portfolio/nft';
 import type { WalletIntel, WalletFlag } from '@/lib/wallet/intel';
+import type { LinkedWallets, LinkedWallet } from '@/lib/wallet/linked';
 
 const ADDR_RE = /^inj1[a-z0-9]{38}$/;
 const EXPLORER = 'https://explorer.injective.network/account';
@@ -91,12 +92,70 @@ function IntelCard({ intel }: { intel: WalletIntel }) {
   );
 }
 
+const LINK_KIND: Record<LinkedWallet['kind'], string> = {
+  'seeded-by': 'Seed wallet',
+  sibling: 'Sibling wallet',
+  seeded: 'Seeded by this',
+};
+const CONF_STYLE: Record<LinkedWallet['confidence'], { color: string; label: string }> = {
+  strong: { color: '#54D08A', label: 'strong' },
+  possible: { color: '#F0B24A', label: 'possible' },
+  weak: { color: 'rgba(236, 239, 245, 0.5)', label: 'weak' },
+};
+
+function LinkedCard({ linked }: { linked: LinkedWallets }) {
+  const muted = 'rgba(236, 239, 245, 0.55)';
+  return (
+    <div className="tx-pnl-card" style={{ width: '100%', maxWidth: 680, marginBottom: '1rem' }}>
+      <div className="tx-pnl-head">
+        <span className="tx-pnl-head-title">Linked wallets</span>
+        <span className="tx-pnl-row-meta">{linked.links.length} found</span>
+      </div>
+      <div style={{ padding: '0.9rem 1.2rem' }}>
+        {linked.links.length > 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
+            {linked.links.map((l, i) => {
+              const conf = CONF_STYLE[l.confidence];
+              return (
+                <div key={i} style={{ border: '1px solid var(--tx-border)', borderRadius: 8, padding: '0.6rem 0.75rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.3rem' }}>
+                    <span style={{ fontSize: '0.62rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: muted, fontWeight: 700 }}>
+                      {LINK_KIND[l.kind]}
+                    </span>
+                    <span style={{ fontSize: '0.62rem', fontWeight: 800, color: conf.color, border: `1px solid ${conf.color}55`, borderRadius: 5, padding: '0.05rem 0.4rem', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                      {conf.label}
+                    </span>
+                    <a
+                      href={`/wallet?address=${l.address}`}
+                      style={{ color: 'var(--tx-purple)', textDecoration: 'none', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.76rem', marginLeft: 'auto' }}
+                    >
+                      {shortAddr(l.address)} →
+                    </a>
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: muted, lineHeight: 1.45 }}>
+                    {l.evidence}
+                    {l.txCount != null && <span style={{ opacity: 0.7 }}> {' · '}{l.txCount.toLocaleString('en-US')} txs</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
+        <div style={{ fontSize: '0.68rem', color: muted, marginTop: linked.links.length > 0 ? '0.9rem' : 0, lineHeight: 1.5 }}>
+          {linked.note}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function WalletPage() {
   const [changelogOpen, setChangelogOpen] = useState(false);
   const [value, setValue] = useState('');
   const [address, setAddress] = useState<string | null>(null);
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
   const [intel, setIntel] = useState<WalletIntel | null>(null);
+  const [linked, setLinked] = useState<LinkedWallets | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -109,6 +168,7 @@ export default function WalletPage() {
     setLoading(true);
     setPortfolio(null);
     setIntel(null);
+    setLinked(null);
     setAddress(addr);
 
     // Wallet intelligence loads independently of (and usually faster than) the
@@ -121,6 +181,16 @@ export default function WalletPage() {
       .then(res => res.json().then(data => ({ ok: res.ok, data })))
       .then(({ ok, data }) => { if (ok) setIntel(data.intel as WalletIntel); })
       .catch(() => { /* intel is best-effort; the portfolio is the primary view */ });
+
+    // Linked-wallet seed graph, a heavier multi-hop scan, also best-effort.
+    fetch('/api/wallet/linked', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address: addr }),
+    })
+      .then(res => res.json().then(data => ({ ok: res.ok, data })))
+      .then(({ ok, data }) => { if (ok) setLinked(data.linked as LinkedWallets); })
+      .catch(() => { /* linked wallets are best-effort */ });
 
     fetch('/api/portfolio', {
       method: 'POST',
@@ -257,6 +327,8 @@ export default function WalletPage() {
       )}
 
       {intel && <IntelCard intel={intel} />}
+
+      {linked && (linked.links.length > 0 || linked.targetIsHub) && <LinkedCard linked={linked} />}
 
       {portfolio && !loading && <PortfolioView portfolio={portfolio} />}
 
