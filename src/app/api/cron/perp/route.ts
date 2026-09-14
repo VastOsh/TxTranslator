@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse, after } from 'next/server';
 import { buildPerpSnapshot } from '@/lib/perps/snapshot';
+import { buildSmartPositions } from '@/lib/smartmoney/positions';
 
 // Snapshot open interest + long/short skew across every active perp market and
-// store it for the Perp Markets lens. Funding is read live on the page; only
-// OI/skew (a per-market position scan) needs this cached snapshot.
+// store it for the Perp Markets lens, plus the Smart Money Positions snapshot
+// (the top traders' live open book) which shares this trigger so no extra cron
+// is needed. Funding is read live on the page; only OI/skew (a per-market
+// position scan) and the smart-money book need this cached snapshot.
 //
 // Auth + shape mirror /api/cron/stats: shares the same CRON_SECRET, defaults to
 // fire-and-forget via after() so an external trigger sees a fast 200, and takes
@@ -35,11 +38,17 @@ export async function GET(req: NextRequest) {
   if (dry || wait) {
     try {
       const t0 = Date.now();
-      const snap = await buildPerpSnapshot(!dry); // dry = build but do not store
+      // dry = build but do not store. Run both snapshots together.
+      const [snap, smart] = await Promise.all([
+        buildPerpSnapshot(!dry),
+        buildSmartPositions(!dry),
+      ]);
       return NextResponse.json({
         ok: true,
         markets: snap.markets.length,
         truncated: snap.markets.filter((m) => m.truncated).length,
+        smartTraders: smart.tradersWithPositions,
+        smartPositions: smart.positionCount,
         elapsedMs: Date.now() - t0,
       });
     } catch (err) {
@@ -50,8 +59,11 @@ export async function GET(req: NextRequest) {
 
   after(async () => {
     try {
-      const snap = await buildPerpSnapshot();
-      console.log('[cron/perp] snapshot', JSON.stringify({ markets: snap.markets.length }));
+      const [snap, smart] = await Promise.all([buildPerpSnapshot(), buildSmartPositions()]);
+      console.log('[cron/perp] snapshot', JSON.stringify({
+        markets: snap.markets.length,
+        smartPositions: smart.positionCount,
+      }));
     } catch (err) {
       console.error('[cron/perp] snapshot failed', err);
     }

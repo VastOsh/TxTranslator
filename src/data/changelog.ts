@@ -21,6 +21,10 @@ export const CHANGELOG: ChangelogVersion[] = [
     entries: [
       {
         type: 'feature',
+        text: 'New Smart Money Positions lens at /smart-positions, the natural follow-on to the leaderboard: it answers not just who is profitable but what they are holding right now. It takes the top wallets by realized net PnL over the last 30 days and reads each one\'s live open perpetual positions straight from the exchange module, then aggregates them into where smart money leans by market, how much of their notional is net long or net short in each perp. Every figure is on-chain: entry, mark, size, the chain\'s own liquidation price, and unrealized PnL as mark minus entry. Unlike a whole-market skew this is a real directional read, because it sums a chosen set of wallets whose longs and shorts need not balance. Sort the open book by size, unrealized PnL, or how close each position sits to liquidation. It rides the existing markets snapshot schedule so it costs no new job, and every row opens that trader\'s full PnL. A snapshot of proven-profitable wallets, never a recommendation.',
+      },
+      {
+        type: 'feature',
         text: 'The Wallet lens can now spot linked wallets, the many addresses one operator runs. Injective has no record of who owns what, and none can be, but it does record who first funded whom, so the panel traces that seed relationship in both directions: the wallet that sent this one its first funds, other wallets that same seed wallet funded (siblings), and wallets this one seeded itself. The honest hard part is telling an operator\'s own seed wallet from a shared exchange withdrawal address, so every link is graded strong, possible or weak by how active the connecting wallet is, an exchange funds thousands and never goes quiet, and the reasoning is spelled out on each row. A very active address is flagged as an exchange or contract rather than clustered. It is a strong signal of one operator, never a claim of identity, and each link opens straight into that wallet.',
       },
       {
