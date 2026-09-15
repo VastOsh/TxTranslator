@@ -249,8 +249,8 @@ function buildSections(p: Pulse): Section[] {
   const c = p.capital;
   if (c.stablecoinUsd != null) {
     cf.push({
-      key: 'stables', label: 'Stablecoins', display: fmtUsd(c.stablecoinUsd), sub: 'dollar-pegged, held on-chain',
-      say: `${usdWords(c.stablecoinUsd)} of stablecoins are held on Injective (as of ${capDate}).`,
+      key: 'stables', label: 'Bridged stablecoins', display: fmtUsd(c.stablecoinUsd), sub: 'USDT, USDC and USDe',
+      say: `${usdWords(c.stablecoinUsd)} of bridged stablecoins (USDT, USDC and USDe) are held on Injective (as of ${capDate}).`,
     });
   }
   if (c.bridgedTvl != null) {
