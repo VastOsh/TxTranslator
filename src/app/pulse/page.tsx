@@ -11,8 +11,6 @@ import { CURRENT_VERSION } from '@/data/changelog';
 
 const ACCENT = '#F0B24A'; // Markets lens colour
 
-type Tone = 'neutral' | 'promo';
-
 interface Pulse {
   asOf: number;
   volumeAsOf: number | null;
@@ -130,7 +128,7 @@ interface Fact {
   label: string;
   display: string;
   sub: string;
-  say: string; // resolved for the current tone
+  say: string; // the copy-ready sentence for this stat
   tint?: Tint;
   href?: string;
 }
@@ -140,11 +138,7 @@ interface Section {
   facts: Fact[];
 }
 
-function pick(tone: Tone, neutral: string, promo: string): string {
-  return tone === 'promo' ? promo : neutral;
-}
-
-function buildSections(p: Pulse, tone: Tone): Section[] {
+function buildSections(p: Pulse): Section[] {
   const secs: Section[] = [];
   const liveDate = fmtDate(p.asOf);
   const volDate = fmtDate(p.volumeAsOf);
@@ -157,49 +151,37 @@ function buildSections(p: Pulse, tone: Tone): Section[] {
   if (t.injPrice != null) {
     tf.push({
       key: 'price', label: 'INJ price', display: `$${t.injPrice.toFixed(2)}`, sub: 'live from the chain',
-      say: pick(tone,
-        `INJ is trading at $${t.injPrice.toFixed(2)} on Injective, read live from the chain as of ${liveDate}.`,
-        `INJ is changing hands at $${t.injPrice.toFixed(2)} on Injective right now.`),
+      say: `INJ is trading at $${t.injPrice.toFixed(2)} on Injective, read live from the chain as of ${liveDate}.`,
     });
   }
   if (t.marketCap != null && t.supply != null) {
     tf.push({
       key: 'mcap', label: 'Market cap', display: fmtUsd(t.marketCap), sub: 'on live total supply',
-      say: pick(tone,
-        `Injective's market cap is ${usdWords(t.marketCap)}, priced on the live total supply of ${injWords(t.supply)} rather than the stale 100 million figure many trackers still use (as of ${liveDate}).`,
-        `Injective is a ${usdWords(t.marketCap)} network, valued on its real circulating supply, not the outdated 100 million figure.`),
+      say: `Injective's market cap is ${usdWords(t.marketCap)}, priced on the live total supply of ${injWords(t.supply)} rather than the stale 100 million figure many trackers still use (as of ${liveDate}).`,
     });
   }
   if (t.supply != null) {
     tf.push({
       key: 'supply', label: 'INJ supply', display: `${(t.supply / 1e6).toFixed(1)}M INJ`, sub: 'total, circulating approx equal',
-      say: pick(tone,
-        `INJ total supply stands at ${injWords(t.supply)} as of ${liveDate}.`,
-        `There are ${injWords(t.supply)} in existence, and that supply keeps shrinking as trading fees are burned every week.`),
+      say: `INJ total supply stands at ${injWords(t.supply)} as of ${liveDate}.`,
     });
   }
   if (t.bondedRatio != null && t.bondedInj != null) {
     tf.push({
       key: 'staked', label: 'Staked', display: pct(t.bondedRatio), sub: `${injCompact(t.bondedInj)} securing the chain`,
-      say: pick(tone,
-        `${pct(t.bondedRatio)} of INJ supply is staked, ${injWords(t.bondedInj)} securing the chain (as of ${liveDate}).`,
-        `${pct(t.bondedRatio)} of all INJ is staked and actively securing Injective.`),
+      say: `${pct(t.bondedRatio)} of INJ supply is staked, ${injWords(t.bondedInj)} securing the chain (as of ${liveDate}).`,
     });
   }
   if (t.stakingApr != null) {
     tf.push({
       key: 'apr', label: 'Staking APR', display: pct(t.stakingApr), sub: 'current reward rate',
-      say: pick(tone,
-        `The current INJ staking reward rate is ${pct(t.stakingApr)} APR (as of ${liveDate}).`,
-        `Stakers on Injective currently earn about ${pct(t.stakingApr)} APR.`),
+      say: `The current INJ staking reward rate is ${pct(t.stakingApr)} APR (as of ${liveDate}).`,
     });
   }
   if (t.inflation != null) {
     tf.push({
       key: 'inflation', label: 'Inflation', display: pct(t.inflation), sub: 'trends down over time',
-      say: pick(tone,
-        `INJ inflation is currently ${pct(t.inflation)} and trends down over time (as of ${liveDate}).`,
-        `INJ inflation sits at just ${pct(t.inflation)} and keeps trending down.`),
+      say: `INJ inflation is currently ${pct(t.inflation)} and trends down over time (as of ${liveDate}).`,
     });
   }
   if (tf.length) secs.push({ title: 'Token and network', note: `Live, as of ${liveDate}`, facts: tf });
@@ -210,34 +192,26 @@ function buildSections(p: Pulse, tone: Tone): Section[] {
   if (v.v30d != null) {
     vf.push({
       key: 'v30', label: '30-day volume', display: fmtUsd(v.v30d), sub: 'spot and perp, reconstructed',
-      say: pick(tone,
-        `Injective settled ${usdWords(v.v30d)} in spot and perpetual trading volume over the last 30 days, reconstructed trade by trade from the chain (as of ${volDate}).`,
-        `Injective did ${usdWords(v.v30d)} in trading volume in the last 30 days, every dollar verifiable on-chain.`),
+      say: `Injective settled ${usdWords(v.v30d)} in spot and perpetual trading volume over the last 30 days, reconstructed trade by trade from the chain (as of ${volDate}).`,
     });
   }
   if (v.v7d != null) {
     vf.push({
       key: 'v7', label: '7-day volume', display: fmtUsd(v.v7d), sub: 'spot and perp',
-      say: pick(tone,
-        `Injective settled ${usdWords(v.v7d)} in trading volume over the last 7 days (as of ${volDate}).`,
-        `Injective moved ${usdWords(v.v7d)} in volume this past week.`),
+      say: `Injective settled ${usdWords(v.v7d)} in trading volume over the last 7 days (as of ${volDate}).`,
     });
   }
   if (v.v24h != null) {
     vf.push({
       key: 'v24', label: '24-hour volume', display: fmtUsd(v.v24h), sub: 'spot and perp',
-      say: pick(tone,
-        `Injective settled ${usdWords(v.v24h)} in trading volume in the last 24 hours (as of ${volDate}).`,
-        `Injective did ${usdWords(v.v24h)} in volume in the last 24 hours.`),
+      say: `Injective settled ${usdWords(v.v24h)} in trading volume in the last 24 hours (as of ${volDate}).`,
     });
   }
   if (v.deriv24h != null && v.spot24h != null && v.deriv24h + v.spot24h > 0) {
     const dp = Math.round((v.deriv24h / (v.deriv24h + v.spot24h)) * 100);
     vf.push({
       key: 'split', label: 'Perp share (24h)', display: `${dp}% perp`, sub: `perp ${fmtUsd(v.deriv24h)} · spot ${fmtUsd(v.spot24h)}`,
-      say: pick(tone,
-        `Of Injective's last 24 hours of volume, ${usdWords(v.deriv24h)} was perpetuals and ${usdWords(v.spot24h)} was spot (as of ${volDate}).`,
-        `In the last day, ${dp}% of Injective volume was perpetuals, the rest spot.`),
+      say: `Of Injective's last 24 hours of volume, ${usdWords(v.deriv24h)} was perpetuals and ${usdWords(v.spot24h)} was spot (as of ${volDate}).`,
     });
   }
   if (v.weeklyChange != null) {
@@ -245,9 +219,7 @@ function buildSections(p: Pulse, tone: Tone): Section[] {
     const ap = Math.abs(v.weeklyChange * 100).toFixed(0);
     vf.push({
       key: 'wow', label: 'Week over week', display: `${up ? '+' : '-'}${ap}%`, sub: 'this week vs prior week', tint: up ? 'pos' : 'neg',
-      say: pick(tone,
-        `Weekly trading volume is ${up ? 'up' : 'down'} ${ap}% versus the prior week (as of ${volDate}).`,
-        `Injective's weekly volume is ${up ? 'up' : 'down'} ${ap}% week over week.`),
+      say: `Weekly trading volume is ${up ? 'up' : 'down'} ${ap}% versus the prior week (as of ${volDate}).`,
     });
   }
   if (vf.length) secs.push({ title: 'Trading volume', note: `On-chain, as of ${volDate} · ${p.daysCounted} days counted`, facts: vf });
@@ -259,9 +231,7 @@ function buildSections(p: Pulse, tone: Tone): Section[] {
     const rounds = b.roundsCovered ?? 0;
     bf.push({
       key: 'burncum', label: 'INJ burned', display: injCompact(b.cumulativeInj), sub: `over ${rounds} rounds`,
-      say: pick(tone,
-        `${injWords(b.cumulativeInj)} has been permanently burned through Injective's buy-back-and-burn, over ${rounds} rounds.`,
-        `Injective has burned ${injWords(b.cumulativeInj)} for good through its weekly buy-back-and-burn, over ${rounds} rounds.`),
+      say: `${injWords(b.cumulativeInj)} has been permanently burned through Injective's buy-back-and-burn, over ${rounds} rounds.`,
     });
   }
   if (b.latestInj != null && b.latestRound != null) {
@@ -269,9 +239,7 @@ function buildSections(p: Pulse, tone: Tone): Section[] {
     bf.push({
       key: 'burnlast', label: 'Latest burn round', display: injCompact(b.latestInj),
       sub: `round ${b.latestRound}${b.latestUsd != null ? ` · ${fmtUsd(b.latestUsd)}` : ''}`,
-      say: pick(tone,
-        `Injective's most recent burn round (round ${b.latestRound}) removed ${injWords(b.latestInj)}${usdTail}.`,
-        `The latest Injective burn round torched ${injWords(b.latestInj)}${usdTail}.`),
+      say: `Injective's most recent burn round (round ${b.latestRound}) removed ${injWords(b.latestInj)}${usdTail}.`,
     });
   }
   if (bf.length) secs.push({ title: 'INJ burn', note: 'Buy-back-and-burn, live', facts: bf });
@@ -282,17 +250,13 @@ function buildSections(p: Pulse, tone: Tone): Section[] {
   if (c.stablecoinUsd != null) {
     cf.push({
       key: 'stables', label: 'Stablecoins', display: fmtUsd(c.stablecoinUsd), sub: 'dollar-pegged, held on-chain',
-      say: pick(tone,
-        `${usdWords(c.stablecoinUsd)} of stablecoins are held on Injective (as of ${capDate}).`,
-        `There is ${usdWords(c.stablecoinUsd)} of stablecoin liquidity sitting on Injective.`),
+      say: `${usdWords(c.stablecoinUsd)} of stablecoins are held on Injective (as of ${capDate}).`,
     });
   }
   if (c.bridgedTvl != null) {
     cf.push({
       key: 'bridged', label: 'Bridged assets', display: fmtUsd(c.bridgedTvl), sub: 'at market value',
-      say: pick(tone,
-        `${usdWords(c.bridgedTvl)} of bridged assets are held on Injective (as of ${capDate}).`,
-        `${usdWords(c.bridgedTvl)} of bridged assets have made their way onto Injective.`),
+      say: `${usdWords(c.bridgedTvl)} of bridged assets are held on Injective (as of ${capDate}).`,
     });
   }
   if (c.inflows24h != null) {
@@ -300,9 +264,7 @@ function buildSections(p: Pulse, tone: Tone): Section[] {
     cf.push({
       key: 'inflows', label: 'Net inflows (24h)', display: `${posv ? '+' : '-'}${fmtUsd(Math.abs(c.inflows24h))}`,
       sub: 'change in bridged value', tint: posv ? 'pos' : 'neg',
-      say: pick(tone,
-        `Bridged capital on Injective ${posv ? 'grew' : 'fell'} by ${usdWords(Math.abs(c.inflows24h))} in the last day (as of ${capDate}).`,
-        `Injective saw ${usdWords(Math.abs(c.inflows24h))} of net bridged ${posv ? 'inflows' : 'outflows'} in the last 24 hours.`),
+      say: `Bridged capital on Injective ${posv ? 'grew' : 'fell'} by ${usdWords(Math.abs(c.inflows24h))} in the last day (as of ${capDate}).`,
     });
   }
   if (cf.length) secs.push({ title: 'Capital on Injective', note: `Bridged snapshot, as of ${capDate}`, facts: cf });
@@ -313,25 +275,19 @@ function buildSections(p: Pulse, tone: Tone): Section[] {
   if (ch.blockHeight != null) {
     nf.push({
       key: 'height', label: 'Block height', display: fmtInt(ch.blockHeight), sub: 'current head',
-      say: pick(tone,
-        `Injective is producing blocks at height ${fmtInt(ch.blockHeight)} (as of ${liveDate}).`,
-        `Injective just passed block ${fmtInt(ch.blockHeight)}.`),
+      say: `Injective is producing blocks at height ${fmtInt(ch.blockHeight)} (as of ${liveDate}).`,
     });
   }
   if (ch.blockTimeSec != null) {
     nf.push({
       key: 'blocktime', label: 'Block time', display: `${ch.blockTimeSec.toFixed(2)}s`, sub: 'time to finality',
-      say: pick(tone,
-        `Injective finalizes a block roughly every ${ch.blockTimeSec.toFixed(2)} seconds (as of ${liveDate}).`,
-        `Injective finalizes a new block about every ${ch.blockTimeSec.toFixed(2)} seconds.`),
+      say: `Injective finalizes a block roughly every ${ch.blockTimeSec.toFixed(2)} seconds (as of ${liveDate}).`,
     });
   }
   if (ch.totalTxs != null) {
     nf.push({
       key: 'txs', label: 'Total transactions', display: numCompact(ch.totalTxs), sub: 'all time',
-      say: pick(tone,
-        `Injective has processed ${intWords(ch.totalTxs)} transactions all time (as of ${liveDate}).`,
-        `Injective has handled over ${intWords(ch.totalTxs)} transactions to date.`),
+      say: `Injective has processed ${intWords(ch.totalTxs)} transactions all time (as of ${liveDate}).`,
     });
   }
   if (ch.communityPoolInj != null) {
@@ -339,9 +295,7 @@ function buildSections(p: Pulse, tone: Tone): Section[] {
     nf.push({
       key: 'pool', label: 'Community pool', display: injCompact(ch.communityPoolInj),
       sub: ch.communityPoolUsd != null ? fmtUsd(ch.communityPoolUsd) : 'on-chain treasury',
-      say: pick(tone,
-        `Injective's community pool holds ${injWords(ch.communityPoolInj)}${usdTail} (as of ${liveDate}).`,
-        `The Injective community pool holds ${injWords(ch.communityPoolInj)}${usdTail}.`),
+      say: `Injective's community pool holds ${injWords(ch.communityPoolInj)}${usdTail} (as of ${liveDate}).`,
     });
   }
   if (nf.length) secs.push({ title: 'Chain vitals', note: `Live, as of ${liveDate}`, facts: nf });
@@ -352,17 +306,13 @@ function buildSections(p: Pulse, tone: Tone): Section[] {
   if (pp.totalOiUsd != null && pp.activeMarkets != null) {
     pf.push({
       key: 'oi', label: 'Open interest', display: fmtUsd(pp.totalOiUsd), sub: `${pp.activeMarkets} active markets`,
-      say: pick(tone,
-        `There is ${usdWords(pp.totalOiUsd)} in open interest live across ${pp.activeMarkets} Injective perpetual markets (as of ${perpDate}).`,
-        `${usdWords(pp.totalOiUsd)} in open interest is live across ${pp.activeMarkets} perpetual markets on Injective.`),
+      say: `There is ${usdWords(pp.totalOiUsd)} in open interest live across ${pp.activeMarkets} Injective perpetual markets (as of ${perpDate}).`,
     });
   }
   if (pp.openPositions != null) {
     pf.push({
       key: 'openpos', label: 'Open positions', display: fmtInt(pp.openPositions), sub: 'live across all perps',
-      say: pick(tone,
-        `${fmtInt(pp.openPositions)} perpetual positions are open on Injective right now (as of ${perpDate}).`,
-        `${fmtInt(pp.openPositions)} perp positions are open on Injective right now.`),
+      say: `${fmtInt(pp.openPositions)} perpetual positions are open on Injective right now (as of ${perpDate}).`,
     });
   }
   if (pp.topTrader30dPnl != null && pp.topTrader30dPnl > 0) {
@@ -370,9 +320,7 @@ function buildSections(p: Pulse, tone: Tone): Section[] {
       key: 'toptrader', label: 'Top trader (30d)', display: fmtUsd(pp.topTrader30dPnl),
       sub: pp.topTrader30dAddr ? shortAddr(pp.topTrader30dAddr) : 'realized net PnL', tint: 'pos',
       href: pp.topTrader30dAddr ? `/pnl/${pp.topTrader30dAddr}` : undefined,
-      say: pick(tone,
-        `The top perpetual trader on Injective is up ${usdWords(pp.topTrader30dPnl)} in realized PnL over the last 30 days (as of ${perpDate}).`,
-        `Injective's top perp trader is up ${usdWords(pp.topTrader30dPnl)} in realized profit over 30 days.`),
+      say: `The top perpetual trader on Injective is up ${usdWords(pp.topTrader30dPnl)} in realized PnL over the last 30 days (as of ${perpDate}).`,
     });
   }
   if (pf.length) secs.push({ title: 'Perpetual markets', note: `Markets snapshot, as of ${perpDate}`, facts: pf });
@@ -383,7 +331,6 @@ function buildSections(p: Pulse, tone: Tone): Section[] {
 // ── page ─────────────────────────────────────────────────────────────────────
 export default function PulsePage() {
   const [changelogOpen, setChangelogOpen] = useState(false);
-  const [tone, setTone] = useState<Tone>('neutral');
   const [data, setData] = useState<Pulse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -403,7 +350,7 @@ export default function PulsePage() {
     return () => { cancelled = true; };
   }, []);
 
-  const sections = useMemo(() => (data ? buildSections(data, tone) : []), [data, tone]);
+  const sections = useMemo(() => (data ? buildSections(data) : []), [data]);
   const factCount = useMemo(() => sections.reduce((n, s) => n + s.facts.length, 0), [sections]);
 
   async function copy(text: string, label: string) {
@@ -461,26 +408,7 @@ export default function PulsePage() {
 
       {/* controls */}
       {data && !empty && (
-        <div style={{ width: '100%', maxWidth: 960, marginBottom: '1.75rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '0.72rem', color: 'var(--tx-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontFamily: 'var(--font-mono)' }}>Tone</span>
-            <div style={{ display: 'inline-flex', border: '1px solid var(--tx-border)', borderRadius: 8, overflow: 'hidden' }}>
-              {(['neutral', 'promo'] as Tone[]).map((tn) => (
-                <button
-                  key={tn}
-                  onClick={() => setTone(tn)}
-                  style={{
-                    padding: '0.4rem 0.8rem', fontSize: '0.78rem', border: 'none', cursor: 'pointer',
-                    background: tone === tn ? ACCENT : 'transparent',
-                    color: tone === tn ? '#0A0B0F' : 'var(--tx-text-muted)',
-                    fontWeight: tone === tn ? 700 : 400,
-                  }}
-                >
-                  {tn === 'neutral' ? 'Neutral' : 'Ambassador'}
-                </button>
-              ))}
-            </div>
-          </div>
+        <div style={{ width: '100%', maxWidth: 960, marginBottom: '1.75rem', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '1rem', flexWrap: 'wrap' }}>
           <button
             onClick={copyBrief}
             style={{
@@ -543,7 +471,6 @@ export default function PulsePage() {
           <p style={{ fontSize: '0.72rem', color: 'var(--tx-text-dim)', lineHeight: 1.6, margin: 0, maxWidth: '72ch' }}>
             Volume, capital and perp figures come from stored snapshots that refresh on a schedule, so each
             section is timestamped with when it was last read. Price, supply and chain vitals are live.
-            The ambassador tone rephrases each line with a little more energy; the numbers never change.
           </p>
         </div>
       )}
@@ -590,7 +517,7 @@ function FactTile({ fact, onCopy }: { fact: Fact; onCopy: () => void }) {
       <span style={{ fontSize: '0.72rem', color: 'var(--tx-text-dim)', lineHeight: 1.35, fontVariantNumeric: 'tabular-nums' }}>{fact.sub}</span>
       <button
         onClick={onCopy}
-        aria-label={`Copy this stat as a sentence`}
+        aria-label="Copy this stat as a sentence"
         title="Copy as a sentence"
         style={{
           position: 'absolute', top: 8, right: 8, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
