@@ -85,6 +85,7 @@ const CATS: CatDef[] = [
   {
     id: 'markets', tag: 'Markets', desc: 'Real numbers, reconstructed from the chain.', color: 'var(--amber)',
     cards: [
+      { href: '/pulse', name: 'Injective Pulse', chip: 'fact sheet', desc: 'The state of Injective on one screen: price, volume, burn, staking, capital and network vitals, each read from the chain and ready to quote.', stat: 'copy-ready · timestamped' },
       { href: '/stats', name: 'Volume', chip: 'on-chain', desc: 'Spot and perp volume rebuilt trade by trade, plus the INJ burn auction. Daily, weekly, monthly, all time.', stat: 'spot · perp · INJ burn' },
       { href: '/feed', name: 'Whale Feed', chip: 'live', desc: 'Large positions, liquidations and closes the moment they settle, each one decoded and mirrored to X.', stat: 'thresholded · real time' },
       { href: '/leaderboard', name: 'Smart Money', chip: 'leaderboard', desc: 'The most profitable perp traders on Injective, ranked by realized net PnL taken straight from the chain, subaccounts summed.', stat: 'net PnL · volume · 7d / 30d' },
@@ -457,7 +458,7 @@ export default function RenzuHub() {
               <div className="rz-k">live INJ total supply. <b>No fixed max cap</b>, it moves with staking inflation and the weekly burn</div>
             </div>
             <div>
-              <div className="rz-n">12 lenses</div>
+              <div className="rz-n">13 lenses</div>
               <div className="rz-k">one hub to decode, detect and monitor Injective</div>
             </div>
             <div>
