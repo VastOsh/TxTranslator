@@ -310,6 +310,23 @@ export async function fetchLaunchpadHolders(
     apiJson(`/launches/${id}/holders?limit=100`),
   ]);
 
+  return analyzeLaunchHolders(launch, count, holders, totalSupplyRaw, opts);
+}
+
+/**
+ * Backend-agnostic holder analysis. Given a launch record and its holders JSON
+ * (an identical shape on the Trippy pump-api and the Sprout `api.trysprout.fun`
+ * backend), compute the real-holder distribution, the funding-graph clusters
+ * and the bonding-curve sell-impact. Reused by the Sprout / EVM path in
+ * `sprout.ts`, so the two launchpads share one analysis.
+ */
+export async function analyzeLaunchHolders(
+  launch: any,
+  count: any,
+  holders: any,
+  totalSupplyRaw: string,
+  opts: { clusterBudgetMs?: number } = {},
+): Promise<LaunchpadHolders | null> {
   let supply: bigint;
   try { supply = BigInt(totalSupplyRaw); } catch { return null; }
   if (supply <= BigInt(0)) return null;

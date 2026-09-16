@@ -5,6 +5,8 @@ import {
   isLaunchpadDenom, fetchLaunchInfo, fetchLaunchpadHolders, fetchCreatorStats, type LaunchpadHolders,
 } from './launchpad';
 import { lookupSerialFunders } from './insiders';
+import { fetchEvmTokenIdentity, erc20Denom, type EvmTokenIdentity } from './evm';
+import { fetchSproutInfo, type SproutInfo } from './sprout';
 
 export type SignalLevel = 'ok' | 'info' | 'warn' | 'danger';
 
@@ -110,9 +112,175 @@ function officialTokenForAliases(aliasTights: Set<string>, tokens: VerifiedToken
   return null;
 }
 
+interface RegistryComparison {
+  signals: Signal[];
+  danger: boolean;
+  warn: boolean;
+  targetLabel: string | null;
+}
+
+// Compare a candidate token's on-chain name/symbol against the verified token
+// registry and the known-projects list. Shared by the denom (Cosmos) and EVM
+// (Sprout) paths so both surface impersonation identically. Pure: reads only
+// the passed identity and the registry.
+function compareToRegistry(
+  denom: string,
+  name: string,
+  symbol: string,
+  tokens: VerifiedToken[],
+): RegistryComparison {
+  const signals: Signal[] = [];
+  const symTight = normalizeTight(symbol);
+  const nameTight = normalizeTight(name);
+
+  let danger = false;
+  let warn = false;
+  let targetLabel: string | null = null; // the trusted thing being impersonated, for the headline
+
+  // ── 3a/3b. Compare against the verified TOKEN registry ──────────────────────
+  // For each verified token, measure how the candidate relates to it: an exact
+  // symbol/name collision at a different denom (claiming to BE it), or a
+  // near-miss by look-alike characters / digit swaps / one dropped-or-changed
+  // character (XII vs XIII, 1NJ vs INJ, CULT vs CVLT). Matching a verified token
+  // on BOTH symbol and name by a near-miss is strong evidence of deliberate
+  // impersonation, so it escalates from a look-alike warning to a danger.
+  const symLeet = symbol ? normalizeLeet(symbol) : '';
+  let best:
+    | { t: VerifiedToken; exactSym: boolean; exactName: boolean; symNear: boolean; nameNear: boolean; score: number }
+    | null = null;
+
+  for (const t of tokens) {
+    if (t.denom === denom) continue;
+    const tSym = normalizeTight(t.symbol);
+    const tName = normalizeTight(t.name);
+
+    const exactSym = !!symTight && symTight === tSym;
+    const exactName = !exactSym && !!nameTight && nameTight === tName && tName.length >= 4;
+    // Near-miss on symbol: same after digit/look-alike folding, or one edit apart
+    // (gated on the longer of the two being ≥4 so 2–3 char tickers don't collide).
+    const symNear =
+      !exactSym && !!symbol &&
+      (normalizeLeet(t.symbol) === symLeet ||
+        (Math.max(symTight.length, tSym.length) >= 4 && editDistance(symTight, tSym) === 1));
+    // Near-miss on name: one edit apart on names of real length (≥5), a strong,
+    // low-coincidence signal.
+    const nameNear = !exactName && !!nameTight && tName.length >= 5 && editDistance(nameTight, tName) === 1;
+
+    if (!exactSym && !exactName && !symNear && !nameNear) continue;
+
+    const score = (exactSym ? 8 : 0) + (exactName ? 6 : 0) + (symNear ? 3 : 0) + (nameNear ? 3 : 0);
+    if (!best || score > best.score) best = { t, exactSym, exactName, symNear, nameNear, score };
+  }
+
+  if (best) {
+    const { t, exactSym, exactName, symNear, nameNear } = best;
+    targetLabel = t.symbol;
+    const realLink = { label: `Open the real ${t.symbol} on Choice`, url: choiceTokenUrl(t.denom) };
+    if (exactSym) {
+      danger = true;
+      signals.push({
+        level: 'danger',
+        title: `Impersonates the verified token ${t.symbol}`,
+        detail: `This token advertises the symbol “${symbol}”, which belongs to the verified ${t.name} (${t.symbol}). This denom is not that token, the real ${t.symbol} is ${t.denom}.`,
+        link: realLink,
+      });
+    } else if (exactName) {
+      danger = true;
+      signals.push({
+        level: 'danger',
+        title: `Impersonates the verified token ${t.symbol}`,
+        detail: `This token’s name “${name}” matches the verified ${t.name} (${t.symbol}) at a different denom. The real one is ${t.denom}.`,
+        link: realLink,
+      });
+    } else if (symNear && nameNear) {
+      danger = true;
+      const homoglyph = usesConfusables(symbol) || usesConfusables(name);
+      signals.push({
+        level: 'danger',
+        title: `Near-identical to verified token ${t.symbol}`,
+        detail: `Both the symbol “${symbol}” and name “${name}” are one character away from the verified ${t.name} (${t.symbol})${homoglyph ? ' and use look-alike characters' : ''}, a classic impersonation pattern. The real ${t.symbol} is ${t.denom}.`,
+        link: realLink,
+      });
+    } else {
+      warn = true;
+      const field = symNear ? `symbol “${symbol}”` : `name “${name}”`;
+      const trick = usesConfusables(symbol) || usesConfusables(name)
+        ? 'uses look-alike characters'
+        : 'is a near-identical spelling';
+      signals.push({
+        level: 'warn',
+        title: `Look-alike of verified token ${t.symbol}`,
+        detail: `Its ${field} closely resembles the verified ${t.name} (${t.symbol}), it ${trick}. The real ${t.symbol} is ${t.denom}.`,
+        link: realLink,
+      });
+    }
+  }
+
+  // 3c. Borrowing a known PROJECT / NFT collection name.
+  for (const proj of KNOWN_PROJECTS) {
+    const aliasTights = new Set(proj.aliases.map(normalizeTight));
+    aliasTights.add(normalizeTight(proj.name));
+    const projNameTight = normalizeTight(proj.name);
+    const matched =
+      (symTight && aliasTights.has(symTight)) ||
+      (nameTight && aliasTights.has(nameTight)) ||
+      (nameTight && projNameTight.length >= 5 && editDistance(nameTight, projNameTight) <= 1);
+    if (!matched) continue;
+
+    const official = officialTokenForAliases(aliasTights, tokens);
+    if (official && official.denom === denom) break; // it is the official token (handled above)
+
+    targetLabel = proj.name;
+    if (official) {
+      danger = true;
+      signals.push({
+        level: 'danger',
+        title: `Impersonates ${proj.name}`,
+        detail: `This token uses the identity of ${proj.name}, whose official token is ${official.symbol} (${official.denom}). This denom is not it.`,
+        link: { label: `Open the real ${official.symbol} on Choice`, url: choiceTokenUrl(official.denom) },
+      });
+    } else {
+      danger = true;
+      const kind = proj.kind === 'nft-collection' ? 'NFT collection' : 'project';
+      signals.push({
+        level: 'danger',
+        title: `Borrows the name of ${proj.name}`,
+        detail: `This token advertises “${name || symbol}”, matching the well-known ${kind} ${proj.name}, which has no official token on Injective’s verified list. A token using its name is almost certainly not affiliated, verify directly with the project before buying.`,
+        link: proj.contract
+          ? proj.kind === 'nft-collection'
+            ? { label: `View ${proj.name} on Talis`, url: talisCollectionUrl(proj.contract) }
+            : { label: `${proj.name} on explorer`, url: explorerContract(proj.contract) }
+          : undefined,
+      });
+    }
+    break; // one project match is enough
+  }
+
+  // 3d. Nothing matched → unverified, but not evidence of anything either way.
+  if (!danger && !warn) {
+    signals.push({
+      level: 'info',
+      title: 'No impersonation match',
+      detail:
+        'This token is not on the verified list, and its name/symbol does not match any verified token or known project we track. That is neither good nor bad on its own, its identity is simply unverified.',
+    });
+  }
+
+  return { signals, danger, warn, targetLabel };
+}
+
 export async function checkToken(rawQuery: string): Promise<TokenCheck> {
   const query = rawQuery.trim();
   const tokens = await getVerifiedTokens();
+
+  // ── EVM token contract (Sprout / native ERC-20), as 0x… or erc20:0x… ──────────
+  // A native EVM ERC-20 has no Cosmos bank metadata, so it is read from the EVM
+  // and (when it is a Sprout launch) enriched from the Sprout backend. Must be
+  // caught before the denom/lookup branches, which cannot read it.
+  const evmMatch = query.match(/^(?:erc20:)?(0x[0-9a-fA-F]{40})$/i);
+  if (evmMatch) {
+    return checkEvmToken(evmMatch[1], tokens);
+  }
 
   // ── Lookup mode: a bare symbol/name → point at the real token(s)/project(s) ──
   if (!looksLikeDenom(query)) {
@@ -160,7 +328,7 @@ export async function checkToken(rawQuery: string): Promise<TokenCheck> {
       level: 'info',
       title: 'No on-chain metadata',
       detail:
-        'This denom has no readable bank metadata, or it could not be reached. It is not on the verified token list either — its identity cannot be confirmed.',
+        'This denom has no readable bank metadata, or it could not be reached. It is not on the verified token list either, its identity cannot be confirmed.',
     });
     signals.push(identitySignal(denom, null, null, creator));
     signals.push(...launchpadSignals);
@@ -168,148 +336,16 @@ export async function checkToken(rawQuery: string): Promise<TokenCheck> {
     signals.push(DISCLAIMER);
     return {
       query, mode: 'denom', denom, onchainName: null, onchainSymbol: null, creator, market,
-      verdict: 'unknown', headline: 'Not on the verified list and no readable metadata — unverified.', signals,
+      verdict: 'unknown', headline: 'Not on the verified list and no readable metadata, unverified.', signals,
       holders: launchpad.holders,
     };
   }
 
   const name = meta.name || '';
   const symbol = meta.symbol || '';
-  const symTight = normalizeTight(symbol);
-  const nameTight = normalizeTight(name);
-
-  let danger = false;
-  let warn = false;
-  let targetLabel: string | null = null; // the trusted thing being impersonated, for the headline
-
-  // ── 3a/3b. Compare against the verified TOKEN registry ──────────────────────
-  // For each verified token, measure how the candidate relates to it: an exact
-  // symbol/name collision at a different denom (claiming to BE it), or a
-  // near-miss by look-alike characters / digit swaps / one dropped-or-changed
-  // character (XII vs XIII, 1NJ vs INJ, CULT vs CVLT). Matching a verified token
-  // on BOTH symbol and name by a near-miss is strong evidence of deliberate
-  // impersonation, so it escalates from a look-alike warning to a danger.
-  const symLeet = symbol ? normalizeLeet(symbol) : '';
-  let best:
-    | { t: VerifiedToken; exactSym: boolean; exactName: boolean; symNear: boolean; nameNear: boolean; score: number }
-    | null = null;
-
-  for (const t of tokens) {
-    if (t.denom === denom) continue;
-    const tSym = normalizeTight(t.symbol);
-    const tName = normalizeTight(t.name);
-
-    const exactSym = !!symTight && symTight === tSym;
-    const exactName = !exactSym && !!nameTight && nameTight === tName && tName.length >= 4;
-    // Near-miss on symbol: same after digit/look-alike folding, or one edit apart
-    // (gated on the longer of the two being ≥4 so 2–3 char tickers don't collide).
-    const symNear =
-      !exactSym && !!symbol &&
-      (normalizeLeet(t.symbol) === symLeet ||
-        (Math.max(symTight.length, tSym.length) >= 4 && editDistance(symTight, tSym) === 1));
-    // Near-miss on name: one edit apart on names of real length (≥5) — a strong,
-    // low-coincidence signal.
-    const nameNear = !exactName && !!nameTight && tName.length >= 5 && editDistance(nameTight, tName) === 1;
-
-    if (!exactSym && !exactName && !symNear && !nameNear) continue;
-
-    const score = (exactSym ? 8 : 0) + (exactName ? 6 : 0) + (symNear ? 3 : 0) + (nameNear ? 3 : 0);
-    if (!best || score > best.score) best = { t, exactSym, exactName, symNear, nameNear, score };
-  }
-
-  if (best) {
-    const { t, exactSym, exactName, symNear, nameNear } = best;
-    targetLabel = t.symbol;
-    const realLink = { label: `Open the real ${t.symbol} on Choice`, url: choiceTokenUrl(t.denom) };
-    if (exactSym) {
-      danger = true;
-      signals.push({
-        level: 'danger',
-        title: `Impersonates the verified token ${t.symbol}`,
-        detail: `This token advertises the symbol “${symbol}”, which belongs to the verified ${t.name} (${t.symbol}). This denom is not that token — the real ${t.symbol} is ${t.denom}.`,
-        link: realLink,
-      });
-    } else if (exactName) {
-      danger = true;
-      signals.push({
-        level: 'danger',
-        title: `Impersonates the verified token ${t.symbol}`,
-        detail: `This token’s name “${name}” matches the verified ${t.name} (${t.symbol}) at a different denom. The real one is ${t.denom}.`,
-        link: realLink,
-      });
-    } else if (symNear && nameNear) {
-      danger = true;
-      const homoglyph = usesConfusables(symbol) || usesConfusables(name);
-      signals.push({
-        level: 'danger',
-        title: `Near-identical to verified token ${t.symbol}`,
-        detail: `Both the symbol “${symbol}” and name “${name}” are one character away from the verified ${t.name} (${t.symbol})${homoglyph ? ' and use look-alike characters' : ''} — a classic impersonation pattern. The real ${t.symbol} is ${t.denom}.`,
-        link: realLink,
-      });
-    } else {
-      warn = true;
-      const field = symNear ? `symbol “${symbol}”` : `name “${name}”`;
-      const trick = usesConfusables(symbol) || usesConfusables(name)
-        ? 'uses look-alike characters'
-        : 'is a near-identical spelling';
-      signals.push({
-        level: 'warn',
-        title: `Look-alike of verified token ${t.symbol}`,
-        detail: `Its ${field} closely resembles the verified ${t.name} (${t.symbol}) — it ${trick}. The real ${t.symbol} is ${t.denom}.`,
-        link: realLink,
-      });
-    }
-  }
-
-  // 3c. Borrowing a known PROJECT / NFT collection name.
-  for (const proj of KNOWN_PROJECTS) {
-    const aliasTights = new Set(proj.aliases.map(normalizeTight));
-    aliasTights.add(normalizeTight(proj.name));
-    const projNameTight = normalizeTight(proj.name);
-    const matched =
-      (symTight && aliasTights.has(symTight)) ||
-      (nameTight && aliasTights.has(nameTight)) ||
-      (nameTight && projNameTight.length >= 5 && editDistance(nameTight, projNameTight) <= 1);
-    if (!matched) continue;
-
-    const official = officialTokenForAliases(aliasTights, tokens);
-    if (official && official.denom === denom) break; // it is the official token (handled above)
-
-    targetLabel = proj.name;
-    if (official) {
-      danger = true;
-      signals.push({
-        level: 'danger',
-        title: `Impersonates ${proj.name}`,
-        detail: `This token uses the identity of ${proj.name}, whose official token is ${official.symbol} (${official.denom}). This denom is not it.`,
-        link: { label: `Open the real ${official.symbol} on Choice`, url: choiceTokenUrl(official.denom) },
-      });
-    } else {
-      danger = true;
-      const kind = proj.kind === 'nft-collection' ? 'NFT collection' : 'project';
-      signals.push({
-        level: 'danger',
-        title: `Borrows the name of ${proj.name}`,
-        detail: `This token advertises “${name || symbol}”, matching the well-known ${kind} ${proj.name}, which has no official token on Injective’s verified list. A token using its name is almost certainly not affiliated — verify directly with the project before buying.`,
-        link: proj.contract
-          ? proj.kind === 'nft-collection'
-            ? { label: `View ${proj.name} on Talis`, url: talisCollectionUrl(proj.contract) }
-            : { label: `${proj.name} on explorer`, url: explorerContract(proj.contract) }
-          : undefined,
-      });
-    }
-    break; // one project match is enough
-  }
-
-  // 3d. Nothing matched → unverified, but not evidence of anything either way.
-  if (!danger && !warn) {
-    signals.push({
-      level: 'info',
-      title: 'No impersonation match',
-      detail:
-        'This token is not on the verified list, and its name/symbol does not match any verified token or known project we track. That is neither good nor bad on its own — its identity is simply unverified.',
-    });
-  }
+  const cmp = compareToRegistry(denom, name, symbol, tokens);
+  const { danger, warn, targetLabel } = cmp;
+  signals.push(...cmp.signals);
 
   signals.push(identitySignal(denom, name, symbol, creator));
   signals.push(...launchpadSignals);
@@ -318,10 +354,10 @@ export async function checkToken(rawQuery: string): Promise<TokenCheck> {
 
   const verdict: Verdict = danger ? 'impersonation' : warn ? 'lookalike' : 'unverified';
   const headline = danger
-    ? `Likely impersonation${targetLabel ? ` of ${targetLabel}` : ''} — this is not the real ${targetLabel ?? symbol ?? name}.`
+    ? `Likely impersonation${targetLabel ? ` of ${targetLabel}` : ''}, this is not the real ${targetLabel ?? symbol ?? name}.`
     : warn
-      ? `Look-alike of the verified ${targetLabel ?? 'token'} — check carefully.`
-      : `Unverified token — no impersonation detected, but identity is unconfirmed.`;
+      ? `Look-alike of the verified ${targetLabel ?? 'token'}, check carefully.`
+      : `Unverified token, no impersonation detected, but identity is unconfirmed.`;
 
   return { query, mode: 'denom', denom, onchainName: name, onchainSymbol: symbol, creator, market, verdict, headline, signals, holders: launchpad.holders };
 }
@@ -343,14 +379,14 @@ function marketSignal(m: SpotMarket | null): Signal {
     return {
       level: 'info',
       title: `Market ${m.ticker} is ${m.status || 'not active'}`,
-      detail: `A spot market for this token exists (${m.marketId}) but is currently ${m.status || 'inactive'} — trading may be paused.`,
+      detail: `A spot market for this token exists (${m.marketId}) but is currently ${m.status || 'inactive'}, trading may be paused.`,
     };
   }
   return {
     level: 'info',
     title: 'No exchange market yet',
     detail:
-      'No spot market for this token on Injective’s exchange. It has not graduated/bonded to a market (or trades only on the launchpad’s bonding curve) — expected for a brand-new token, but it also means there is no established market to compare against.',
+      'No spot market for this token on Injective’s exchange. It has not graduated/bonded to a market (or trades only on the launchpad’s bonding curve), expected for a brand-new token, but it also means there is no established market to compare against.',
   };
 }
 
@@ -376,7 +412,7 @@ function identitySignal(
 // For tokens minted by the launchpad, surface what its own contract exposes:
 // how concentrated supply is in the launch wallet, whether more can still be
 // minted, the dev's track record, and the token's stage/age. Honest signals,
-// not a verdict — a launchpad token is not inherently a scam.
+// not a verdict, a launchpad token is not inherently a scam.
 function ageLabel(registeredAt: number): string {
   if (!registeredAt) return 'recently';
   const s = Math.floor(Date.now() / 1000) - registeredAt;
@@ -411,7 +447,7 @@ async function buildLaunchpadSignals(
 
   const out: Signal[] = [];
 
-  // Sanctioned / restricted wallet involved — the most authoritative red flag.
+  // Sanctioned / restricted wallet involved, the most authoritative red flag.
   // Injective's own OFAC + restricted list is EVM hex; the dev and holder
   // addresses are hex too, so we compare 0x-stripped and lowercased.
   if (holders) {
@@ -424,12 +460,12 @@ async function buildLaunchpadSignals(
       out.push({
         level: 'danger',
         title: 'Sanctioned / restricted wallet involved',
-        detail: `${hits.join(' and ')} ${hits.length === 1 ? 'is' : 'are'} on Injective’s OFAC / restricted wallet list. Interacting with this token may be restricted — treat it as high-risk.`,
+        detail: `${hits.join(' and ')} ${hits.length === 1 ? 'is' : 'are'} on Injective’s OFAC / restricted wallet list. Interacting with this token may be restricted, treat it as high-risk.`,
       });
     }
   }
 
-  // The launchpad's own verdict — the strongest single signal when present.
+  // The launchpad's own verdict, the strongest single signal when present.
   if (holders?.flagged) {
     out.push({
       level: 'danger',
@@ -451,16 +487,16 @@ async function buildLaunchpadSignals(
     ? 'graduated to a live market'
     : info.status === 'delivered'
       ? 'completed its bonding curve (delivered), but is not on a live exchange market'
-      : 'still on the bonding curve — not yet graduated';
+      : 'still on the bonding curve, not yet graduated';
 
   // Stage + age
   out.push({
     level: onCurve ? 'warn' : 'info',
-    title: `Launchpad token — ${stageWord}`,
+    title: `Launchpad token, ${stageWord}`,
     detail: `Minted on the Trippy launchpad and ${stageDetail}. Launched ${ageLabel(info.registeredAt)}.${onCurve ? ' Early tokens sit on a bonding curve until they graduate to a real market.' : ''}`,
   });
 
-  // Holders + concentration — real holders only (escrow/pools labeled & excluded).
+  // Holders + concentration, real holders only (escrow/pools labeled & excluded).
   // Source is the launchpad's own backend (chain-level holder enumeration is off),
   // which labels protocol addresses so a curve escrow isn't mistaken for a whale.
   if (holders) {
@@ -473,13 +509,13 @@ async function buildLaunchpadSignals(
       detail:
         `${holders.totalHolders} addresses hold this token; ${holders.userHolders} are real wallets (the rest are the bonding-curve escrow and pools). ` +
         (p >= 10
-          ? `The largest real holder controls ${pctText(p)}% of supply and the top 10 hold ${pctText(holders.top10RealPct)}% — enough to move the price sharply on a sell. `
-          : `The largest real holder controls ${pctText(p)}% — no single wallet dominates the float. `) +
-        (onCurve ? `${pctText(holders.escrowPct)}% of supply is still unsold in the curve escrow${lowTraction ? ', and very few wallets hold it — little traction so far' : ''}.` : ''),
+          ? `The largest real holder controls ${pctText(p)}% of supply and the top 10 hold ${pctText(holders.top10RealPct)}%, enough to move the price sharply on a sell. `
+          : `The largest real holder controls ${pctText(p)}%, no single wallet dominates the float. `) +
+        (onCurve ? `${pctText(holders.escrowPct)}% of supply is still unsold in the curve escrow${lowTraction ? ', and very few wallets hold it, little traction so far' : ''}.` : ''),
     });
   }
 
-  // Sell-impact — how far a large holder can push the price on the bonding curve.
+  // Sell-impact, how far a large holder can push the price on the bonding curve.
   // Exact math on the curve reserves (verified against real fills), so this is a
   // fact about current liquidity, not an estimate.
   if (holders?.sellImpact && holders.sellImpact.rows.length) {
@@ -490,7 +526,7 @@ async function buildLaunchpadSignals(
     const level: SignalLevel = impact >= 50 ? 'danger' : impact >= 20 ? 'warn' : 'info';
     out.push({
       level,
-      title: `Sell impact — ${headline.label.toLowerCase()} moves price −${pctText(impact)}%`,
+      title: `Sell impact, ${headline.label.toLowerCase()} moves price −${pctText(impact)}%`,
       detail:
         `On the bonding curve, ${headline.label.toLowerCase()} (${pctText(headline.pctCirculating)}% of circulating) would net about ${fmtInj(headline.injReceived)} INJ and push the price down ${pctText(impact)}%. ` +
         (all ? `Unwinding all circulating supply nets roughly ${fmtInj(all.injReceived)} INJ. ` : '') +
@@ -498,7 +534,7 @@ async function buildLaunchpadSignals(
     });
   }
 
-  // Wallet connections — top holders that were first funded by the same wallet.
+  // Wallet connections, top holders that were first funded by the same wallet.
   // Honest framing: shared funding can be an insider/sybil cluster, or just a
   // common exchange withdrawal address. We state the fact and link the funder.
   if (holders && holders.clustersResolved && holders.clusters.length > 0) {
@@ -514,23 +550,23 @@ async function buildLaunchpadSignals(
       detail:
         `Among the top real holders, ${nConnected} trace back to a shared funding wallet across ${groups} group${groups === 1 ? '' : 's'} ` +
         `(largest: ${c.funderIsHolder ? c.members.length + 1 : c.members.length} wallets, ~${pctText(c.pct)}% of supply). ` +
-        'Wallets funded from one source can be a single entity holding through many addresses (an insider/sybil cluster) — ' +
+        'Wallets funded from one source can be a single entity holding through many addresses (an insider/sybil cluster), ' +
         'or simply people who withdrew from the same exchange. Shown as a signal, not a verdict; check the funder yourself.',
       link: { label: 'Funder on explorer', url: explorerAccount(c.funder) },
     });
 
     // Cross-token context: is this cluster's funder a repeat insider across other
-    // launchpad tokens? Guarded lookup — a cold index is skipped, never blocks.
+    // launchpad tokens? Guarded lookup, a cold index is skipped, never blocks.
     const serial = await lookupSerialFunders(holders.clusters.map((cl) => cl.funder));
     const repeat = [...serial.values()].filter((s) => s.launchCount >= 2).sort((a, b) => b.launchCount - a.launchCount)[0];
     if (repeat) {
       const syms = repeat.tokens.map((t) => t.symbol || `#${t.onchainId}`).slice(0, 6).join(', ');
       out.push({
         level: repeat.launchCount >= 3 ? 'danger' : 'warn',
-        title: `Repeat insider funder — active across ${repeat.launchCount} launchpad tokens`,
+        title: `Repeat insider funder, active across ${repeat.launchCount} launchpad tokens`,
         detail:
           `A wallet that funded this token’s connected holders has also seeded the top holders of other Trippy-launchpad tokens (${syms}). ` +
-          'A funder recurring across many launches points to a coordinated operator or market-maker fleet — strong context for the cluster above.',
+          'A funder recurring across many launches points to a coordinated operator or market-maker fleet, strong context for the cluster above.',
         link: { label: 'See all launchpad insiders', url: '/insiders' },
       });
     }
@@ -538,11 +574,11 @@ async function buildLaunchpadSignals(
     out.push({
       level: 'ok',
       title: 'No wallet connections found',
-      detail: 'The top real holders were each funded independently — no shared funding source that would suggest one entity holding through multiple wallets.',
+      detail: 'The top real holders were each funded independently, no shared funding source that would suggest one entity holding through multiple wallets.',
     });
   }
 
-  // Creator track record — dev reputation, never identity. How many tokens this
+  // Creator track record, dev reputation, never identity. How many tokens this
   // wallet has launched and how many reached a live market. Serial launches with
   // nothing graduating is a churn-and-dump pattern.
   if (holders?.devCreator) {
@@ -556,10 +592,10 @@ async function buildLaunchpadSignals(
           ? 'Creator’s first launchpad token'
           : `Creator has launched ${stats.launched} launchpad tokens`,
         detail: others <= 0
-          ? `This is the only token this wallet has launched on the Trippy launchpad${stats.graduated > 0 ? ', and it graduated to a live market' : ' — no track record yet, good or bad'}.`
+          ? `This is the only token this wallet has launched on the Trippy launchpad${stats.graduated > 0 ? ', and it graduated to a live market' : ', no track record yet, good or bad'}.`
           : `This wallet has launched ${stats.launched} tokens on the Trippy launchpad (including this one); ${stats.graduated} graduated to a live market. ` +
             (serial
-              ? 'Many launches with none graduating is a churn-and-dump pattern — be cautious.'
+              ? 'Many launches with none graduating is a churn-and-dump pattern, be cautious.'
               : stats.graduated > 0
                 ? 'A creator with graduated tokens has some track record, though past launches are no guarantee.'
                 : 'None have graduated yet.'),
@@ -573,7 +609,7 @@ async function buildLaunchpadSignals(
       ? {
           level: 'ok',
           title: 'Mint authority renounced',
-          detail: 'The launch admin has been renounced — total supply is fixed and no more can be minted.',
+          detail: 'The launch admin has been renounced, total supply is fixed and no more can be minted.',
         }
       : {
           level: 'warn',
@@ -584,6 +620,216 @@ async function buildLaunchpadSignals(
   );
 
   return { signals: out, holders };
+}
+
+// ── EVM token flow (Sprout / native ERC-20) ────────────────────────────────
+// A 0x contract has no bank metadata: read identity from the EVM, run the same
+// impersonation comparison as the denom path, and add Sprout launchpad signals
+// when the token resolves to a live launch. Degrades to identity-only when it
+// is not a Sprout launch (getLaunchByToken reverts) or is already graduated.
+function evmIdentitySignal(addr: string, id: EvmTokenIdentity, sprout: SproutInfo | null): Signal {
+  const bits: string[] = [];
+  if (id.name || id.symbol) bits.push(`Calls itself ${id.name || '—'}${id.symbol ? ` (${id.symbol})` : ''}.`);
+  bits.push('Native EVM ERC-20 on Injective.');
+  bits.push(`Contract: ${addr}.`);
+  bits.push(`Bank denom: ${id.denom}.`);
+  if (sprout?.creator) bits.push(`Launched by ${sprout.creator}.`);
+  return {
+    level: 'info',
+    title: 'On-chain identity',
+    detail: bits.join(' '),
+    link: { label: 'Contract on explorer', url: `https://blockscout.injective.network/address/${addr}` },
+  };
+}
+
+async function buildSproutSignals(sprout: SproutInfo | null): Promise<Signal[]> {
+  if (!sprout) return [];
+  const out: Signal[] = [];
+  const h = sprout.holders;
+
+  // Sanctioned / restricted wallet, the most authoritative red flag.
+  if (h) {
+    const restricted = await getRestrictedWallets();
+    const norm = (a: string) => a.replace(/^0x/, '').toLowerCase();
+    const hits: string[] = [];
+    if (sprout.creator && restricted.has(norm(sprout.creator))) hits.push('the token’s creator');
+    if (h.bubble.slice(0, 12).some((b) => restricted.has(norm(b.address)))) hits.push('a top holder');
+    if (hits.length) {
+      out.push({
+        level: 'danger',
+        title: 'Sanctioned / restricted wallet involved',
+        detail: `${hits.join(' and ')} ${hits.length === 1 ? 'is' : 'are'} on Injective’s OFAC / restricted wallet list. Interacting with this token may be restricted, treat it as high-risk.`,
+      });
+    }
+  }
+
+  // The launchpad's own verdict.
+  if (sprout.flagged) {
+    out.push({
+      level: 'danger',
+      title: 'Flagged by the launchpad',
+      detail: sprout.impersonates
+        ? `The Sprout launchpad has flagged this launch as impersonating ${sprout.impersonates}. Treat it as a scam token unless the project itself says otherwise.`
+        : 'The Sprout launchpad has flagged this launch (typically for impersonation or abuse). Treat it as high-risk.',
+    });
+  } else if (sprout.impersonates) {
+    out.push({
+      level: 'warn',
+      title: `Launchpad notes a resemblance to ${sprout.impersonates}`,
+      detail: `The launchpad associates this launch with ${sprout.impersonates}. It is not flagged outright, but verify it is the one you intend before buying.`,
+    });
+  }
+
+  // Stage + age.
+  const stageWord = sprout.graduated ? 'graduated' : 'on the curve';
+  out.push({
+    level: sprout.onCurve ? 'warn' : 'info',
+    title: `Sprout launchpad token, ${stageWord}`,
+    detail: `Minted on the Sprout launchpad (native EVM) and ${sprout.graduated ? 'graduated to a live market' : 'still on the bonding curve, not yet graduated'}. Launched ${ageLabel(sprout.createdAt)}.${sprout.onCurve ? ' Early tokens sit on a bonding curve until they graduate to a real market.' : ''}`,
+  });
+
+  // Holders + concentration.
+  if (h) {
+    const p = h.topRealPct;
+    const lowTraction = h.userHolders < 15;
+    const level: SignalLevel = p >= 20 ? 'danger' : p >= 10 || lowTraction ? 'warn' : 'info';
+    out.push({
+      level,
+      title: `${h.userHolders} real holder${h.userHolders === 1 ? '' : 's'}${p >= 10 ? ` · top holds ${pctText(p)}%` : ''}`,
+      detail:
+        `${h.totalHolders} addresses hold this token; ${h.userHolders} are real wallets (the rest are the bonding-curve escrow and pools). ` +
+        (p >= 10
+          ? `The largest real holder controls ${pctText(p)}% of supply and the top 10 hold ${pctText(h.top10RealPct)}%, enough to move the price sharply on a sell. `
+          : `The largest real holder controls ${pctText(p)}%, no single wallet dominates the float. `) +
+        (sprout.onCurve ? `${pctText(h.escrowPct)}% of supply is still unsold in the curve escrow${lowTraction ? ', and very few wallets hold it, little traction so far' : ''}.` : ''),
+    });
+  }
+
+  // Sell-impact on the bonding curve.
+  if (h?.sellImpact && h.sellImpact.rows.length) {
+    const si = h.sellImpact;
+    const headline = si.rows.find((r) => r.label.startsWith('Largest holder')) ?? si.rows[0];
+    const all = si.rows.find((r) => r.label === 'All circulating');
+    const impact = headline.priceImpactPct;
+    const level: SignalLevel = impact >= 50 ? 'danger' : impact >= 20 ? 'warn' : 'info';
+    out.push({
+      level,
+      title: `Sell impact, ${headline.label.toLowerCase()} moves price −${pctText(impact)}%`,
+      detail:
+        `On the bonding curve, ${headline.label.toLowerCase()} (${pctText(headline.pctCirculating)}% of circulating) would net about ${fmtInj(headline.injReceived)} INJ and push the price down ${pctText(impact)}%. ` +
+        (all ? `Unwinding all circulating supply nets roughly ${fmtInj(all.injReceived)} INJ. ` : '') +
+        'Curve liquidity is shallow early on, so a large holder can move the price sharply.',
+    });
+  }
+
+  // Wallet connections, top holders first funded by the same wallet.
+  if (h && h.clustersResolved && h.clusters.length > 0) {
+    const c = h.clusters[0];
+    const nConnected = h.clusters.reduce((s, cl) => s + cl.members.length + (cl.funderIsHolder ? 1 : 0), 0);
+    const groups = h.clusters.length;
+    const level: SignalLevel = h.clusteredPct >= 20 || h.largestClusterSize >= 4 ? 'warn' : 'info';
+    out.push({
+      level,
+      title: `Connected wallets: ${nConnected} of the top holders in ${groups} cluster${groups === 1 ? '' : 's'}`,
+      detail:
+        `Among the top real holders, ${nConnected} trace back to a shared funding wallet across ${groups} group${groups === 1 ? '' : 's'} ` +
+        `(largest: ${c.funderIsHolder ? c.members.length + 1 : c.members.length} wallets, ~${pctText(c.pct)}% of supply). ` +
+        'Wallets funded from one source can be a single entity holding through many addresses (an insider/sybil cluster), ' +
+        'or simply people who withdrew from the same exchange. Shown as a signal, not a verdict; check the funder yourself.',
+      link: { label: 'Funder on explorer', url: explorerAccount(c.funder) },
+    });
+  } else if (h && h.clustersResolved && h.bubble.length >= 3) {
+    out.push({
+      level: 'ok',
+      title: 'No wallet connections found',
+      detail: 'The top real holders were each funded independently, no shared funding source that would suggest one entity holding through multiple wallets.',
+    });
+  }
+
+  return out;
+}
+
+async function checkEvmToken(addr: string, tokens: VerifiedToken[]): Promise<TokenCheck> {
+  const denom = erc20Denom(addr);
+  const identity = await fetchEvmTokenIdentity(addr);
+
+  // Not a readable ERC-20, most likely a wallet (EOA), not a token.
+  if (!identity) {
+    return {
+      query: addr, mode: 'denom', denom, onchainName: null, onchainSymbol: null, creator: null,
+      market: null, verdict: 'unknown',
+      headline: 'This is an EVM address but not a readable token contract, it may be a wallet.',
+      signals: [
+        {
+          level: 'info',
+          title: 'Not a readable EVM token',
+          detail: 'This 0x address exposes no ERC-20 interface we can read on the Injective EVM. If you meant to inspect a wallet, open it in the Wallet lens.',
+          link: { label: 'Open in Wallet Intelligence', url: `/wallet?address=${addr}` },
+        },
+        DISCLAIMER,
+      ],
+      holders: null,
+    };
+  }
+
+  const { name, symbol } = identity;
+  const signals: Signal[] = [];
+
+  // Graduated / bonded to a real spot market? (query by the erc20 bank alias.)
+  const spot = await findSpotMarketByBase(denom);
+  const market = spot
+    ? { ticker: spot.ticker, marketId: spot.marketId, status: spot.status, url: choiceTradeUrl(spot.marketId) }
+    : null;
+
+  // Sprout launchpad rug-risk (null when it is not a live Sprout launch).
+  const sprout = await fetchSproutInfo(addr, identity.totalSupplyRaw, { clusterBudgetMs: 12_000 });
+  const sproutSignals = await buildSproutSignals(sprout);
+
+  // 1. Already on the verified list (under its erc20 denom) → it IS the official one.
+  const registered = tokens.find((t) => t.denom.toLowerCase() === denom);
+  if (registered) {
+    signals.push({
+      level: 'ok',
+      title: `Verified token: ${registered.symbol}`,
+      detail: `This contract is ${registered.name} (${registered.symbol}) on Injective’s official verified token list. This is the real one.`,
+      link: { label: `Open ${registered.symbol} on Choice`, url: choiceTokenUrl(registered.denom) },
+    });
+    signals.push(evmIdentitySignal(addr, identity, sprout));
+    signals.push(...sproutSignals);
+    signals.push(marketSignal(spot));
+    signals.push(DISCLAIMER);
+    return {
+      query: addr, mode: 'denom', denom, onchainName: name, onchainSymbol: symbol,
+      creator: sprout?.creator ?? null, market, verdict: 'verified',
+      headline: `Verified: this is the official ${registered.symbol}.`, signals,
+      holders: sprout?.holders ?? null,
+    };
+  }
+
+  // 2. Impersonation comparison (shared with the denom path) + Sprout signals.
+  const cmp = compareToRegistry(denom, name, symbol, tokens);
+  signals.push(...cmp.signals);
+  signals.push(evmIdentitySignal(addr, identity, sprout));
+  signals.push(...sproutSignals);
+  signals.push(marketSignal(spot));
+  signals.push(DISCLAIMER);
+
+  // The launchpad's own flag escalates to danger even without a name collision.
+  const danger = cmp.danger || Boolean(sprout?.flagged);
+  const warn = cmp.warn;
+  const label = cmp.targetLabel ?? sprout?.impersonates ?? null;
+  const verdict: Verdict = danger ? 'impersonation' : warn ? 'lookalike' : 'unverified';
+  const headline = danger
+    ? `Likely impersonation${label ? ` of ${label}` : ''}, this is not the real ${label ?? symbol ?? name}.`
+    : warn
+      ? `Look-alike of the verified ${cmp.targetLabel ?? 'token'}, check carefully.`
+      : `Unverified EVM token, no impersonation detected, but identity is unconfirmed.`;
+
+  return {
+    query: addr, mode: 'denom', denom, onchainName: name, onchainSymbol: symbol,
+    creator: sprout?.creator ?? null, market, verdict, headline, signals,
+    holders: sprout?.holders ?? null,
+  };
 }
 
 // ── Lookup mode: bare symbol/name → surface the real token(s)/project(s) ───────
