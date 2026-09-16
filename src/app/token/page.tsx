@@ -301,7 +301,7 @@ export default function TokenPage() {
 
   function runCheck(q: string) {
     if (!q) {
-      setError('Enter a token denom or symbol.');
+      setError('Enter a token denom, a 0x contract, or a symbol.');
       return;
     }
     setError(null);
@@ -374,8 +374,8 @@ export default function TokenPage() {
               Token <span>safety</span> check
             </h1>
             <p className="tx-subline">
-              Paste a token’s denom (or a symbol), see if it’s the real one or an impostor copying a
-              trusted name, checked against Injective’s verified lists and on-chain data
+              Paste a token’s denom, a 0x EVM contract, or a symbol, see if it’s the real one or an
+              impostor copying a trusted name, checked against Injective’s verified lists and on-chain data
             </p>
           </>
         )}
@@ -387,7 +387,7 @@ export default function TokenPage() {
               type="text"
               spellCheck={false}
               autoComplete="off"
-              placeholder="factory/inj1… /  peggy0x… /  or a symbol like PYTH"
+              placeholder="factory/inj1… /  0x… EVM contract  /  or a symbol like PYTH"
               value={value}
               onChange={e => setValue(e.target.value)}
               disabled={loading}
