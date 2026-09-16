@@ -11,7 +11,8 @@ export async function generateMetadata({
   const title = `Tx ${shortHash} · Tx·Translator`;
   const description = 'Decoded Injective transaction. Paste any hash on Tx·Translator.';
   return {
-    title,
+    // absolute: keep the exact share title, bypassing the root "%s · Renzu" template
+    title: { absolute: title },
     openGraph: {
       title,
       description,

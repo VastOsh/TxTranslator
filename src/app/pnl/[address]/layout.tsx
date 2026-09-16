@@ -10,7 +10,8 @@ export async function generateMetadata({
   const title = `Perp PnL ${short} · Tx·Translator`;
   const description = 'Realized PnL, win rate and open positions for any Injective perp trader.';
   return {
-    title,
+    // absolute: keep the exact share title, bypassing the root "%s · Renzu" template
+    title: { absolute: title },
     openGraph: {
       title,
       description,
