@@ -10,7 +10,7 @@ The name is the idea. *Renzu* is Japanese for **lens**: each tool is one lens on
 
 🏠 **Hub (live):** [renzu.xyz](https://renzu.xyz)
 🔗 **Decoder:** [renzu.xyz/tx](https://renzu.xyz/tx)
-🐋 **Renzu on X:** [@Renzuapp](https://x.com/Renzuapp) · **Whale feed:** [@TxTranslator](https://x.com/TxTranslator)
+🐋 **Renzu on X (whale feed):** [@Renzuapp](https://x.com/Renzuapp)
 
 Current version: **v2.0.0**
 
@@ -112,7 +112,7 @@ Every decode pushes a `/tx/[hash]` URL to the browser: share it and recipients l
 
 ## The whale feed
 
-Renzu watches **every active Injective derivative market** in real time and posts notable events on-site at `/feed` and out to [@TxTranslator](https://x.com/TxTranslator) and Discord.
+Renzu watches **every active Injective derivative market** in real time and posts notable events on-site at `/feed` and out to [@Renzuapp](https://x.com/Renzuapp) and Discord.
 
 - **Large perp opens** with entry price, margin, leverage, and an AI context line.
 - **Liquidations**: forced closes with size and direction.

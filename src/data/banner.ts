@@ -12,9 +12,9 @@ export const MANUAL_BANNER_ITEMS: BannerItem[] = [
   {
     id: 'whale-feed-live',
     type: 'info',
-    text: 'NEW, the Tx·Translator whale feed is live: large perp opens, liquidations, and closed PnL on Injective, posted in plain English.',
-    link: 'https://x.com/TxTranslator',
-    linkText: 'Follow @TxTranslator ↗',
+    text: 'NEW, the Renzu whale feed is live: large perp opens, liquidations, and closed PnL on Injective, posted in plain English.',
+    link: 'https://x.com/Renzuapp',
+    linkText: 'Follow @Renzuapp ↗',
   },
   {
     id: 'zellic-shutdown',
