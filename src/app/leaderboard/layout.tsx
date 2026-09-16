@@ -1,17 +1,12 @@
 import type { Metadata } from 'next';
+import { lensMetadata } from '@/lib/seo';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = lensMetadata({
   title: 'Injective smart money leaderboard',
   description:
     'The most profitable Injective perp traders, ranked by realized net PnL and volume from on-chain fills. Each trader links to a full PnL breakdown.',
-  alternates: { canonical: '/leaderboard' },
-  openGraph: {
-    title: 'Injective smart money leaderboard · Renzu',
-    description:
-      'The most profitable Injective perp traders, ranked by realized net PnL and volume from on-chain fills. Each trader links to a full PnL breakdown.',
-    url: '/leaderboard',
-  },
-};
+  path: '/leaderboard',
+});
 
 export default function LeaderboardLayout({ children }: { children: React.ReactNode }) {
   return <>{children}</>;

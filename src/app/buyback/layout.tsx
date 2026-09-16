@@ -1,17 +1,12 @@
 import type { Metadata } from 'next';
+import { lensMetadata } from '@/lib/seo';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = lensMetadata({
   title: 'Injective Community BuyBack tracker',
   description:
     'Track the Injective Community BuyBack: round timing, deposits and honest on-chain signals, with no inflated or invented numbers.',
-  alternates: { canonical: '/buyback' },
-  openGraph: {
-    title: 'Injective Community BuyBack tracker · Renzu',
-    description:
-      'Track the Injective Community BuyBack: round timing, deposits and honest on-chain signals, with no inflated or invented numbers.',
-    url: '/buyback',
-  },
-};
+  path: '/buyback',
+});
 
 export default function BuybackLayout({ children }: { children: React.ReactNode }) {
   return <>{children}</>;

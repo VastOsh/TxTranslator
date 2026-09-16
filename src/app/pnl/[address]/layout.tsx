@@ -17,8 +17,15 @@ export async function generateMetadata({
       description,
       type: 'website',
       url: `/pnl/${address}`,
+      images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: 'Renzu, every lens on Injective' }],
     },
-    twitter: { card: 'summary_large_image', title, description },
+    twitter: {
+      card: 'summary_large_image',
+      site: '@Renzuapp',
+      title,
+      description,
+      images: ['/opengraph-image'],
+    },
   };
 }
 
