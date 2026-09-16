@@ -1,7 +1,7 @@
 import type { FeedCandidate } from './watch';
 import { TEST_MODE, type Tier } from './thresholds';
 
-const SITE_URL = process.env.FEED_SITE_URL ?? 'https://txtranslator.vercel.app';
+const SITE_URL = process.env.FEED_SITE_URL ?? 'https://renzu.xyz';
 
 function fmtUsd(n: number): string {
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;

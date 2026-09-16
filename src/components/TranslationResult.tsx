@@ -238,7 +238,7 @@ function buildTweetText(data: TranslationResponse): string {
   const g   = data.governanceData;
   const ud  = data.unbondingData;
   // Link to the specific decoded transaction so followers land on the result directly
-  const APP_URL = `txtranslator.vercel.app/tx/${data.hash}`;
+  const APP_URL = `renzu.xyz/tx/${data.hash}`;
 
   switch (data.txCategory) {
 

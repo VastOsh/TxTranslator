@@ -8,9 +8,9 @@ The name is the idea. *Renzu* is Japanese for **lens**: each tool is one lens on
 
 **Formerly TxTranslator.** What began as a single transaction decoder grew into a set of tools, so it moved under one roof. The decoder keeps the TxTranslator name and lives at `/tx`; nothing was removed, everything moved.
 
-🔗 **Decoder (live):** [txtranslator.vercel.app](https://txtranslator.vercel.app)
-🏠 **Hub:** renzu.xyz
-🐋 **Whale feed:** [@TxTranslator on X](https://x.com/TxTranslator)
+🏠 **Hub (live):** [renzu.xyz](https://renzu.xyz)
+🔗 **Decoder:** [renzu.xyz/tx](https://renzu.xyz/tx)
+🐋 **Renzu on X:** [@Renzuapp](https://x.com/Renzuapp) · **Whale feed:** [@TxTranslator](https://x.com/TxTranslator)
 
 Current version: **v2.0.0**
 

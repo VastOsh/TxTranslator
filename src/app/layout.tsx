@@ -28,7 +28,7 @@ const bricolage = Bricolage_Grotesque({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://txtranslator.vercel.app'),
+  metadataBase: new URL('https://renzu.xyz'),
   title: 'Renzu · Every lens on Injective',
   description: 'The Injective intelligence hub. Decode transactions, inspect wallets and tokens, track real volume and whales, each through its own lens.',
 };

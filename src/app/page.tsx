@@ -513,7 +513,7 @@ export default function RenzuHub() {
           </div>
           <div className="rz-foot-meta">
             <a href="#lenses">renzu.xyz</a>
-            <a href="https://x.com/TxTranslator" target="_blank" rel="noopener noreferrer">TxTranslator on X</a>
+            <a href="https://x.com/Renzuapp" target="_blank" rel="noopener noreferrer">Renzu on X</a>
             <a href="https://x.com/SiGPRMR" target="_blank" rel="noopener noreferrer">Contact</a>
           </div>
         </div>
