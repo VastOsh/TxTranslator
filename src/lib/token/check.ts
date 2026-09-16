@@ -75,6 +75,25 @@ async function fetchDenomMetadata(denom: string): Promise<{ name: string; symbol
   return null;
 }
 
+/** Read a bank denom's total supply (base units) as a string, or null. */
+async function fetchBankSupplyRaw(denom: string): Promise<string | null> {
+  const enc = encodeURIComponent(denom);
+  for (const lcd of LCDS) {
+    try {
+      const res = await fetch(`${lcd}/cosmos/bank/v1beta1/supply/by_denom?denom=${enc}`, {
+        signal: AbortSignal.timeout(8_000),
+      });
+      if (!res.ok) continue;
+      const j = await res.json();
+      const amt = j?.amount?.amount;
+      if (typeof amt === 'string' && amt.length) return amt;
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
 /** factory/{creator}/{subdenom} → creator, else null. */
 function creatorOf(denom: string): string | null {
   if (!denom.startsWith('factory/')) return null;
@@ -749,6 +768,31 @@ async function buildSproutSignals(sprout: SproutInfo | null): Promise<Signal[]> 
   return out;
 }
 
+// An EVM ERC-20 is the on-EVM representation of a verified bank/factory token
+// when they share the symbol (or name) AND the exact same total supply. Only
+// non-erc20 verified denoms are probed: an already-erc20 verified token is
+// caught by the exact-denom match, and its bank supply is unreliable (0). Kept
+// tight (same symbol/name) so we make at most a couple of supply reads.
+async function findVerifiedBySupply(
+  id: EvmTokenIdentity,
+  tokens: VerifiedToken[],
+): Promise<VerifiedToken | null> {
+  const supply = id.totalSupplyRaw;
+  if (!supply || supply === '0') return null;
+  const symT = normalizeTight(id.symbol);
+  const nameT = normalizeTight(id.name);
+  const candidates = tokens.filter(
+    (t) =>
+      !t.denom.startsWith('erc20:') &&
+      ((!!symT && normalizeTight(t.symbol) === symT) || (!!nameT && normalizeTight(t.name) === nameT)),
+  );
+  for (const t of candidates) {
+    const sup = await fetchBankSupplyRaw(t.denom);
+    if (sup && sup === supply) return t;
+  }
+  return null;
+}
+
 async function checkEvmToken(addr: string, tokens: VerifiedToken[]): Promise<TokenCheck> {
   const denom = erc20Denom(addr);
   const identity = await fetchEvmTokenIdentity(addr);
@@ -775,8 +819,18 @@ async function checkEvmToken(addr: string, tokens: VerifiedToken[]): Promise<Tok
   const { name, symbol } = identity;
   const signals: Signal[] = [];
 
-  // Graduated / bonded to a real spot market? (query by the erc20 bank alias.)
-  const spot = await findSpotMarketByBase(denom);
+  // A verified token reaches this EVM path two ways: its own erc20 denom is the
+  // one we built (exact match), OR this ERC-20 is the on-EVM representation of a
+  // verified bank/factory token. The second is provable when the EVM total
+  // supply exactly equals that token's bank supply: distinct tokens do not
+  // collide on supply to the base unit. Either way it IS the official token, and
+  // its market lives on the verified denom, not the erc20 alias.
+  const registered = tokens.find((t) => t.denom.toLowerCase() === denom) ?? null;
+  const sameAsset = registered ? null : await findVerifiedBySupply(identity, tokens);
+  const verifiedMatch = registered ?? sameAsset;
+
+  // Market: look it up on the verified denom when matched, else the erc20 alias.
+  const spot = await findSpotMarketByBase(verifiedMatch?.denom ?? denom);
   const market = spot
     ? { ticker: spot.ticker, marketId: spot.marketId, status: spot.status, url: choiceTradeUrl(spot.marketId) }
     : null;
@@ -785,14 +839,14 @@ async function checkEvmToken(addr: string, tokens: VerifiedToken[]): Promise<Tok
   const sprout = await fetchSproutInfo(addr, identity.totalSupplyRaw, { clusterBudgetMs: 12_000 });
   const sproutSignals = await buildSproutSignals(sprout);
 
-  // 1. Already on the verified list (under its erc20 denom) → it IS the official one.
-  const registered = tokens.find((t) => t.denom.toLowerCase() === denom);
-  if (registered) {
+  // 1. Verified (exact denom, or the same asset by supply) → it IS the official one.
+  if (verifiedMatch) {
+    const viaEvm = sameAsset != null;
     signals.push({
       level: 'ok',
-      title: `Verified token: ${registered.symbol}`,
-      detail: `This contract is ${registered.name} (${registered.symbol}) on Injective’s official verified token list. This is the real one.`,
-      link: { label: `Open ${registered.symbol} on Choice`, url: choiceTokenUrl(registered.denom) },
+      title: `Verified token: ${verifiedMatch.symbol}`,
+      detail: `This contract is ${verifiedMatch.name} (${verifiedMatch.symbol}) on Injective’s official verified token list${viaEvm ? ', reached here as its EVM representation (its total supply matches the verified token exactly)' : ''}. This is the real one.`,
+      link: { label: `Open ${verifiedMatch.symbol} on Choice`, url: choiceTokenUrl(verifiedMatch.denom) },
     });
     signals.push(evmIdentitySignal(addr, identity, sprout));
     signals.push(...sproutSignals);
@@ -801,7 +855,7 @@ async function checkEvmToken(addr: string, tokens: VerifiedToken[]): Promise<Tok
     return {
       query: addr, mode: 'denom', denom, onchainName: name, onchainSymbol: symbol,
       creator: sprout?.creator ?? null, market, verdict: 'verified',
-      headline: `Verified: this is the official ${registered.symbol}.`, signals,
+      headline: `Verified: this is the official ${verifiedMatch.symbol}${viaEvm ? ', its EVM representation' : ''}.`, signals,
       holders: sprout?.holders ?? null,
     };
   }
