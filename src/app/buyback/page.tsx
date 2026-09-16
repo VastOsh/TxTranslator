@@ -169,13 +169,13 @@ export default function BuybackPage() {
         <span className="tx-footer">Made by S!G</span>
         <span className="tx-footer" style={{ opacity: 0.4 }}>·</span>
         <a
-          href="https://x.com/TxTranslator"
+          href="https://x.com/Renzuapp"
           target="_blank"
           rel="noopener noreferrer"
           className="tx-footer"
           style={{ textDecoration: 'none', opacity: 0.7 }}
         >
-          Whale feed @TxTranslator ↗
+          Whale feed @Renzuapp ↗
         </a>
       </footer>
     </main>

@@ -369,7 +369,7 @@ export default function StatsPage() {
       <footer style={{ marginTop: 'auto', padding: '2rem 0.75rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: '0.55rem 1rem', textAlign: 'center' }}>
         <span className="tx-footer">Made by S!G</span>
         <span className="tx-footer" style={{ opacity: 0.4 }}>·</span>
-        <a href="https://x.com/TxTranslator" target="_blank" rel="noopener noreferrer" className="tx-footer" style={{ textDecoration: 'none', opacity: 0.7 }}>Whale feed @TxTranslator ↗</a>
+        <a href="https://x.com/Renzuapp" target="_blank" rel="noopener noreferrer" className="tx-footer" style={{ textDecoration: 'none', opacity: 0.7 }}>Whale feed @Renzuapp ↗</a>
       </footer>
     </main>
   );
