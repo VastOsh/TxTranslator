@@ -27,10 +27,74 @@ const bricolage = Bricolage_Grotesque({
   variable: '--font-display',
 });
 
+const DESCRIPTION =
+  'The Injective intelligence hub. Decode transactions, inspect wallets and tokens, track real on-chain volume, burn and whales, each through its own lens.';
+
 export const metadata: Metadata = {
   metadataBase: new URL('https://renzu.xyz'),
-  title: 'Renzu · Every lens on Injective',
-  description: 'The Injective intelligence hub. Decode transactions, inspect wallets and tokens, track real volume and whales, each through its own lens.',
+  title: {
+    default: 'Renzu · Every lens on Injective',
+    template: '%s · Renzu',
+  },
+  description: DESCRIPTION,
+  applicationName: 'Renzu',
+  keywords: [
+    'Injective',
+    'INJ',
+    'Injective explorer',
+    'transaction decoder',
+    'wallet intelligence',
+    'token safety',
+    'perpetuals',
+    'on-chain analytics',
+    'INJ burn',
+    'DeFi',
+  ],
+  authors: [{ name: 'Renzu', url: 'https://renzu.xyz' }],
+  creator: 'Renzu',
+  alternates: { canonical: '/' },
+  openGraph: {
+    type: 'website',
+    siteName: 'Renzu',
+    title: 'Renzu · Every lens on Injective',
+    description: DESCRIPTION,
+    url: '/',
+    locale: 'en_US',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    site: '@Renzuapp',
+    creator: '@Renzuapp',
+    title: 'Renzu · Every lens on Injective',
+    description: DESCRIPTION,
+  },
+};
+
+// Organization + WebSite structured data, so search engines can attach the
+// brand, logo and social account to renzu.xyz. No SearchAction: the hub routes
+// a pasted query client-side (tx vs wallet vs token) with no single results
+// URL, so a sitelinks searchbox target would be dishonest.
+const JSON_LD = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'Organization',
+      '@id': 'https://renzu.xyz/#org',
+      name: 'Renzu',
+      url: 'https://renzu.xyz',
+      logo: 'https://renzu.xyz/icon.svg',
+      sameAs: ['https://x.com/Renzuapp'],
+    },
+    {
+      '@type': 'WebSite',
+      '@id': 'https://renzu.xyz/#website',
+      name: 'Renzu',
+      description: DESCRIPTION,
+      url: 'https://renzu.xyz',
+      inLanguage: 'en',
+      publisher: { '@id': 'https://renzu.xyz/#org' },
+    },
+  ],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -40,6 +104,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={`${inter.variable} ${ibmPlexSans.variable} ${jetbrainsMono.variable} ${bricolage.variable}`}
     >
       <body>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }}
+        />
         {children}
         <Analytics />
       </body>
