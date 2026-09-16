@@ -3,10 +3,12 @@
 // for dry runs, but live publishing is refused (dedup wouldn't survive
 // across serverless invocations and the feed would double-post).
 
-import { NOTIONALS_WINDOW_MS } from './thresholds';
+import { NOTIONALS_WINDOW_MS, EVENTS_RETENTION_MS, EVENTS_MAX } from './thresholds';
+import { parseFeedEvent, type FeedEvent } from './events';
 
 const CHECKPOINT_KEY = 'feed:checkpoint'; // newest executedAt (ms) processed
 const NOTIONALS_KEY = 'feed:notionals'; // 24h rolling window, score = executedAt
+const EVENTS_KEY = 'feed:events'; // published events for /feed, score = executedAt
 const XERROR_KEY = 'feed:xlasterror'; // last X publish failure {detail, at}
 const XALERT_KEY = 'feed:xalert'; // NX throttle so alerts don't fire every tick
 const POSTED_TTL_S = 48 * 3600;
@@ -38,6 +40,14 @@ export interface FeedState {
    * and return every notional still in the window, ascending.
    */
   recordNotionals(entries: NotionalEntry[]): Promise<number[]>;
+  /**
+   * Append published events to the on-site feed's ring and prune it back to
+   * EVENTS_RETENTION_MS / EVENTS_MAX. Best-effort: /feed is a nice-to-have
+   * and must never be able to fail a publish.
+   */
+  recordEvents(events: FeedEvent[]): Promise<void>;
+  /** The most recently published events, newest first. */
+  recentEvents(limit: number): Promise<FeedEvent[]>;
 }
 
 export interface NotionalEntry {
@@ -160,6 +170,31 @@ class UpstashState implements FeedState {
       .filter((n) => Number.isFinite(n))
       .sort((a, b) => a - b);
   }
+
+  async recordEvents(events: FeedEvent[]): Promise<void> {
+    if (events.length === 0) return;
+    const args: (string | number)[] = ['ZADD', EVENTS_KEY];
+    for (const e of events) {
+      args.push(e.executedAt, JSON.stringify(e));
+    }
+    await this.cmd(args);
+    // Two prunes, because either bound can bite first: a quiet week hits the
+    // age cutoff, a volatile day hits the count cap.
+    await this.cmd(['ZREMRANGEBYSCORE', EVENTS_KEY, 0, Date.now() - EVENTS_RETENTION_MS]);
+    await this.cmd(['ZREMRANGEBYRANK', EVENTS_KEY, 0, -(EVENTS_MAX + 1)]);
+    // Self-destruct if the feed stops running, so a dead deploy's events
+    // don't sit on /feed forever looking live.
+    await this.cmd(['EXPIRE', EVENTS_KEY, Math.ceil(EVENTS_RETENTION_MS / 1000)]);
+  }
+
+  async recentEvents(limit: number): Promise<FeedEvent[]> {
+    // ZREVRANGE 0 -1 means "everything" — a limit of 0 must not become that.
+    if (limit < 1) return [];
+    const members: string[] = (await this.cmd(['ZREVRANGE', EVENTS_KEY, 0, limit - 1])) ?? [];
+    return members
+      .map(parseFeedEvent)
+      .filter((e): e is FeedEvent => e !== null);
+  }
 }
 
 const memory = {
@@ -168,6 +203,7 @@ const memory = {
   subCooldown: new Map<string, number>(), // subaccountId → expiry ms
   rate: new Map<string, number>(),
   notionals: new Map<string, { executedAt: number; notionalUsd: number }>(),
+  events: new Map<string, FeedEvent>(), // orderHash → event
   xError: null as XErrorRecord | null,
   xAlertUntil: 0, // ms — alert throttle expiry
 };
@@ -242,6 +278,32 @@ class MemoryState implements FeedState {
       if (v.executedAt < cutoff) memory.notionals.delete(k);
     }
     return [...memory.notionals.values()].map((v) => v.notionalUsd).sort((a, b) => a - b);
+  }
+
+  async recordEvents(events: FeedEvent[]): Promise<void> {
+    for (const e of events) {
+      memory.events.set(e.orderHash, e);
+    }
+    const cutoff = Date.now() - EVENTS_RETENTION_MS;
+    for (const [k, v] of memory.events) {
+      if (v.executedAt < cutoff) memory.events.delete(k);
+    }
+    // Map iteration is insertion-ordered, so the oldest inserts drop first.
+    const overflow = memory.events.size - EVENTS_MAX;
+    if (overflow > 0) {
+      let dropped = 0;
+      for (const k of memory.events.keys()) {
+        if (dropped++ >= overflow) break;
+        memory.events.delete(k);
+      }
+    }
+  }
+
+  async recentEvents(limit: number): Promise<FeedEvent[]> {
+    if (limit < 1) return [];
+    return [...memory.events.values()]
+      .sort((a, b) => b.executedAt - a.executedAt)
+      .slice(0, limit);
   }
 }
 

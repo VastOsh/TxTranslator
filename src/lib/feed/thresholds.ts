@@ -70,6 +70,13 @@ export const DYNAMIC_MIN_SAMPLES = 20;
 export const NOTIONALS_WINDOW_MS = 24 * 3600 * 1000;
 export const DYNAMIC_PERCENTILE = 0.85;
 
+// ── On-site feed retention ──
+// How much history /feed replays. The publisher's own caps (3 posts/hour,
+// heroes aside) bound how fast this fills, so 7 days sits comfortably under
+// the count cap on a normal week and the cap only bites on a volatile one.
+export const EVENTS_RETENTION_MS = 7 * 24 * 3600 * 1000;
+export const EVENTS_MAX = 250;
+
 /** Nearest-rank percentile of an ascending-sorted array. */
 export function percentile(sortedAsc: number[], p: number): number {
   if (sortedAsc.length === 0) return 0;

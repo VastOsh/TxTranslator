@@ -52,7 +52,7 @@ const HEADERS = {
   'Accept-Encoding': 'gzip, deflate',
 };
 
-export async function fetchJsonOverHttps(url: string): Promise<{ status: number; body: any } | null> {
+function httpGetJson(url: string): Promise<{ status: number; body: any } | null> {
   return new Promise((resolve) => {
     const req = https.get(url, { headers: HEADERS }, (res) => {
       const status = res.statusCode ?? 0;
@@ -89,8 +89,37 @@ export async function fetchJsonOverHttps(url: string): Promise<{ status: number;
 }
 
 // Injective on-chain indexer — full history, no tx-index pruning.
-// api.injective.network issues a 302 to this sentry endpoint, so we call it directly.
-export const INDEXER_BASE = 'https://sentry.exchange.grpc-web.injective.network';
+// Two official mirror hosts serve the identical explorer API. The heavy
+// accountTxs endpoint periodically 504s / times out on one host while the
+// other stays up, so requests to either host fail over to the mirror before
+// giving up. k8s.mainnet is primary because it is the canonical mainnet host;
+// sentry is the documented fallback (api.injective.network 302s to it).
+export const INDEXER_HOSTS = [
+  'k8s.mainnet.exchange.grpc-web.injective.network',
+  'sentry.exchange.grpc-web.injective.network',
+] as const;
+export const INDEXER_BASE = `https://${INDEXER_HOSTS[0]}`;
+
+// GET a URL as JSON. For indexer URLs, a server-level failure (timeout, network
+// error, or 5xx) transparently retries the same path against the mirror host.
+// A 4xx (e.g. a genuine 404 for an unknown tx) is returned as-is, not retried.
+export async function fetchJsonOverHttps(url: string): Promise<{ status: number; body: any } | null> {
+  const first = await httpGetJson(url);
+
+  const host = INDEXER_HOSTS.find((h) => url.includes(h));
+  if (!host) return first;
+
+  const usable = (r: { status: number; body: any } | null): boolean =>
+    !!r && r.status >= 200 && r.status < 500 && r.status !== 0 && r.body != null;
+  if (usable(first)) return first;
+
+  for (const alt of INDEXER_HOSTS) {
+    if (alt === host) continue;
+    const retry = await httpGetJson(url.replace(host, alt));
+    if (usable(retry)) return retry;
+  }
+  return first;
+}
 
 async function fetchFromIndexer(txHash: string): Promise<CosmosTxResponse | null> {
   const url = `${INDEXER_BASE}/api/explorer/v1/txs/${txHash}`;

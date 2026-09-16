@@ -7,16 +7,16 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { hash } = await params;
   const shortHash = `${hash.slice(0, 8)}…${hash.slice(-6)}`;
-  const ogImageUrl = `https://txtranslator.vercel.app/tx/${hash}/opengraph-image`;
-  const title = `Tx ${shortHash} — Tx·Translator`;
-  const description = 'Decoded Injective transaction — paste any hash on Tx·Translator.';
+  const ogImageUrl = `/tx/${hash}/opengraph-image`;
+  const title = `Tx ${shortHash} · Tx·Translator`;
+  const description = 'Decoded Injective transaction. Paste any hash on Tx·Translator.';
   return {
     title,
     openGraph: {
       title,
       description,
       type: 'website',
-      url: `https://txtranslator.vercel.app/tx/${hash}`,
+      url: `/tx/${hash}`,
       images: [{ url: ogImageUrl, width: 1200, height: 630 }],
     },
     twitter: {

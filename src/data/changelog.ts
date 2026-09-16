@@ -11,10 +11,82 @@ export interface ChangelogVersion {
   entries: ChangelogEntry[];
 }
 
-export const CURRENT_VERSION = 'v1.14.1';
+export const CURRENT_VERSION = 'v2.0.0';
 
 // Entries within each version are ordered: critical → fix → improvement → feature
 export const CHANGELOG: ChangelogVersion[] = [
+  {
+    version: 'v2.0.0',
+    date: '2026-09-03',
+    entries: [
+      {
+        type: 'feature',
+        text: 'New Injective Pulse lens at /pulse, the fact sheet for the moment someone asks you for a number. It gathers every headline figure on Injective onto one screen: INJ price and the honest market cap on live supply, staking ratio and reward rate, 24 hour, 7 day and 30 day volume with the perp and spot split, INJ burned all time and in the latest round, stablecoins and bridged capital with 24 hour net inflows, block height and time and lifetime transactions, and live perpetual open interest with the top trader over 30 days. Every figure is read straight from the chain and each section is timestamped so you can see how fresh it is, nothing is estimated. The point is speed of citation: hit copy on any stat and it lands as a clean, ready-to-say sentence, or copy the whole brief at once. It is pure composition of data Renzu already reconstructs, so it costs no new load.',
+      },
+      {
+        type: 'feature',
+        text: 'New Smart Money Positions lens at /smart-positions, the natural follow-on to the leaderboard: it answers not just who is profitable but what they are holding right now. It takes the top wallets by realized net PnL over the last 30 days and reads each one\'s live open perpetual positions straight from the exchange module, then aggregates them into where smart money leans by market, how much of their notional is net long or net short in each perp. Every figure is on-chain: entry, mark, size, the chain\'s own liquidation price, and unrealized PnL as mark minus entry. Unlike a whole-market skew this is a real directional read, because it sums a chosen set of wallets whose longs and shorts need not balance. Sort the open book by size, unrealized PnL, or how close each position sits to liquidation. It rides the existing markets snapshot schedule so it costs no new job, and every row opens that trader\'s full PnL. A snapshot of proven-profitable wallets, never a recommendation.',
+      },
+      {
+        type: 'feature',
+        text: 'The Wallet lens can now spot linked wallets, the many addresses one operator runs. Injective has no record of who owns what, and none can be, but it does record who first funded whom, so the panel traces that seed relationship in both directions: the wallet that sent this one its first funds, other wallets that same seed wallet funded (siblings), and wallets this one seeded itself. The honest hard part is telling an operator\'s own seed wallet from a shared exchange withdrawal address, so every link is graded strong, possible or weak by how active the connecting wallet is, an exchange funds thousands and never goes quiet, and the reasoning is spelled out on each row. A very active address is flagged as an exchange or contract rather than clustered. It is a strong signal of one operator, never a claim of identity, and each link opens straight into that wallet.',
+      },
+      {
+        type: 'feature',
+        text: 'New Perp Markets lens at /perps, a live read on every active perpetual on Injective. For each market it shows the last realized hourly funding rate and its annualized pace (positive means longs pay shorts), open interest and the long/short skew as a bar, the max leverage the market allows, and whether it is a tokenized real-world asset. Funding and market terms are read live from the chain on every load; open interest and skew, which need a full scan of open positions, come from a recent snapshot the app refreshes on a schedule and are timestamped so you can see how fresh they are. Sortable by open interest, funding or skew. Numbers are read straight from the exchange module, nothing is estimated.',
+      },
+      {
+        type: 'feature',
+        text: 'New Smart Money leaderboard at /leaderboard, ranking the most profitable perpetual traders on Injective. It is built the honest way, from the chain\'s own realized per-fill PnL (the same numbers behind the Perp PnL lens), summed across each trader\'s subaccounts over the last 7 or 30 days, and sortable by net PnL or by volume. There is no cost-basis guesswork: every figure is a number the chain recorded on a fill. It rides on the same daily trade scan the Volume lens already runs, so it costs no extra load, and each row opens straight into that trader\'s full round-trip breakdown and wallet. The board surfaces the top traders recorded each day rather than a complete ranking, and says so.',
+      },
+      {
+        type: 'improvement',
+        text: 'The Volume lens gets a real chart. The old daily bars are replaced by an interactive area chart in the spirit of a proper analytics dashboard: hover anywhere for a crosshair and a tooltip with that day\'s exact volume, perp and spot split, and trade count. Two views sit on top of the timeframe toggle. Total or Perp / Spot shows the two sides as stacked areas, and Daily or Cumulative switches between per-day volume and the running total climbing over the period. Alongside the preset windows there is now a Custom range: pick any start and end date and the chart, totals and market table all recompute for exactly that window. The chart is drawn straight in the browser from the same verified on-chain numbers, so it stays instant and matches the rest of Renzu exactly.',
+      },
+      {
+        type: 'improvement',
+        text: 'The Volume chart is now filterable. Alongside Total you can plot Perp only, Spot only, or the Perp / Spot split, flip between Daily and Cumulative, and open a By dApp view that draws one line per front-end with a clickable legend to show or hide each (Helix, automated market-makers, Choice, Mito, direct). The dApp breakdown also groups every unlabelled market-maker wallet into a single Automated MM bucket, with a wallet count, instead of listing raw addresses.',
+      },
+      {
+        type: 'improvement',
+        text: 'The Renzu home page now reads live. The headline figure is the real verified spot and perp volume over the last 7 days, pulled straight from the tracker instead of a fixed number, so it moves with the chain. Next to it sits a stat that clears up a common misconception, repeated even by long-time community members: INJ does not have a fixed 100M max supply. Genesis was 100M, but the supply is dynamic, staking inflation mints new INJ while the weekly burn auction destroys it, and the net has been deflationary. The hub now shows the live total INJ supply from the chain and says plainly that there is no hard cap. The side-by-side comparison with third-party trackers has been dropped from the site: the point stands on its own numbers.',
+      },
+      {
+        type: 'feature',
+        text: 'The Volume lens now shows who is driving the volume. Injective is one shared order book, so a trade is attributed to a front-end by the fee-recipient wallet its order carries (relayers like Helix set their own to collect the relayer fee share). The lens sums taker volume by that wallet and shows the split by dApp: a stacked share bar plus a ranked list. Wallets we have identified are named (Helix leads by a wide margin), flow with no front-end tag is grouped honestly as Direct / API (market makers and bots), and large relayers we have not identified yet are shown by address and marked unverified rather than guessed. It is the first honest per-front-end volume breakdown for the Injective order book.',
+      },
+      {
+        type: 'feature',
+        text: 'Bridged capital is now tracked over time. A daily job records the real on-chain supply of the major bridged assets on Injective (the stablecoins plus bridged ETH, BTC and ATOM), and the Key Metrics panel shows the total bridged value and, once two days are on record, the net 24h inflow, capital arriving on or leaving the chain, coloured green or red. It is the honest version of a number other dashboards estimate: the day-over-day change in actual on-chain supply, not a guess.',
+      },
+      {
+        type: 'feature',
+        text: 'The Volume lens gains a Key Metrics panel: INJ price, market cap, 24h / 7d / 30d volume with the week-over-week change, and the on-chain stablecoin market cap with USDC dominance, all from Renzu\'s own verified data and the chain. The market cap is the honest one, price times the live circulating supply (about 122.8M INJ), not the stale 100M figure most trackers still use, so it reads correctly rather than a fifth too low. Because INJ carries no locked overhang and no fixed max, fully diluted value equals market cap. The stablecoin figure sums the real supply of every major dollar token on Injective (USDT, native-EVM and Noble USDC, USDe) straight from the bank module, no estimate. The rows that genuinely need per-protocol adapters (total value locked, bridged TVL, RWAs) are left out rather than guessed: the lens shows numbers it can stand behind.',
+      },
+      {
+        type: 'feature',
+        text: 'The Volume lens now leads with a live Onchain Metrics panel, the same figures an explorer like Mintscan shows, computed straight from the chain: block height and real measured block time, lifetime transaction count and transactions per block, staking APR, inflation, the bonded ratio, total INJ supply, the community pool with its dollar value, and the native EVM average gas price. Every number is read live from Injective (the LCD, the explorer index and the EVM RPC) and refreshes on its own. The staking APR matches the Hub because it applies the same block-time correction most people miss: Injective mints per block against a blocks-per-year that assumes faster blocks than the chain actually runs, so the naive formula overstates the yield.',
+      },
+      {
+        type: 'feature',
+        text: 'The hub has a live News section. It surfaces the latest from across Injective rather than from Renzu itself: recent posts from the official Injective blog alongside live on-chain governance, the newest proposals and any scheduled chain upgrade, each linking straight to the source. It refreshes on its own and falls back gracefully when a source is briefly unreachable, so the front page reflects what is actually happening on the chain. Renzu\'s own updates stay here in the changelog.',
+      },
+      {
+        type: 'feature',
+        text: 'TxTranslator is now Renzu, an Injective intelligence hub. What began as a single transaction decoder has grown into a set of tools, so it gets a home that reflects that. The new front door leads with one universal bar: paste anything on-chain and Renzu reads it, sending a transaction hash to the decoder, an address to Wallet Intelligence, and a token or denom to the safety check. Below it, every tool is grouped as a lens on the chain, understand, detect, markets and ecosystem. The idea behind the name is a lens (renzu is Japanese for lens): each tool brings one part of Injective into focus. The transaction decoder keeps its TxTranslator name and lives at /tx, and the whale feed keeps posting to X as before. Nothing was removed, everything moved under one roof.',
+      },
+    ],
+  },
+  {
+    version: 'v1.15.0',
+    date: '2026-09-01',
+    entries: [
+      {
+        type: 'feature',
+        text: 'New Injective volume tracker at /stats — real spot and perp volume, reconstructed trade-by-trade straight from the chain, with a daily / weekly / monthly / yearly / all-time toggle. There is no public per-market volume feed on Injective any more, so the number is built the only honest way: summing the taker-side notional of every matched trade, counted once, with the decimal scaling verified to the cent against each market’s minimum notional. It exists because the usual sources undercount Injective badly: most only capture Helix spot volume and miss the perps, which are the overwhelming majority of activity, so the real on-chain figure is many times larger than what they report. It also tracks the INJ burn auction: cumulative INJ burned and the latest round, the real revenue-to-deflation metric now that on-chain trading fees run near zero. Volume is served from a daily aggregate the tracker stores, so every timeframe is instant and nothing re-scans the chain on load.',
+      },
+    ],
+  },
   {
     version: 'v1.14.1',
     date: '2026-09-01',

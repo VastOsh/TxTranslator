@@ -50,7 +50,7 @@ const FIAT_CODES = 'USD|EUR|GBP|AUD|NZD|CHF|CAD|JPY|NOK|SEK';
 const FX_BASE_RE = new RegExp(`^(?:${FIAT_CODES})(?:${FIAT_CODES})$`);
 const METAL_BASES = new Set(['XAU', 'XAG']);
 
-function isTradFiMarket(oracleType: string, baseSymbol: string): boolean {
+export function isTradFiMarket(oracleType: string, baseSymbol: string): boolean {
   if (oracleType === 'sedafast') return true;
   return FX_BASE_RE.test(baseSymbol) || METAL_BASES.has(baseSymbol);
 }
@@ -120,13 +120,74 @@ interface IndexerTrade {
   executionSide: string;
 }
 
-async function fetchTradesChunk(marketIds: string[]): Promise<IndexerTrade[]> {
+const TRADES_PER_PAGE = 100;
+
+/** A maker fill, an internal RFQ transfer, or a row already outside the
+ *  window — nothing that can become a candidate. Applied early on deep walks
+ *  so a 24h backfill doesn't accumulate a few hundred thousand dust rows. */
+function couldBeCandidate(t: IndexerTrade, sinceMs: number): boolean {
+  if (t.executedAt <= sinceMs) return false;
+  if (!t.positionDelta || !t.orderHash) return false;
+  if (!t.isLiquidation && t.executionSide !== 'taker') return false;
+  if (t.tradeExecutionType === 'synthetic' && !t.isLiquidation) return false;
+  return true;
+}
+
+/**
+ * One chunk of markets, newest trades first.
+ *
+ * A live tick reads a single page — whatever landed since the last checkpoint
+ * sits well inside 100 rows, and the request is byte-for-byte what it always
+ * was. `pages` above 1 walks backwards in time for the /feed backfill, each
+ * page ending at the oldest row of the last. That uses `endTime` rather than
+ * `skip` because the indexer caps `skip` paging at 1000 rows per query, which
+ * on a busy chunk is about thirteen minutes of history.
+ *
+ * A deep walk also prefilters, which is why `maxTimestamp` from a paged poll
+ * reflects candidate-shaped trades only and must not be used as a checkpoint.
+ */
+async function fetchTradesChunk(
+  marketIds: string[],
+  pages: number,
+  limit: number,
+  sinceMs: number,
+  deadline: number,
+): Promise<IndexerTrade[]> {
   const params = marketIds.map(id => `marketIds=${id}`).join('&');
-  const result = await fetchJsonOverHttps(
-    `${INDEXER_BASE}/api/exchange/derivative/v1/trades?${params}&limit=100`,
-  );
-  const trades = result?.body?.trades;
-  return Array.isArray(trades) ? trades : [];
+  const deep = pages > 1;
+  const all: IndexerTrade[] = [];
+  let endTime = 0;
+
+  for (let page = 0; page < pages; page++) {
+    if (page > 0 && Date.now() > deadline) break;
+    const result = await fetchJsonOverHttps(
+      `${INDEXER_BASE}/api/exchange/derivative/v1/trades?${params}&limit=${limit}${endTime > 0 ? `&endTime=${endTime}` : ''}`,
+    );
+    const trades = result?.body?.trades;
+    if (!Array.isArray(trades) || trades.length === 0) break;
+
+    all.push(...(deep ? trades.filter(t => couldBeCandidate(t, sinceMs)) : trades));
+
+    // A short page means this chunk is exhausted; an oldest row already past
+    // the window means every further page would be too.
+    if (trades.length < limit) break;
+    const oldest = trades[trades.length - 1]?.executedAt ?? 0;
+    if (oldest <= sinceMs) break;
+    endTime = oldest - 1; // step the window back, excluding the row we have
+  }
+
+  return all;
+}
+
+export interface PollOptions {
+  /** Backward pages per chunk. 1 (the default) is a live tick. */
+  pages?: number;
+  /** Rows per request. */
+  limit?: number;
+  /** Markets per request — fewer markets means each page reaches further back. */
+  marketsPerCall?: number;
+  /** Wall clock at which to stop walking, so a deep scan can't blow maxDuration. */
+  deadline?: number;
 }
 
 export interface PollResult {
@@ -136,15 +197,28 @@ export interface PollResult {
   scanned: number;
 }
 
-export async function pollCandidates(sinceMs: number): Promise<PollResult> {
+/**
+ * Defaults are a live tick and produce exactly the requests they always did.
+ * The /feed backfill overrides them to reach back hours; note that those
+ * options widen what is *fetched*, where `sinceMs` only ever filters what
+ * came back.
+ */
+export async function pollCandidates(sinceMs: number, opts: PollOptions = {}): Promise<PollResult> {
+  const pages = opts.pages ?? 1;
+  const limit = opts.limit ?? TRADES_PER_PAGE;
+  const perCall = opts.marketsPerCall ?? MARKETIDS_PER_CALL;
+  const deadline = opts.deadline ?? Number.MAX_SAFE_INTEGER;
+
   const markets = await loadMarkets();
   const ids = [...markets.keys()];
 
   const chunks: string[][] = [];
-  for (let i = 0; i < ids.length; i += MARKETIDS_PER_CALL) {
-    chunks.push(ids.slice(i, i + MARKETIDS_PER_CALL));
+  for (let i = 0; i < ids.length; i += perCall) {
+    chunks.push(ids.slice(i, i + perCall));
   }
-  const results = await Promise.all(chunks.map(fetchTradesChunk));
+  const results = await Promise.all(
+    chunks.map(c => fetchTradesChunk(c, pages, limit, sinceMs, deadline)),
+  );
   const trades = results.flat();
 
   let maxTimestamp = sinceMs;

@@ -1,4 +1,5 @@
 import { unstable_cache } from 'next/cache';
+import { INDEXER_HOSTS } from '../injective';
 
 // ── Wallet NFT portfolio: what a given address owns on Talis ──
 //
@@ -22,8 +23,6 @@ import { unstable_cache } from 'next/cache';
 // step 2 has already proven. Every figure shown is live from the chain; nothing
 // here is fabricated. When the budget is hit before every collection is scanned
 // we say so rather than pretend the list is complete.
-
-const INDEXER_BASE = 'https://sentry.exchange.grpc-web.injective.network';
 
 // LCD nodes that serve the standard CosmWasm smart-query REST path. We round-robin
 // across them so a per-wallet fan-out of hundreds of queries does not hammer (and
@@ -193,6 +192,16 @@ async function getJson(url: string, timeoutMs = 10_000) {
   }
 }
 
+// GET an indexer path, failing over across the mirror hosts. The indexer host
+// periodically 504s on heavy endpoints; the mirror serves the identical API.
+async function getIndexerJson(path: string, timeoutMs = 10_000) {
+  for (const host of INDEXER_HOSTS) {
+    const body = await getJson(`https://${host}${path}`, timeoutMs);
+    if (body != null) return body;
+  }
+  return null;
+}
+
 function smartQueryUrl(lcd: string, contract: string, query: object): string {
   const b64 = Buffer.from(JSON.stringify(query)).toString('base64');
   return `${lcd}/cosmwasm/wasm/v1/contract/${contract}/smart/${b64}`;
@@ -295,8 +304,7 @@ function collectionName(row: { label?: string; init_message?: string; address?: 
 /** All contracts instantiated from one code id. */
 async function enumerateByCode(code: number, into: Collection[]): Promise<void> {
   for (let page = 0; page < MAX_ENUM_PAGES_PER_CODE; page++) {
-    const url = `${INDEXER_BASE}/api/explorer/v1/wasm/contracts?code_id=${code}&limit=${ENUM_PAGE}&skip=${page * ENUM_PAGE}`;
-    const body = await getJson(url);
+    const body = await getIndexerJson(`/api/explorer/v1/wasm/contracts?code_id=${code}&limit=${ENUM_PAGE}&skip=${page * ENUM_PAGE}`);
     const rows = Array.isArray(body?.data) ? body.data : [];
     if (rows.length === 0) break;
 

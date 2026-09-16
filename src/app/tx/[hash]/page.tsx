@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
-import Image from 'next/image';
+import LensCrumb from '@/components/LensCrumb';
+import LensCursor from '@/components/LensCursor';
+import LensAurora from '@/components/LensAurora';
+import BackToRenzu from '@/components/BackToRenzu';
 import TranslationResult from '@/components/TranslationResult';
 import InjChart from '@/components/InjChart';
 import Changelog from '@/components/Changelog';
@@ -72,12 +74,14 @@ export default function TxPage() {
           });
         }
       })
-      .catch(() => setError('Network error — check your connection and try again.'))
+      .catch(() => setError('Network error, check your connection and try again.'))
       .finally(() => setLoading(false));
   }, [hash, addRecent]);
 
   return (
     <main className="tx-main">
+      <LensCursor />
+      <LensAurora />
       <header
         className="tx-page-header"
         style={{
@@ -91,12 +95,7 @@ export default function TxPage() {
           marginBottom: '2rem',
         }}
       >
-        <Link href="/" style={{ textDecoration: 'none' }}>
-          <div className="tx-logo">
-            <Image src="/logo.svg" alt="Tx·Translator logo" width={28} height={28} priority />
-            TX · TRANSLATOR
-          </div>
-        </Link>
+        <LensCrumb name="TxTranslator" accent="#35C9BE" />
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
           <span className="tx-footer">Injective Mainnet</span>
           <button className="tx-version-btn" onClick={() => setChangelogOpen(true)}>
@@ -108,7 +107,7 @@ export default function TxPage() {
       {changelogOpen && <Changelog onClose={() => setChangelogOpen(false)} />}
 
       <div style={{ width: '100%', maxWidth: 680, marginBottom: '1.25rem' }}>
-        <Link href="/" className="tx-back-link">← Decode another transaction</Link>
+        <BackToRenzu />
       </div>
 
       {loading && <LoadingSkeleton />}
@@ -124,7 +123,7 @@ export default function TxPage() {
             {error}
           </div>
           <div style={{ marginTop: '1rem' }}>
-            <Link href="/" className="tx-back-link">← Go back</Link>
+            <BackToRenzu />
           </div>
         </div>
       )}
@@ -150,7 +149,7 @@ export default function TxPage() {
             marginRight: 'auto',
           }}>
             <span style={{ fontSize: '0.75rem' }}>⚠</span>
-            AI-generated insights may contain inaccuracies — this tool is in active development.
+            AI-generated insights may contain inaccuracies, this tool is in active development.
           </div>
         </>
       )}

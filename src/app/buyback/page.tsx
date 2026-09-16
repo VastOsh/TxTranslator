@@ -1,8 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
+import LensCrumb from '@/components/LensCrumb';
+import LensCursor from '@/components/LensCursor';
+import LensAurora from '@/components/LensAurora';
+import BackToRenzu from '@/components/BackToRenzu';
 import BuybackDashboard from '@/components/BuybackDashboard';
 import InjChart from '@/components/InjChart';
 import Changelog from '@/components/Changelog';
@@ -41,7 +43,7 @@ export default function BuybackPage() {
         if (!ok) setError(data.error ?? 'Could not read the buyback profile.');
         else setProfile(data.profile as BuybackProfile);
       })
-      .catch(() => setError('Network error — check your connection and try again.'))
+      .catch(() => setError('Network error, check your connection and try again.'))
       .finally(() => setLoading(false));
   }
 
@@ -49,6 +51,8 @@ export default function BuybackPage() {
 
   return (
     <main className="tx-main">
+      <LensCursor />
+      <LensAurora />
       <header
         className="tx-page-header"
         style={{
@@ -62,12 +66,7 @@ export default function BuybackPage() {
           marginBottom: '2rem',
         }}
       >
-        <Link href="/" style={{ textDecoration: 'none' }}>
-          <div className="tx-logo">
-            <Image src="/logo.svg" alt="Tx·Translator logo" width={28} height={28} priority />
-            TX · TRANSLATOR
-          </div>
-        </Link>
+        <LensCrumb name="Community BuyBack" accent="#E77BA6" />
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
           <span className="tx-footer">Injective Mainnet</span>
           <button className="tx-version-btn" onClick={() => setChangelogOpen(true)}>
@@ -79,7 +78,7 @@ export default function BuybackPage() {
       {changelogOpen && <Changelog onClose={() => setChangelogOpen(false)} />}
 
       <div style={{ width: '100%', maxWidth: 680, marginBottom: '1.25rem' }}>
-        <Link href="/" className="tx-back-link">← Back to decoder</Link>
+        <BackToRenzu />
       </div>
 
       {/* ── Intro + address input ── */}
@@ -90,7 +89,7 @@ export default function BuybackPage() {
               Community <span>BuyBack</span> checker
             </h1>
             <p className="tx-subline">
-              Enter a wallet — see if it’s whitelisted for the current round, and its full buyback history
+              Enter a wallet, see if it’s whitelisted for the current round, and its full buyback history
             </p>
           </>
         )}
@@ -146,7 +145,7 @@ export default function BuybackPage() {
             </span>
           </div>
           <div style={{ padding: '0.9rem 1.2rem', fontSize: '0.72rem', color: 'var(--tx-text-muted)' }}>
-            Querying the buyback contract round by round — a few seconds.
+            Querying the buyback contract round by round, a few seconds.
           </div>
         </div>
       )}

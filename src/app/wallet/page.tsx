@@ -1,14 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
+import LensCrumb from '@/components/LensCrumb';
+import LensCursor from '@/components/LensCursor';
+import LensAurora from '@/components/LensAurora';
+import BackToRenzu from '@/components/BackToRenzu';
 import PortfolioView from '@/components/PortfolioView';
 import InjChart from '@/components/InjChart';
 import Changelog from '@/components/Changelog';
 import { CURRENT_VERSION } from '@/data/changelog';
 import type { Portfolio } from '@/lib/portfolio/nft';
 import type { WalletIntel, WalletFlag } from '@/lib/wallet/intel';
+import type { LinkedWallets, LinkedWallet } from '@/lib/wallet/linked';
 
 const ADDR_RE = /^inj1[a-z0-9]{38}$/;
 const EXPLORER = 'https://explorer.injective.network/account';
@@ -31,7 +34,7 @@ const FLAG_STYLE: Record<WalletFlag['level'], { bg: string; color: string }> = {
 };
 
 function IntelCard({ intel }: { intel: WalletIntel }) {
-  const muted = 'rgba(244, 241, 233, 0.55)';
+  const muted = 'rgba(236, 239, 245, 0.55)';
   const label = { fontSize: '0.66rem', textTransform: 'uppercase' as const, letterSpacing: '0.04em', color: muted, marginBottom: '0.15rem' };
   const val = { fontSize: '0.86rem', color: 'var(--tx-text)', fontWeight: 600 };
   return (
@@ -81,8 +84,65 @@ function IntelCard({ intel }: { intel: WalletIntel }) {
           </div>
         </div>
         <div style={{ fontSize: '0.68rem', color: muted, marginTop: '0.9rem', lineHeight: 1.5 }}>
-          On-chain history and launchpad activity — what this wallet has done, not who it is. First funder is the wallet
+          On-chain history and launchpad activity, what this wallet has done, not who it is. First funder is the wallet
           behind its earliest transfer (Cosmos or EVM); shared funders can indicate linked wallets or a common exchange.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const LINK_KIND: Record<LinkedWallet['kind'], string> = {
+  'seeded-by': 'Seed wallet',
+  sibling: 'Sibling wallet',
+  seeded: 'Seeded by this',
+};
+const CONF_STYLE: Record<LinkedWallet['confidence'], { color: string; label: string }> = {
+  strong: { color: '#54D08A', label: 'strong' },
+  possible: { color: '#F0B24A', label: 'possible' },
+  weak: { color: 'rgba(236, 239, 245, 0.5)', label: 'weak' },
+};
+
+function LinkedCard({ linked }: { linked: LinkedWallets }) {
+  const muted = 'rgba(236, 239, 245, 0.55)';
+  return (
+    <div className="tx-pnl-card" style={{ width: '100%', maxWidth: 680, marginBottom: '1rem' }}>
+      <div className="tx-pnl-head">
+        <span className="tx-pnl-head-title">Linked wallets</span>
+        <span className="tx-pnl-row-meta">{linked.links.length} found</span>
+      </div>
+      <div style={{ padding: '0.9rem 1.2rem' }}>
+        {linked.links.length > 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
+            {linked.links.map((l, i) => {
+              const conf = CONF_STYLE[l.confidence];
+              return (
+                <div key={i} style={{ border: '1px solid var(--tx-border)', borderRadius: 8, padding: '0.6rem 0.75rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.3rem' }}>
+                    <span style={{ fontSize: '0.62rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: muted, fontWeight: 700 }}>
+                      {LINK_KIND[l.kind]}
+                    </span>
+                    <span style={{ fontSize: '0.62rem', fontWeight: 800, color: conf.color, border: `1px solid ${conf.color}55`, borderRadius: 5, padding: '0.05rem 0.4rem', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                      {conf.label}
+                    </span>
+                    <a
+                      href={`/wallet?address=${l.address}`}
+                      style={{ color: 'var(--tx-purple)', textDecoration: 'none', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.76rem', marginLeft: 'auto' }}
+                    >
+                      {shortAddr(l.address)} →
+                    </a>
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: muted, lineHeight: 1.45 }}>
+                    {l.evidence}
+                    {l.txCount != null && <span style={{ opacity: 0.7 }}> {' · '}{l.txCount.toLocaleString('en-US')} txs</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
+        <div style={{ fontSize: '0.68rem', color: muted, marginTop: linked.links.length > 0 ? '0.9rem' : 0, lineHeight: 1.5 }}>
+          {linked.note}
         </div>
       </div>
     </div>
@@ -95,6 +155,7 @@ export default function WalletPage() {
   const [address, setAddress] = useState<string | null>(null);
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
   const [intel, setIntel] = useState<WalletIntel | null>(null);
+  const [linked, setLinked] = useState<LinkedWallets | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -107,10 +168,11 @@ export default function WalletPage() {
     setLoading(true);
     setPortfolio(null);
     setIntel(null);
+    setLinked(null);
     setAddress(addr);
 
     // Wallet intelligence loads independently of (and usually faster than) the
-    // NFT/portfolio scan — render it as soon as it lands.
+    // NFT/portfolio scan, render it as soon as it lands.
     fetch('/api/wallet/intel', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -119,6 +181,16 @@ export default function WalletPage() {
       .then(res => res.json().then(data => ({ ok: res.ok, data })))
       .then(({ ok, data }) => { if (ok) setIntel(data.intel as WalletIntel); })
       .catch(() => { /* intel is best-effort; the portfolio is the primary view */ });
+
+    // Linked-wallet seed graph, a heavier multi-hop scan, also best-effort.
+    fetch('/api/wallet/linked', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address: addr }),
+    })
+      .then(res => res.json().then(data => ({ ok: res.ok, data })))
+      .then(({ ok, data }) => { if (ok) setLinked(data.linked as LinkedWallets); })
+      .catch(() => { /* linked wallets are best-effort */ });
 
     fetch('/api/portfolio', {
       method: 'POST',
@@ -130,7 +202,7 @@ export default function WalletPage() {
         if (!ok) setError(data.error ?? 'Could not read the wallet portfolio.');
         else setPortfolio(data.portfolio as Portfolio);
       })
-      .catch(() => setError('Network error — check your connection and try again.'))
+      .catch(() => setError('Network error, check your connection and try again.'))
       .finally(() => setLoading(false));
   }
 
@@ -154,6 +226,8 @@ export default function WalletPage() {
 
   return (
     <main className="tx-main">
+      <LensCursor />
+      <LensAurora />
       <header
         className="tx-page-header"
         style={{
@@ -167,12 +241,7 @@ export default function WalletPage() {
           marginBottom: '2rem',
         }}
       >
-        <Link href="/" style={{ textDecoration: 'none' }}>
-          <div className="tx-logo">
-            <Image src="/logo.svg" alt="Tx·Translator logo" width={28} height={28} priority />
-            TX · TRANSLATOR
-          </div>
-        </Link>
+        <LensCrumb name="Wallet Intelligence" accent="#9B8CFF" />
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
           <span className="tx-footer">Injective Mainnet</span>
           <button className="tx-version-btn" onClick={() => setChangelogOpen(true)}>
@@ -184,7 +253,7 @@ export default function WalletPage() {
       {changelogOpen && <Changelog onClose={() => setChangelogOpen(false)} />}
 
       <div style={{ width: '100%', maxWidth: 680, marginBottom: '1.25rem' }}>
-        <Link href="/" className="tx-back-link">← Back to decoder</Link>
+        <BackToRenzu />
       </div>
 
       {/* ── Intro + address input ── */}
@@ -195,7 +264,7 @@ export default function WalletPage() {
               Wallet <span>intelligence</span>
             </h1>
             <p className="tx-subline">
-              Enter a wallet — see its age, first funder, launchpad track record and risk flags, plus every Talis NFT it holds
+              Enter a wallet, see its age, first funder, launchpad track record and risk flags, plus every Talis NFT it holds
             </p>
           </>
         )}
@@ -252,12 +321,14 @@ export default function WalletPage() {
           </div>
           <div style={{ padding: '0.9rem 1.2rem', fontSize: '0.72rem', color: 'var(--tx-text-muted)' }}>
             Asking every Talis collection whether this wallet holds a token, then resolving
-            metadata — usually under ten seconds.
+            metadata, usually under ten seconds.
           </div>
         </div>
       )}
 
       {intel && <IntelCard intel={intel} />}
+
+      {linked && (linked.links.length > 0 || linked.targetIsHub) && <LinkedCard linked={linked} />}
 
       {portfolio && !loading && <PortfolioView portfolio={portfolio} />}
 

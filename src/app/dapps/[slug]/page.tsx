@@ -2,7 +2,9 @@
 
 import { use, useState, useEffect } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
+import LensCrumb from '@/components/LensCrumb';
+import LensCursor from '@/components/LensCursor';
+import LensAurora from '@/components/LensAurora';
 import Changelog from '@/components/Changelog';
 import { CURRENT_VERSION } from '@/data/changelog';
 import type { DappDetail } from '@/lib/dapps/registry';
@@ -38,12 +40,14 @@ export default function DappDetailPage({ params }: { params: Promise<{ slug: str
         if (!ok) setError(data.error ?? 'Could not load this dApp.');
         else setDetail(data.detail as DappDetail);
       })
-      .catch(() => { if (!cancelled) setError('Network error — check your connection and try again.'); });
+      .catch(() => { if (!cancelled) setError('Network error, check your connection and try again.'); });
     return () => { cancelled = true; };
   }, [slug]);
 
   return (
     <main className="tx-main">
+      <LensCursor />
+      <LensAurora />
       <header
         className="tx-page-header"
         style={{
@@ -57,12 +61,7 @@ export default function DappDetailPage({ params }: { params: Promise<{ slug: str
           marginBottom: '2rem',
         }}
       >
-        <Link href="/" style={{ textDecoration: 'none' }}>
-          <div className="tx-logo">
-            <Image src="/logo.svg" alt="Tx·Translator logo" width={28} height={28} priority />
-            TX · TRANSLATOR
-          </div>
-        </Link>
+        <LensCrumb name="dApp Directory" accent="#E77BA6" />
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
           <span className="tx-footer">Injective Mainnet</span>
           <button className="tx-version-btn" onClick={() => setChangelogOpen(true)}>
@@ -177,7 +176,7 @@ export default function DappDetailPage({ params }: { params: Promise<{ slug: str
 
           <p className="tx-dapp-intro">
             Executions are lifetime contract calls from the chain&rsquo;s wasm registry. This is not TVL
-            or trading volume — those aren&rsquo;t available as a lookup and would need per-protocol state
+            or trading volume, those aren&rsquo;t available as a lookup and would need per-protocol state
             queries plus historical pricing to compute honestly.
           </p>
         </div>

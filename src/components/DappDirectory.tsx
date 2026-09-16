@@ -33,7 +33,7 @@ export default function DappDirectory({ dapps }: Props) {
       <p className="tx-dapp-intro">
         Protocols Tx·Translator recognises on Injective, with lifetime on-chain contract executions
         and last-active status pulled live from the wasm registry. Execution counts measure direct
-        contract calls — for orderbook venues like Helix, most trading flows through the exchange
+        contract calls, for orderbook venues like Helix, most trading flows through the exchange
         module rather than a contract, so the number understates real usage.
       </p>
 

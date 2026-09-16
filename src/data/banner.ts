@@ -6,13 +6,13 @@ export interface BannerItem {
   linkText?: string;
 }
 
-// Manual overrides — for events the chain doesn't announce on-chain (validator news,
+// Manual overrides, for events the chain doesn't announce on-chain (validator news,
 // frontend outages, social alerts, etc.). Remove entries once the event is over.
 export const MANUAL_BANNER_ITEMS: BannerItem[] = [
   {
     id: 'whale-feed-live',
     type: 'info',
-    text: 'NEW — the Tx·Translator whale feed is live: large perp opens, liquidations, and closed PnL on Injective, posted in plain English.',
+    text: 'NEW, the Tx·Translator whale feed is live: large perp opens, liquidations, and closed PnL on Injective, posted in plain English.',
     link: 'https://x.com/TxTranslator',
     linkText: 'Follow @TxTranslator ↗',
   },
@@ -26,7 +26,7 @@ export const MANUAL_BANNER_ITEMS: BannerItem[] = [
   {
     id: 'vulcan-upgrade',
     type: 'info',
-    text: 'Injective Vulcan (v1.20.0) upgrade complete — modernized oracles, stablecoin support, tokenized RWAs, and reduced transaction costs.',
+    text: 'Injective Vulcan (v1.20.0) upgrade complete, modernized oracles, stablecoin support, tokenized RWAs, and reduced transaction costs.',
     link: 'https://hub.injective.network/governance/650',
     linkText: 'View proposal ↗',
   },

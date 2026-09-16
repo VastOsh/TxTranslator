@@ -1,13 +1,15 @@
 'use client';
 
-import { useState, useMemo, Fragment } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
+import { useState, useMemo, useEffect, Fragment } from 'react';
+import LensCrumb from '@/components/LensCrumb';
+import LensCursor from '@/components/LensCursor';
+import LensAurora from '@/components/LensAurora';
+import BackToRenzu from '@/components/BackToRenzu';
 import Changelog from '@/components/Changelog';
 import { CURRENT_VERSION } from '@/data/changelog';
 import type { TokenCheck, Signal, SignalLevel, Verdict } from '@/lib/token/check';
 
-const DETAIL_COLOR = 'rgba(244, 241, 233, 0.82)';
+const DETAIL_COLOR = 'rgba(236, 239, 245, 0.82)';
 
 const LEVEL_STYLE: Record<SignalLevel, { color: string; bg: string; icon: string }> = {
   ok: { color: 'var(--tx-green)', bg: 'rgba(14, 226, 155, 0.08)', icon: '✓' },
@@ -21,7 +23,7 @@ const VERDICT_META: Record<Verdict, { color: string; bg: string; label: string }
   impersonation: { color: 'var(--tx-red)', bg: 'rgba(246, 71, 114, 0.13)', label: 'Impersonation risk' },
   lookalike: { color: 'var(--tx-amber)', bg: 'rgba(243, 164, 0, 0.13)', label: 'Look-alike' },
   unverified: { color: 'var(--tx-purple)', bg: 'rgba(167, 139, 250, 0.10)', label: 'Unverified' },
-  unknown: { color: 'var(--tx-text-muted)', bg: 'rgba(244, 241, 233, 0.05)', label: 'Unknown' },
+  unknown: { color: 'var(--tx-text-muted)', bg: 'rgba(236, 239, 245, 0.05)', label: 'Unknown' },
 };
 
 function SignalCard({ s }: { s: Signal }) {
@@ -114,7 +116,7 @@ function packBubbles(items: Array<{ address: string; pct: number }>): { placed: 
   return { placed, vb: `${minX} ${minY} ${w} ${hgt}` };
 }
 
-const LINK_COLOR = '#f0a020'; // amber — connected wallets (a signal, not a verdict)
+const LINK_COLOR = '#f0a020'; // amber, connected wallets (a signal, not a verdict)
 
 function BubbleMap({
   items, edges = [], connected,
@@ -162,7 +164,7 @@ function BubbleMap({
 
 function HoldersCard({ h }: { h: Holders }) {
   const max = Math.max(...h.rows.map(r => r.pct), 0.0001);
-  const muted = 'rgba(244, 241, 233, 0.55)';
+  const muted = 'rgba(236, 239, 245, 0.55)';
   const connectedSet = useMemo(() => {
     const s = new Set<string>();
     for (const e of h.edges) { s.add(e.a); s.add(e.b); }
@@ -171,7 +173,7 @@ function HoldersCard({ h }: { h: Holders }) {
   return (
     <div
       style={{
-        background: 'rgba(244, 241, 233, 0.03)', border: '1px solid var(--tx-border)',
+        background: 'rgba(236, 239, 245, 0.03)', border: '1px solid var(--tx-border)',
         borderRadius: 10, padding: '0.9rem 1rem', marginBottom: '0.6rem',
       }}
     >
@@ -190,7 +192,7 @@ function HoldersCard({ h }: { h: Holders }) {
           <BubbleMap items={h.bubble} edges={h.edges} connected={connectedSet} />
           {connectedSet.size > 0 && (
             <div style={{ fontSize: '0.68rem', color: muted, marginTop: '-0.4rem', marginBottom: '0.7rem', lineHeight: 1.5 }}>
-              <span style={{ color: LINK_COLOR, fontWeight: 700 }}>Amber</span> links wallets first funded by the same source —
+              <span style={{ color: LINK_COLOR, fontWeight: 700 }}>Amber</span> links wallets first funded by the same source,
               possibly one entity across several addresses, possibly a shared exchange. A signal, not proof.
             </div>
           )}
@@ -206,7 +208,7 @@ function HoldersCard({ h }: { h: Holders }) {
           >
             {shortHolder(r.address)}
           </span>
-          <div style={{ flex: 1, background: 'rgba(244, 241, 233, 0.05)', borderRadius: 4, height: 14, overflow: 'hidden' }}>
+          <div style={{ flex: 1, background: 'rgba(236, 239, 245, 0.05)', borderRadius: 4, height: 14, overflow: 'hidden' }}>
             <div
               style={{
                 width: `${Math.max(2, (r.pct / max) * 100)}%`, height: '100%', borderRadius: 4,
@@ -248,11 +250,11 @@ function impactColor(pct: number): string {
 }
 
 function ImpactCard({ si }: { si: SellImpact }) {
-  const muted = 'rgba(244, 241, 233, 0.55)';
+  const muted = 'rgba(236, 239, 245, 0.55)';
   return (
     <div
       style={{
-        background: 'rgba(244, 241, 233, 0.03)', border: '1px solid var(--tx-border)',
+        background: 'rgba(236, 239, 245, 0.03)', border: '1px solid var(--tx-border)',
         borderRadius: 10, padding: '0.9rem 1rem', marginBottom: '0.6rem',
       }}
     >
@@ -297,9 +299,7 @@ export default function TokenPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  function check(e: React.FormEvent) {
-    e.preventDefault();
-    const q = value.trim();
+  function runCheck(q: string) {
     if (!q) {
       setError('Enter a token denom or symbol.');
       return;
@@ -318,14 +318,32 @@ export default function TokenPage() {
         if (!ok) setError(data.error ?? 'Could not check this token.');
         else setResult(data.result as TokenCheck);
       })
-      .catch(() => setError('Network error — check your connection and try again.'))
+      .catch(() => setError('Network error, check your connection and try again.'))
       .finally(() => setLoading(false));
   }
+
+  function check(e: React.FormEvent) {
+    e.preventDefault();
+    runCheck(value.trim());
+  }
+
+  // Deep-link support: /token?q=<denom|symbol> (e.g. from the Renzu hub) —
+  // prefill the input and check on load. Read the URL directly to avoid the
+  // useSearchParams Suspense requirement; defer the state updates out of the
+  // effect body so they don't cascade synchronously.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get('q')?.trim();
+    if (!q) return;
+    const t = setTimeout(() => { setValue(q); runCheck(q); }, 0);
+    return () => clearTimeout(t);
+  }, []);
 
   const vm = result ? VERDICT_META[result.verdict] : null;
 
   return (
     <main className="tx-main">
+      <LensCursor />
+      <LensAurora />
       <header
         className="tx-page-header"
         style={{
@@ -334,12 +352,7 @@ export default function TokenPage() {
           borderBottom: '1px solid var(--tx-border)', marginBottom: '2rem',
         }}
       >
-        <Link href="/" style={{ textDecoration: 'none' }}>
-          <div className="tx-logo">
-            <Image src="/logo.svg" alt="Tx·Translator logo" width={28} height={28} priority />
-            TX · TRANSLATOR
-          </div>
-        </Link>
+        <LensCrumb name="Token Safety" accent="#F0B24A" />
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
           <span className="tx-footer">Injective Mainnet</span>
           <button className="tx-version-btn" onClick={() => setChangelogOpen(true)}>
@@ -351,7 +364,7 @@ export default function TokenPage() {
       {changelogOpen && <Changelog onClose={() => setChangelogOpen(false)} />}
 
       <div style={{ width: '100%', maxWidth: 680, marginBottom: '1.25rem' }}>
-        <Link href="/" className="tx-back-link">← Back to decoder</Link>
+        <BackToRenzu />
       </div>
 
       <section className="tx-hero" style={{ marginBottom: result || loading || error ? '2rem' : '0' }}>
@@ -361,7 +374,7 @@ export default function TokenPage() {
               Token <span>safety</span> check
             </h1>
             <p className="tx-subline">
-              Paste a token’s denom (or a symbol) — see if it’s the real one or an impostor copying a
+              Paste a token’s denom (or a symbol), see if it’s the real one or an impostor copying a
               trusted name, checked against Injective’s verified lists and on-chain data
             </p>
           </>

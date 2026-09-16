@@ -26,7 +26,7 @@ function usedAgo(ts: number): string {
   return `${days}d ago`;
 }
 
-/** INJ amounts stay in INJ — see the note in lib/wallet/footprint.ts. */
+/** INJ amounts stay in INJ, see the note in lib/wallet/footprint.ts. */
 function inj(n: number): string {
   if (n === 0) return '0 INJ';
   if (n >= 1) return `${n.toFixed(3)} INJ`;
@@ -101,7 +101,7 @@ export default function WalletFootprint({ footprint }: Props) {
         Gas is counted only on transactions this wallet paid for. &ldquo;Txs all time&rdquo; counts every
         transaction the wallet appears in, including ones other accounts signed and paid for.
         {truncated && ` Only the ${scanned.toLocaleString()} most recent were scanned, so gas covers that window rather than all time.`}
-        {grantedTxs > 0 && ` ${grantedTxs.toLocaleString()} transaction${grantedTxs === 1 ? ' was' : 's were'} covered by a feegrant — someone else paid.`}
+        {grantedTxs > 0 && ` ${grantedTxs.toLocaleString()} transaction${grantedTxs === 1 ? ' was' : 's were'} covered by a feegrant, someone else paid.`}
         {failedTxs > 0 && ` Failed transactions still cost gas: ${inj(failedFeesInj)} spent on them.`}
       </div>
 

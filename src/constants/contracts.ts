@@ -68,7 +68,7 @@ export const CONTRACT_PROTOCOLS: Record<string, ProtocolName> = {
   // Mito Finance vault contracts (MsgExecuteContract / MsgExecuteContractCompat paths)
   'inj1vswsdqx5clnxv9vvlv4kuvjwtqty92mtyarw4t': 'Mito Finance', // Mito Staking Allocator v1
   'inj1j5mr2hmv7y2z7trazganj75u8km8jvdfuxncsp': 'Mito Finance', // Mito Swap Contract
-  // Mito Finance vault contracts (MsgPrivilegedExecuteContract path — contract_address field)
+  // Mito Finance vault contracts (MsgPrivilegedExecuteContract path, contract_address field)
   'inj1vcqkkvqs7prqu70dpddfj7kqeqfdz5gg662qs3': 'Mito Finance', // Mito Master 1
   // Mito Finance LP staking / incentive contracts
   'inj1gtze7qm07nky47n7mwgj4zatf2s77xqvh3k2n8': 'Mito Finance',
@@ -76,7 +76,7 @@ export const CONTRACT_PROTOCOLS: Record<string, ProtocolName> = {
   'inj18luqttqyckgpddndh8hvaq25d5nfwjc78m56lc': 'Hydro Protocol', // Hydro hINJ
   'inj1enyu3agzphq3k935lkxeynq6rq03d9ys0fehr9': 'Hydro Protocol', // Hydro price-manager
   'inj1nuw6ala2ra7t457tg4g04k67r94v55mdyq9klr': 'Hydro Protocol', // Hydro lending-vault
-  // Hydro Protocol — additional live contracts (on-chain wasm labels)
+  // Hydro Protocol, additional live contracts (on-chain wasm labels)
   'inj1uq9spcnum8z2lz54tzrsx99e4hdywsqxvxwa4a': 'Hydro Protocol', // Hydro LSD reward
   'inj1cq3rfmdf3y498fchl237wgjarqs99tjf433phw': 'Hydro Protocol', // Hydro LSD
   'inj17w07xu2qqlsrjvupd8t6pwenuuvzrs8ymmqxqw': 'Hydro Protocol', // Hydro Farm
@@ -123,21 +123,21 @@ export const CONTRACT_PROTOCOLS: Record<string, ProtocolName> = {
   'inj1a4qvqym6ajewepa7v8y2rtxuz9f92kyq2zsg26': 'Choice Exchange', // Aggregation contract (multi-path routing)
   'inj14ejqjyq8um4p3xfqj74yld5waqljf88f9eneuk': 'Choice Exchange', // CW20 adapter
   'inj1yr7srge0lku4h3gd473qdlpdfw63ejdjwkh4c0': 'Choice Exchange', // Burn manager
-  // Choice Exchange — additional live contracts (on-chain wasm labels)
+  // Choice Exchange, additional live contracts (on-chain wasm labels)
   'inj1520rsss9aykhkfmuf89nh5hp2jww770z4u3eu0': 'Choice Exchange', // Choice DEX Aggregator v2.0
   'inj1eag2kjzs5ma5sflxvlhaacdxxpvdjg4ny7yg3g': 'Choice Exchange', // Choice CLMM Manager
   'inj1aqnqtuzh75de4egd06ep83g0udt7njxljznevc': 'Choice Exchange', // Choice Farm #5
   'inj1p8kx2gjatfvwkksx3afm7uapj4mja4vutuyj8m': 'Choice Exchange', // Choice Farm #3
   'inj1g4hlcmp4s0k0tm4tj07j87ela9u2qefzahcsns': 'Choice Exchange', // Choice Farm #1
   'inj16y888zlql6mdendn2qtzjdjg4wplycrjaqzcnr': 'Choice Exchange', // Choice Farm #6
-  // SPACE ID — .inj naming service (source: on-chain wasm labels + init registry_address link)
+  // SPACE ID,.inj naming service (source: on-chain wasm labels + init registry_address link)
   'inj1x9m0hceug9qylcyrrtwqtytslv2jrph433thgu': 'SPACE ID', // SPACEID Resolver
   'inj1hm8vs8sr2h9nk0x66vctfs528wrp6k3gtgg275': 'SPACE ID', // SPACEID Registry
   'inj1s65um0a0lt9u9w3xfqnqn3w9k97ykpacr3dd96': 'SPACE ID', // SPACEID Controller (register/renew)
   'inj1svrv85wmeryc6523kgwnmzttz93vj6ua3g29t8': 'SPACE ID', // SPACEID Base registrar
   // Paradyze: AI-powered trading terminal on Injective using native exchange module
-  // No CosmWasm contracts — add here if on-chain vault/prediction contracts are deployed
-  // Talis Protocol — NFT Marketplace (source: on-chain contract labels via Injective LCD)
+  // No CosmWasm contracts, add here if on-chain vault/prediction contracts are deployed
+  // Talis Protocol, NFT Marketplace (source: on-chain contract labels via Injective LCD)
   'inj1l9nh9wv24fktjvclc4zgrgyzees7rwdtx45f54': 'Talis Protocol', // Fixed-price marketplace (label: "Talis marketplace", code 1101)
   'inj16naevyffqm33znyf5aky86z8s09zvpyg8u8vtl': 'Talis Protocol', // English auction (label: "Talis english auction", code 1100)
   'inj1u2l88u94h056z7lz0vkksxgwkdwn35x23r5dg8': 'Talis Protocol', // P2P escrow (label: "Talis P2P escrow", code 1102)
@@ -145,23 +145,23 @@ export const CONTRACT_PROTOCOLS: Record<string, ProtocolName> = {
   'inj1u30yff9df5mu0rcp3jtr5wv5j8069asdl9ywl7': 'Talis Protocol', // Offers v2 (label: "Talis offers", code 79)
   'inj1v77y5ttah96dc9qkcpc88ad7rce8n88e99t3m5': 'Talis Protocol', // Talis offers (primary, high-volume)
   'inj1r6pvt7d3eqtc9e2h7mcv6l8smq3847jqd6sffn': 'Talis Protocol', // Talis revenue share
-  // SGT — on-chain spot market-making pools (source: shared deployer inj1w64pxul…, market_id in init)
+  // SGT, on-chain spot market-making pools (source: shared deployer inj1w64pxul…, market_id in init)
   'inj195l0hketpha2x2zahckfhlchlkrwckxd74030v': 'SGT', // SGT stINJ/INJ pool
   'inj1dxvlc5snn5y02nn82xdhnvwj3y09t9pnh6msf5': 'SGT', // SGT hINJ/INJ pool
   'inj1dx8kuevhq7m7g9a2e4es83ps62htr5g3y7azgr': 'SGT', // SGT SOL/USDC pool
   'inj1t4l7q6y7uzjjufxgcyr6hdugslphdqzqqt8u9x': 'SGT', // SGT referrals (same deployer)
-  // Skip — cross-chain swap router (source: init swap_venues astroport/hallswap/native)
+  // Skip, cross-chain swap router (source: init swap_venues astroport/hallswap/native)
   'inj1l62elesw6lw9w5ctqpwv0apkeghppr5d2mdqwh': 'Skip', // Skip Swap Entry Point
-  // Injective Hub — Community BuyBack program
+  // Injective Hub, Community BuyBack program
   'inj10n78w79xhxmytnuhjcck633nj4e7hrqaglgnfz': 'Injective Hub',
 };
 
-// Injective Hub — Community BuyBack pool contract
+// Injective Hub, Community BuyBack pool contract
 export const BUYBACK_CONTRACTS = new Set<string>([
   'inj10n78w79xhxmytnuhjcck633nj4e7hrqaglgnfz',
 ]);
 
-// Talis Protocol marketplace contracts — used to detect NFT listing via send_nft in normalizer
+// Talis Protocol marketplace contracts, used to detect NFT listing via send_nft in normalizer
 export const TALIS_MARKETPLACE_CONTRACTS = new Set<string>([
   'inj1l9nh9wv24fktjvclc4zgrgyzees7rwdtx45f54', // fixed-price marketplace
   'inj16naevyffqm33znyf5aky86z8s09zvpyg8u8vtl', // english auction
@@ -215,7 +215,7 @@ export const PROTOCOL_CONTEXTS: Record<ProtocolName, Protocol> = {
     website: 'https://blackpanther.fi',
     description: 'Algorithmic trading vaults',
     context:
-      'Black Panther Finance offers automated trading vaults on Injective with strategies including grid trading, market-making, and trend-following — all executing on Helix\'s native orderbook. Users deposit assets into a vault and earn yield from the algorithmic strategy without managing orders manually. BLACK is the protocol\'s governance token.',
+      'Black Panther Finance offers automated trading vaults on Injective with strategies including grid trading, market-making, and trend-following, all executing on Helix\'s native orderbook. Users deposit assets into a vault and earn yield from the algorithmic strategy without managing orders manually. BLACK is the protocol\'s governance token.',
   },
   'Choice Exchange': {
     name: 'Choice Exchange',
@@ -229,21 +229,21 @@ export const PROTOCOL_CONTEXTS: Record<ProtocolName, Protocol> = {
     website: 'https://paradyze.io',
     description: 'AI-powered trading terminal',
     context:
-      'Paradyze is an AI-powered trading terminal on Injective — "Your On-Chain Wallstreet." Users execute spot and perpetuals trades through natural language commands ("Buy 10 INJ", "short BTC with 5x leverage"). The platform also features ranked head-to-head trading battles and autonomous AI agents for 24/7 strategy execution. Paradyze routes orders through Injective\'s native exchange module.',
+      'Paradyze is an AI-powered trading terminal on Injective,"Your On-Chain Wallstreet." Users execute spot and perpetuals trades through natural language commands ("Buy 10 INJ", "short BTC with 5x leverage"). The platform also features ranked head-to-head trading battles and autonomous AI agents for 24/7 strategy execution. Paradyze routes orders through Injective\'s native exchange module.',
   },
   'Talis Protocol': {
     name: 'Talis Protocol',
     website: 'https://talis.art',
     description: 'NFT Marketplace on Injective',
     context:
-      'Talis Protocol is the leading NFT marketplace on Injective — the first to launch on mainnet (June 2023). Users can buy, sell, mint, and trade NFTs using INJ and other Injective-native tokens. NFT collections use the CW721 standard. Key actions: fixed-price listings (via send_nft to marketplace), direct purchases, collection and individual offers, and randomized mints (CandyMachine). TALIS is the protocol\'s governance and fee-distribution token. Over 140,000 wallets registered and 200,000+ INJ transacted.',
+      'Talis Protocol is the leading NFT marketplace on Injective, the first to launch on mainnet (June 2023). Users can buy, sell, mint, and trade NFTs using INJ and other Injective-native tokens. NFT collections use the CW721 standard. Key actions: fixed-price listings (via send_nft to marketplace), direct purchases, collection and individual offers, and randomized mints (CandyMachine). TALIS is the protocol\'s governance and fee-distribution token. Over 140,000 wallets registered and 200,000+ INJ transacted.',
   },
   'SPACE ID': {
     name: 'SPACE ID',
     website: 'https://space.id',
     description: 'Web3 naming service (.inj domains)',
     context:
-      'SPACE ID is the naming service on Injective — it maps human-readable .inj domains to wallet addresses. The registry contract stores ownership records and the resolver contract answers name lookups. Interactions typically mean registering, renewing, or updating a domain, or setting a primary name.',
+      'SPACE ID is the naming service on Injective, it maps human-readable .inj domains to wallet addresses. The registry contract stores ownership records and the resolver contract answers name lookups. Interactions typically mean registering, renewing, or updating a domain, or setting a primary name.',
   },
   SGT: {
     name: 'SGT',
@@ -256,20 +256,20 @@ export const PROTOCOL_CONTEXTS: Record<ProtocolName, Protocol> = {
     website: 'https://skip.build',
     description: 'Cross-chain swap router',
     context:
-      'Skip (the Skip Go / Skip API swap entry point) is a routing layer that executes swaps across multiple venues from a single call — its on-chain configuration lists Astroport, Hallswap and Injective-native as swap venues. Interactions mean routing a swap through one of those venues via the entry-point contract.',
+      'Skip (the Skip Go / Skip API swap entry point) is a routing layer that executes swaps across multiple venues from a single call, its on-chain configuration lists Astroport, Hallswap and Injective-native as swap venues. Interactions mean routing a swap through one of those venues via the entry-point contract.',
   },
   'Injective Hub': {
     name: 'Injective Hub',
     website: 'https://hub.injective.network',
     description: 'INJ Community BuyBack program',
     context:
-      'Injective Hub hosts the INJ Community BuyBack — a monthly on-chain event where participants commit INJ tokens that are permanently burned (removed from circulating supply forever). In return, each participant receives a pro-rata share of Injective ecosystem revenue (trading fees, liquidations, oracle fees, etc.) proportional to their committed amount versus the total INJ committed in that round. Slot eligibility favors active stakers and on-chain participants and is randomized to prevent bots. Historically, completed rounds have distributed revenue equivalent to 20%+ APY on committed INJ. Rewards are distributed automatically on-chain after each round closes — no manual claiming required.',
+      'Injective Hub hosts the INJ Community BuyBack, a monthly on-chain event where participants commit INJ tokens that are permanently burned (removed from circulating supply forever). In return, each participant receives a pro-rata share of Injective ecosystem revenue (trading fees, liquidations, oracle fees, etc.) proportional to their committed amount versus the total INJ committed in that round. Slot eligibility favors active stakers and on-chain participants and is randomized to prevent bots. Historically, completed rounds have distributed revenue equivalent to 20%+ APY on committed INJ. Rewards are distributed automatically on-chain after each round closes, no manual claiming required.',
   },
   'IBC Transfer': {
     name: 'IBC Transfer',
     description: 'Cross-chain asset transfer',
     context:
-      'This is an Inter-Blockchain Communication (IBC) transfer — the standard protocol for moving assets between Cosmos-compatible blockchains. The user is bridging assets to or from Injective.',
+      'This is an Inter-Blockchain Communication (IBC) transfer, the standard protocol for moving assets between Cosmos-compatible blockchains. The user is bridging assets to or from Injective.',
   },
   Staking: {
     name: 'Staking',

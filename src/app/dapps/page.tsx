@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
+import LensCrumb from '@/components/LensCrumb';
+import LensCursor from '@/components/LensCursor';
+import LensAurora from '@/components/LensAurora';
+import BackToRenzu from '@/components/BackToRenzu';
 import DappDirectory from '@/components/DappDirectory';
 import Changelog from '@/components/Changelog';
 import { CURRENT_VERSION } from '@/data/changelog';
@@ -36,12 +38,14 @@ export default function DappsPage() {
         if (!ok) setError(data.error ?? 'Could not load the dApp directory.');
         else setDapps(data.dapps as DappSummary[]);
       })
-      .catch(() => { if (!cancelled) setError('Network error — check your connection and try again.'); });
+      .catch(() => { if (!cancelled) setError('Network error, check your connection and try again.'); });
     return () => { cancelled = true; };
   }, []);
 
   return (
     <main className="tx-main">
+      <LensCursor />
+      <LensAurora />
       <header
         className="tx-page-header"
         style={{
@@ -55,12 +59,7 @@ export default function DappsPage() {
           marginBottom: '2rem',
         }}
       >
-        <Link href="/" style={{ textDecoration: 'none' }}>
-          <div className="tx-logo">
-            <Image src="/logo.svg" alt="Tx·Translator logo" width={28} height={28} priority />
-            TX · TRANSLATOR
-          </div>
-        </Link>
+        <LensCrumb name="dApp Directory" accent="#E77BA6" />
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
           <span className="tx-footer">Injective Mainnet</span>
           <button className="tx-version-btn" onClick={() => setChangelogOpen(true)}>
@@ -72,7 +71,7 @@ export default function DappsPage() {
       {changelogOpen && <Changelog onClose={() => setChangelogOpen(false)} />}
 
       <div style={{ width: '100%', maxWidth: 680, marginBottom: '1.5rem' }}>
-        <Link href="/" className="tx-back-link">← Decode a transaction</Link>
+        <BackToRenzu />
         <h1 className="tx-headline" style={{ fontSize: '1.9rem', marginTop: '1rem' }}>
           Injective <span>dApps</span>
         </h1>

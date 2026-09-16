@@ -2,7 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
+import LensCrumb from '@/components/LensCrumb';
+import LensCursor from '@/components/LensCursor';
+import LensAurora from '@/components/LensAurora';
+import BackToRenzu from '@/components/BackToRenzu';
 import Changelog from '@/components/Changelog';
 import { CURRENT_VERSION } from '@/data/changelog';
 import type { SerialFunder } from '@/lib/token/insiders';
@@ -27,12 +30,14 @@ export default function InsidersPage() {
         if (!ok) setError(data.error ?? 'Could not build the insider index.');
         else setFunders(data.funders as SerialFunder[]);
       })
-      .catch(() => { if (live) setError('Network error — try again.'); });
+      .catch(() => { if (live) setError('Network error, try again.'); });
     return () => { live = false; };
   }, []);
 
   return (
     <main className="tx-main">
+      <LensCursor />
+      <LensAurora />
       <header
         className="tx-page-header"
         style={{
@@ -41,12 +46,7 @@ export default function InsidersPage() {
           borderBottom: '1px solid var(--tx-border)', marginBottom: '2rem',
         }}
       >
-        <Link href="/" style={{ textDecoration: 'none' }}>
-          <div className="tx-logo">
-            <Image src="/logo.svg" alt="Tx·Translator logo" width={28} height={28} priority />
-            TX · TRANSLATOR
-          </div>
-        </Link>
+        <LensCrumb name="Insiders" accent="#9B8CFF" />
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
           <span className="tx-footer">Injective Mainnet</span>
           <button className="tx-version-btn" onClick={() => setChangelogOpen(true)}>
@@ -58,7 +58,7 @@ export default function InsidersPage() {
       {changelogOpen && <Changelog onClose={() => setChangelogOpen(false)} />}
 
       <div style={{ width: '100%', maxWidth: 680, marginBottom: '1.25rem' }}>
-        <Link href="/" className="tx-back-link">← Back to decoder</Link>
+        <BackToRenzu />
       </div>
 
       <section className="tx-hero" style={{ marginBottom: '1.75rem' }}>
@@ -66,7 +66,7 @@ export default function InsidersPage() {
           Launchpad <span>insiders</span>
         </h1>
         <p className="tx-subline">
-          Wallets that funded the top holders of many different Trippy-launchpad tokens — a cross-token
+          Wallets that funded the top holders of many different Trippy-launchpad tokens, a cross-token
           view of coordinated activity no explorer surfaces
         </p>
       </section>
@@ -85,7 +85,7 @@ export default function InsidersPage() {
           </div>
           <div style={{ padding: '0.9rem 1.2rem', fontSize: '0.72rem', color: 'var(--tx-text-muted)' }}>
             Following each recent token’s top holders back to the wallet that first funded them, then
-            grouping funders seen across multiple tokens. Built hourly — first load can take a few seconds.
+            grouping funders seen across multiple tokens. Built hourly, first load can take a few seconds.
           </div>
         </div>
       )}
@@ -95,12 +95,12 @@ export default function InsidersPage() {
           {funders.length === 0 ? (
             <div className="tx-pnl-card">
               <div style={{ padding: '1rem 1.2rem', fontSize: '0.8rem', color: 'var(--tx-text)' }}>
-                No serial funders found across the recent launches — top holders were funded independently.
+                No serial funders found across the recent launches, top holders were funded independently.
               </div>
             </div>
           ) : (
             <>
-              <div style={{ fontSize: '0.72rem', color: 'rgba(244, 241, 233, 0.55)', marginBottom: '0.75rem' }}>
+              <div style={{ fontSize: '0.72rem', color: 'rgba(236, 239, 245, 0.55)', marginBottom: '0.75rem' }}>
                 {funders.length} wallet{funders.length === 1 ? '' : 's'} funded the top holders of 2+ tokens · most-connected first
               </div>
               {funders.map((f) => (
@@ -133,7 +133,7 @@ export default function InsidersPage() {
                         title={`onchain #${t.onchainId}`}
                         style={{
                           fontSize: '0.68rem', fontWeight: 600, padding: '0.15rem 0.45rem', borderRadius: 5,
-                          background: 'rgba(244, 241, 233, 0.05)', color: 'var(--tx-text)', textDecoration: 'none',
+                          background: 'rgba(236, 239, 245, 0.05)', color: 'var(--tx-text)', textDecoration: 'none',
                         }}
                       >
                         {t.symbol || `#${t.onchainId}`}
@@ -143,16 +143,16 @@ export default function InsidersPage() {
                       href={`${EXPLORER}/${f.funder}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      style={{ fontSize: '0.68rem', color: 'rgba(244, 241, 233, 0.5)', textDecoration: 'none', alignSelf: 'center' }}
+                      style={{ fontSize: '0.68rem', color: 'rgba(236, 239, 245, 0.5)', textDecoration: 'none', alignSelf: 'center' }}
                     >
                       explorer ↗
                     </a>
                   </div>
                 </div>
               ))}
-              <div style={{ fontSize: '0.68rem', color: 'rgba(244, 241, 233, 0.5)', marginTop: '0.8rem', lineHeight: 1.5 }}>
-                A funder shared by the top holders of several tokens points to coordinated activity — one operator across
-                many wallets, or a market-maker fleet — but it can also be a common exchange withdrawal address. Shown as a
+              <div style={{ fontSize: '0.68rem', color: 'rgba(236, 239, 245, 0.5)', marginTop: '0.8rem', lineHeight: 1.5 }}>
+                A funder shared by the top holders of several tokens points to coordinated activity, one operator across
+                many wallets, or a market-maker fleet, but it can also be a common exchange withdrawal address. Shown as a
                 signal, not a verdict; open a funder’s wallet profile or the explorer to judge. Covers recent launches only.
               </div>
             </>
